@@ -92,4 +92,8 @@
 ## 排查
 
 - 播放时在菜单里打开“播放信息”，可以看到播放方式、转码原因、视频和音频解码器、是否直通，以及 HDR 状态。
-- debug 包会把起播决策写进日志（`plan ... -> 播放方式 reasons=...`），查看方法见 [CLAUDE.md](../CLAUDE.md)。
+- debug 包会把起播决策写进日志（`plan ... -> 播放方式 reasons=...`），用 `adb logcat -s LumyPlayer` 查看。关闭了 logcat 的设备（如极米）上，debug 包还会把日志写到文件里：
+
+  ```bash
+  adb shell run-as com.hesier.lumy.debug cat files/debug.log
+  ```

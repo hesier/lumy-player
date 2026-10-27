@@ -92,4 +92,8 @@ When only the base layer plays, the picture is HDR10 without Dolby Vision's dyna
 ## Troubleshooting
 
 - Open **Playback info** from the player menu to see the playback mode, the reasons for transcoding, the video and audio decoders, the passthrough state and the HDR state.
-- Debug builds log each playback decision (`plan ... -> <mode> reasons=...`). See [CLAUDE.md](../CLAUDE.md) for how to read the log.
+- Debug builds log each playback decision (`plan ... -> <mode> reasons=...`). Read it with `adb logcat -s LumyPlayer`. On devices with logcat disabled (such as XGIMI), the debug build also writes the log to a file:
+
+  ```bash
+  adb shell run-as com.hesier.lumy.debug cat files/debug.log
+  ```
