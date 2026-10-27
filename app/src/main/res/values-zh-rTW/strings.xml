@@ -235,6 +235,7 @@
     <string name="settings_allow_burn_detail">為了顯示字幕而讓伺服器轉碼並燒入。預設關閉：字幕盡量在本機算繪（含 ASS 特效字幕）。影片已經在轉碼時，本機顯示不了的字幕一律燒入</string>
     <string name="player_error">播放失敗：%1$s</string>
     <string name="player_fallback">裝置無法直接播放，已切換到伺服器轉碼</string>
+    <string name="player_unseekable_fallback">這個檔案直接播放時無法跳轉，已切換到伺服器轉碼</string>
     <string name="player_network_error">無法連線至伺服器，請檢查網路</string>
     <string name="no_playable_file">沒有可播放的檔案</string>
     <string name="skip_seconds">%1$d 秒</string>

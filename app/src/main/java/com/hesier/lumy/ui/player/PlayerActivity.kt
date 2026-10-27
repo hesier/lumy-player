@@ -20,6 +20,7 @@ import android.widget.Toast
 import com.hesier.lumy.ui.ThemedActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem.SubtitleConfiguration
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
@@ -29,6 +30,7 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
+import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.AudioSink
@@ -88,6 +90,7 @@ class PlayerActivity : ThemedActivity() {
     private lateinit var server: MediaServer
     private lateinit var player: ExoPlayer
     private lateinit var ass: AssHandler
+    private lateinit var codecs: LumyCodecSelector
     private lateinit var device: DeviceProfile
     private lateinit var planner: PlaybackPlanner
 
@@ -127,6 +130,10 @@ class PlayerActivity : ThemedActivity() {
     /** 当前音轨直通时的码流编码（C.ENCODING_*），解码成 PCM 输出时为 null */
     private var passthroughEncoding: Int? = null
     private var droppedFrames = 0
+    /** 杜比视界解码器解不出画面，这个版本改用 HEVC 解码器播放基础层 */
+    private var doviBaseLayer = false
+    private var firstFrameRendered = false
+    private var doviWatchJob: Job? = null
 
     private val settings get() = LumyApp.instance.settings
     private val policy get() = PlanPolicy(settings.allowTranscode, settings.allowSubtitleBurn, settings.displaySupportsHdr)
@@ -159,6 +166,7 @@ class PlayerActivity : ThemedActivity() {
         val bundle = PlayerFactory.create(this, app.plex.http, server.playbackHeaders(), offsets, passthrough = settings.passthrough)
         player = bundle.player
         ass = bundle.ass
+        codecs = bundle.codecs
         quality = Quality.presets.getOrElse(settings.defaultQuality) { Quality.Original }
         player.addListener(playerListener)
         player.addAnalyticsListener(analyticsListener)
@@ -303,6 +311,7 @@ class PlayerActivity : ThemedActivity() {
         version = v
         fellBack = false
         videoDecodeFailed = false
+        doviBaseLayer = false
         audio = v.audio.firstOrNull { it.selected } ?: v.audio.firstOrNull()
         subtitle = v.subtitles.firstOrNull { it.selected }
         val memory = LumyApp.instance.trackMemory
@@ -334,10 +343,12 @@ class PlayerActivity : ThemedActivity() {
     private fun start(positionMs: Long) {
         request?.let { stopSession(it) }
         val p = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed)
-        DebugLog.i(TAG, "plan ${item.title} [${version.summary}] audio=${audio?.codec} sub=${subtitle?.codec} -> ${p.mode} reasons=${p.reasons} subUnavailable=${p.subtitleUnavailable}")
+        DebugLog.i(TAG, "plan ${item.title} id=${item.id} [${version.summary}] dovi=${version.video?.doviProfile} audio=${audio?.codec} sub=${subtitle?.codec} -> ${p.mode} reasons=${p.reasons} subUnavailable=${p.subtitleUnavailable}")
         val req = PlaybackRequest(item, version, p.mode, positionMs, UUID.randomUUID().toString(), audio?.id, subtitle?.id)
         request = req
         plan = p
+        doviWatchJob?.cancel()
+        codecs.baseLayerOnly = doviBaseLayer || version.video?.doviProfile in settings.brokenDolbyVisionProfiles
         tracksApplied = false
         timeBase = 0
         // 新的播放源准备好之前，播放器里还是旧的，位置以起播目标为准
@@ -428,8 +439,22 @@ class PlayerActivity : ThemedActivity() {
             start(t)
             return
         }
+        if (!transcoding && fallBackIfUnseekable(t)) return
         pendingSeekMs = t
         if (part == startPart) player.seekTo(part, local - timeBase) else player.seekTo(part, local)
+    }
+
+    /**
+     * 没有索引的 MKV（缺 Cues）等文件播放器不能跳转，续播和快进都会回到开头。
+     * 这时改用服务器转码（视频能直接复制时只换封装），由服务器从目标位置开始。
+     */
+    private fun fallBackIfUnseekable(target: Long): Boolean {
+        if (player.isCurrentMediaItemSeekable || fellBack || !settings.allowTranscode) return false
+        DebugLog.i(TAG, "unseekable direct play, transcode from $target")
+        fellBack = true
+        Toast.makeText(this, R.string.player_unseekable_fallback, Toast.LENGTH_LONG).show()
+        start(target)
+        return true
     }
 
     // ---- 播放器回调 ----
@@ -441,6 +466,11 @@ class PlayerActivity : ThemedActivity() {
             if (state == Player.STATE_READY || state == Player.STATE_IDLE) pendingSeekMs = null
             if (state == Player.STATE_READY) networkRetries = 0
             if (state == Player.STATE_READY && !hlsAligned) alignHlsTimeline()
+            // 起播位置没生效（文件不能跳转，播放器从头开始）
+            if (state == Player.STATE_READY && plan?.mode is PlaybackMode.Direct) {
+                val startMs = request?.startMs ?: 0
+                if (startMs > 0 && positionMs < startMs - 5_000) fallBackIfUnseekable(startMs)
+            }
             if (state == Player.STATE_ENDED) onEnded()
         }
 
@@ -460,11 +490,21 @@ class PlayerActivity : ThemedActivity() {
                 val f = g.getTrackFormat(0)
                 DebugLog.i(TAG, "audio#$i id=${f.id} lang=${f.language} label=${f.label} ${f.sampleMimeType} ch=${f.channelCount} support=${g.getTrackSupport(0)} selected=${g.isSelected}")
             }
+            tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }.forEach { g ->
+                val f = g.getTrackFormat(0)
+                val decoders = f.sampleMimeType?.let(device::decoderSummary)
+                DebugLog.i(TAG, "video ${f.sampleMimeType} codecs=${f.codecs} ${f.width}x${f.height} support=${g.getTrackSupport(0)} decoders=[$decoders]")
+            }
             if (!tracksApplied && !tracks.isEmpty) {
                 tracksApplied = true
                 applyTrackSelection()
             }
             matchFrameRate()
+        }
+
+        override fun onRenderedFirstFrame() {
+            firstFrameRendered = true
+            doviWatchJob?.cancel()
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -500,6 +540,12 @@ class PlayerActivity : ThemedActivity() {
         override fun onVideoDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
             DebugLog.i(TAG, "video decoder $decoderName init ${initializationDurationMs}ms")
             videoDecoder = decoderName
+            firstFrameRendered = false
+        }
+
+        // 解码器初始化事件早于 player.videoFormat 更新，格式要从这里拿
+        override fun onVideoInputFormatChanged(eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?) {
+            if (format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION && !codecs.baseLayerOnly && !firstFrameRendered) watchDolbyVision(format.codecs)
         }
 
         override fun onAudioDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
@@ -509,7 +555,7 @@ class PlayerActivity : ThemedActivity() {
 
         override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, config: AudioSink.AudioTrackConfig) {
             passthroughEncoding = config.encoding.takeUnless { Util.isEncodingLinearPcm(it) }
-            DebugLog.i(TAG, "audio track encoding=${config.encoding} ${config.sampleRate}Hz passthrough=${passthroughEncoding != null}")
+            DebugLog.i(TAG, "audio track encoding=${config.encoding} ${config.sampleRate}Hz channelConfig=${config.channelConfig} passthrough=${passthroughEncoding != null}")
             // 直通的音轨无法变速，播放器会按 1x 播放，这里同步一下避免界面显示的倍速不对
             if (passthroughEncoding != null && speed != 1f) {
                 speed = 1f
@@ -519,6 +565,47 @@ class PlayerActivity : ThemedActivity() {
 
         override fun onDroppedVideoFrames(eventTime: AnalyticsListener.EventTime, droppedFrames: Int, elapsedMs: Long) {
             this@PlayerActivity.droppedFrames += droppedFrames
+        }
+    }
+
+    /**
+     * 杜比视界解码器声明支持、实际可能一直不出画面（极米解 P7 时一直转圈，最后闪退）。
+     * 数据已经缓冲够了还没有第一帧，就认为解码器卡住，改用 HEVC 解码器播放基础层，并记住这台设备的这个 profile。
+     * 只在网络慢、数据没到时多等一会儿；P5 没有可用的基础层，不处理。
+     */
+    private fun watchDolbyVision(codecsString: String?) {
+        doviWatchJob?.cancel()
+        doviWatchJob = lifecycleScope.launch {
+            var waited = 0L
+            while (waited < DOVI_MAX_WAIT_MS) {
+                delay(1_000)
+                waited += 1_000
+                if (firstFrameRendered) return@launch
+                if (waited >= DOVI_FIRST_FRAME_TIMEOUT_MS && player.bufferedPosition - player.currentPosition >= 5_000) break
+            }
+            if (firstFrameRendered) return@launch
+            val profile = codecsString?.let { DOVI_PROFILE.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+                ?: version.video?.doviProfile
+            DebugLog.i(TAG, "dolby vision decoder stuck (profile=$profile, waited ${waited}ms), retry with base layer")
+            if (profile == 5) return@launch
+            profile?.let { settings.brokenDolbyVisionProfiles = settings.brokenDolbyVisionProfiles + it }
+            if (profile == null) {
+                doviBaseLayer = true
+                start(positionMs)
+                return@launch
+            }
+            // 卡住的解码器释放不掉，在同一个播放器里换源会一直卡着。重开播放页换一个新的播放器
+            // （release 有超时，不会被旧的卡住），新页面读到上面记下的 profile，直接用基础层
+            // 只带 extras：原 intent 的 NEW_TASK 等标志会让系统把正在结束的任务调到前台，而不是新建页面
+            startActivity(
+                Intent(this@PlayerActivity, PlayerActivity::class.java)
+                    .putExtras(intent)
+                    .putExtra(EXTRA_START, positionMs)
+                    .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION),
+            )
+            finish()
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, 0)
         }
     }
 
@@ -1314,6 +1401,10 @@ class PlayerActivity : ThemedActivity() {
         private const val MODE_SWITCH_PAUSE_MS = 2_500L
         private const val UP_NEXT_FALLBACK_MS = 20_000L
         private const val MAX_NETWORK_RETRIES = 3
+        private const val DOVI_FIRST_FRAME_TIMEOUT_MS = 8_000L
+        private const val DOVI_MAX_WAIT_MS = 30_000L
+        /** dvhe.07.06 / dvh1.08.06 → 7 / 8 */
+        private val DOVI_PROFILE = Regex("""^dv[ah][e1v]\.(\d+)""")
         private const val NETWORK_RETRY_DELAY_MS = 3_000L
         private val SUBTITLE_BACKGROUND = Color.argb(0x99, 0, 0, 0)
         private const val SUBTITLE_PADDING_WITH_CONTROLS = 0.36f

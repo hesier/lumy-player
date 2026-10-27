@@ -5,8 +5,11 @@ package com.hesier.lumy.ui.player
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import androidx.media3.common.audio.ChannelMixingAudioProcessor
+import androidx.media3.common.audio.ChannelMixingMatrix
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.Renderer
+import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.text.TextOutput
 import androidx.media3.exoplayer.video.VideoRendererEventListener
@@ -29,11 +32,28 @@ import io.github.peerless2012.ass.media.type.AssRenderType
 import okhttp3.OkHttpClient
 
 /** 播放器和它的 ASS 字幕处理器（libass），两者一起创建、一起释放 */
-class PlayerBundle(val player: ExoPlayer, val ass: AssHandler)
+class PlayerBundle(val player: ExoPlayer, val ass: AssHandler, val codecs: LumyCodecSelector)
+
+/**
+ * 杜比视界 Profile 7（UHD 蓝光的双层格式）很多盒子的杜比视界解码器声明支持、实际不出画面（极米上一直转圈），
+ * Media3 对 P7 又没有退回 HEVC 的逻辑。[baseLayerOnly] 时改用 HEVC 解码器只解 HDR10 基础层，由播放页起播前设置。
+ */
+class LumyCodecSelector : MediaCodecSelector {
+    @Volatile var baseLayerOnly = false
+
+    override fun getDecoderInfos(mimeType: String, requiresSecureDecoder: Boolean, requiresTunnelingDecoder: Boolean) =
+        MediaCodecSelector.DEFAULT.getDecoderInfos(
+            if (baseLayerOnly && mimeType == MimeTypes.VIDEO_DOLBY_VISION) MimeTypes.VIDEO_H265 else mimeType,
+            requiresSecureDecoder,
+            requiresTunnelingDecoder,
+        )
+}
 
 object PlayerFactory {
 
     private const val MB = 1024 * 1024
+    /** -3dB */
+    private const val H = 0.7071f
 
     fun create(
         context: Context,
@@ -50,6 +70,7 @@ object PlayerFactory {
         val mediaSources = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, upstream), extractors)
             .setSubtitleParserFactory(assParsers)
 
+        val codecs = LumyCodecSelector()
         val renderers = object : DefaultRenderersFactory(context) {
             /**
              * 默认关闭音频直通：解码成 PCM 才能支持倍速，也适合投影仪/电视自带喇叭。
@@ -60,7 +81,12 @@ object PlayerFactory {
                 val builder = DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                if (!passthrough) builder.setAudioCapabilities(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
+                if (!passthrough) {
+                    builder.setAudioCapabilities(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
+                    // 多声道 PCM 下混成立体声：极米等投影仪把 5.1 PCM 路由到自带喇叭不出声的多声道输出，
+                    // 音频时钟也不正常，画面跟着卡（FFmpeg 解出的 DTS / TrueHD 都是多声道）
+                    builder.setAudioProcessors(arrayOf(stereoDownmix()))
+                }
                 return DelayedAudioSink(builder.build(), offsets)
             }
 
@@ -98,6 +124,7 @@ object PlayerFactory {
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             // 首选解码器初始化失败时尝试下一个，避免个别机型的硬解 bug 直接报错
             .setEnableDecoderFallback(true)
+            .setMediaCodecSelector(codecs)
 
         val player = ExoPlayer.Builder(context, AssRenderersFactory(ass, renderers))
             .setMediaSourceFactory(mediaSources)
@@ -106,7 +133,33 @@ object PlayerFactory {
             .setSeekForwardIncrementMs(30_000)
             .build()
         ass.init(player)
-        return PlayerBundle(player, ass)
+        return PlayerBundle(player, ass, codecs)
+    }
+
+    /**
+     * 1～8 声道都要有矩阵，缺了会在配置音频时报错（Media3 只自带 1、2 声道的系数）。
+     * 声道顺序按 Android 的约定；中置和环绕按 -3dB 混入左右，丢掉 LFE。
+     */
+    private fun stereoDownmix() = ChannelMixingAudioProcessor().apply {
+        val l = floatArrayOf(1f, 0f)
+        val r = floatArrayOf(0f, 1f)
+        val c = floatArrayOf(H, H)
+        val lfe = floatArrayOf(0f, 0f)
+        val sl = floatArrayOf(H, 0f)
+        val sr = floatArrayOf(0f, H)
+        val bc = floatArrayOf(0.5f, 0.5f)
+        putChannelMixingMatrix(ChannelMixingMatrix.createForConstantGain(1, 1))
+        listOf(
+            listOf(l, r),
+            listOf(l, r, c),
+            listOf(l, r, sl, sr), // 四声道：FL FR BL BR
+            listOf(l, r, c, sl, sr),
+            listOf(l, r, c, lfe, sl, sr), // 5.1：FL FR FC LFE BL BR
+            listOf(l, r, c, lfe, bc, sl, sr), // 6.1：FL FR FC LFE BC SL SR
+            listOf(l, r, c, lfe, sl, sr, sl, sr), // 7.1：FL FR FC LFE BL BR SL SR
+        ).forEach { rows ->
+            putChannelMixingMatrix(ChannelMixingMatrix(rows.size, 2, rows.flatMap { it.asList() }.toFloatArray()))
+        }
     }
 
     /**

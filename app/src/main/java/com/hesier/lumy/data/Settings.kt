@@ -123,6 +123,14 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("match_frame_rate", false)
         set(v) = prefs.edit().putBoolean("match_frame_rate", v).apply()
 
+    /**
+     * 本机杜比视界解码器实际解不出画面的 profile（自动检测后记下），这些片源以后直接用 HEVC 解码器播放 HDR10 基础层。
+     * 记的是设备能力，和服务器无关。
+     */
+    var brokenDolbyVisionProfiles: Set<Int>
+        get() = prefs.getStringSet("broken_dovi_profiles", emptySet())!!.mapNotNull { it.toIntOrNull() }.toSet()
+        set(v) = prefs.edit().putStringSet("broken_dovi_profiles", v.map { it.toString() }.toSet()).apply()
+
     var audioDelayMs: Long
         get() = prefs.getLong("audio_delay_ms", 0)
         set(v) = prefs.edit().putLong("audio_delay_ms", v).apply()
