@@ -20,7 +20,7 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
 - **Browsing**: home hubs (Continue Watching, Recently Added, …), library grids with filters, sorting and an A–Z index, search, collections, playlists, cast filmographies and "More Like This"
 - **Details**: movies, shows, seasons and episodes, version selection, mark as watched / unwatched
 - **Playback** (Media3 / ExoPlayer)
-  - Direct play or server-side HLS transcoding based on the device's decoder capabilities, with optional quality / bitrate limits
+  - Direct play or server-side HLS transcoding based on the device's decoder capabilities, with optional quality / bitrate limits; HDR, Dolby Vision and passthrough support (see [Playback and Decoding](docs/playback.md))
   - FFmpeg audio decoder extension and audio passthrough (AC3 / DTS to your receiver)
   - Local rendering of styled ASS / SSA subtitles (libass), avoiding server-side burn-in where possible
   - Multi-part files, chapters, intro skipping, auto-play next episode
@@ -61,7 +61,7 @@ APKs you build yourself are signed with a different key, so they cannot be insta
 - Only movie and TV show libraries are shown; music, photo and other library types are not supported yet
 - No Live TV / DVR and no offline downloads
 - Plex Home user switching and Jellyfin Quick Connect are not supported; sign in with the account you want to use
-- Dolby Vision Profile 5 needs a device with a Dolby Vision decoder; otherwise the server has to transcode it
+- Dolby Vision Profile 5 needs a device with a Dolby Vision decoder; otherwise the server has to transcode it (details in [Playback and Decoding](docs/playback.md#dolby-vision))
 - ARM devices only (`armeabi-v7a` / `arm64-v8a`)
 
 ## Privacy
