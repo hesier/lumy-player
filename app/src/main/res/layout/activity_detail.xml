@@ -128,7 +128,8 @@
                         android:layout_marginTop="8dp"
                         android:maxLines="1" />
 
-                    <LinearLayout
+                    <!-- 从简介或下面的行移进来时回到上次停留的按钮 -->
+                    <com.hesier.lumy.ui.widget.FocusMemoryLinearLayout
                         android:id="@+id/actions"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
