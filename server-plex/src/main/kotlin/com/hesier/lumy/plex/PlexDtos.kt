@@ -164,6 +164,7 @@ data class PlexPart(
     val container: String? = null,
     val size: Long? = null,
     val duration: Long? = null,
+    val file: String? = null,
     @SerialName("Stream") val streams: List<PlexStream> = emptyList(),
 )
 
@@ -195,4 +196,6 @@ data class PlexStream(
     val profile: String? = null,
     val width: Int? = null,
     val height: Int? = null,
+    val bitrate: Int? = null,
+    val samplingRate: Int? = null,
 )

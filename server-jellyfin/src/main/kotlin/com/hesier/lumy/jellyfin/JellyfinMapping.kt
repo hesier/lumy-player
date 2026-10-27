@@ -154,6 +154,9 @@ internal fun MediaSourceDto.toVersion(itemId: String, index: Int): MediaVersion 
                 profile = it.profile,
                 hdr = it.hdrType(),
                 doviProfile = it.dvProfile ?: it.extendedVideoSubType?.let(::embyDoviProfile),
+                bitrateKbps = it.bitRate?.let { b -> b / 1000 },
+                title = it.displayTitle ?: it.title,
+                language = it.language,
             )
         },
         audio = mediaStreams.filter { it.type == "Audio" }.map {
@@ -166,6 +169,8 @@ internal fun MediaSourceDto.toVersion(itemId: String, index: Int): MediaVersion 
                 language = it.language,
                 title = it.displayTitle ?: it.title ?: it.codec.orEmpty(),
                 selected = it.index == defaultAudioStreamIndex,
+                bitrateKbps = it.bitRate?.let { b -> b / 1000 },
+                sampleRate = it.sampleRate,
             )
         },
         subtitles = mediaStreams.filter { it.type == "Subtitle" }.map {
@@ -188,6 +193,7 @@ internal fun MediaSourceDto.toVersion(itemId: String, index: Int): MediaVersion 
                 container = container,
                 sizeBytes = size,
                 durationMs = runTimeTicks?.ticksToMs(),
+                file = path,
             ),
         ),
     )

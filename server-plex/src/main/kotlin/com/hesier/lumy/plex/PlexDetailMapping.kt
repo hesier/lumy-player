@@ -69,6 +69,9 @@ internal fun PlexMedia.toVersion(index: Int): MediaVersion? {
                 profile = it.profile,
                 hdr = it.hdrType(),
                 doviProfile = it.doviProfile?.takeIf { _ -> it.doviPresent },
+                bitrateKbps = it.bitrate,
+                title = it.extendedDisplayTitle ?: it.displayTitle,
+                language = it.languageTag ?: it.languageCode,
             )
         },
         audio = part.streams.filter { it.streamType == 2 }.map {
@@ -80,6 +83,8 @@ internal fun PlexMedia.toVersion(index: Int): MediaVersion? {
                 language = it.languageTag ?: it.languageCode,
                 title = it.extendedDisplayTitle ?: it.displayTitle ?: it.codec,
                 selected = it.selected,
+                bitrateKbps = it.bitrate,
+                sampleRate = it.samplingRate,
             )
         },
         subtitles = part.streams.filter { it.streamType == 3 }.map {
@@ -101,6 +106,7 @@ internal fun PlexMedia.toVersion(index: Int): MediaVersion? {
                 container = it.container,
                 sizeBytes = it.size,
                 durationMs = it.duration,
+                file = it.file,
             )
         },
     )

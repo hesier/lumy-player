@@ -76,6 +76,8 @@ data class MediaPart(
     val container: String?,
     val sizeBytes: Long?,
     val durationMs: Long?,
+    /** 服务端上的文件路径，详情页显示文件名用 */
+    val file: String? = null,
 )
 
 enum class HdrType(val label: String?) {
@@ -92,6 +94,9 @@ data class VideoStream(
     val hdr: HdrType,
     /** 杜比视界 profile（5、7、8…），没有为 null */
     val doviProfile: Int?,
+    val bitrateKbps: Int? = null,
+    val title: String? = null,
+    val language: String? = null,
 ) {
     val resolutionLabel: String?
         get() {
@@ -115,6 +120,8 @@ data class AudioStream(
     val language: String?,
     val title: String,
     val selected: Boolean,
+    val bitrateKbps: Int? = null,
+    val sampleRate: Int? = null,
 ) {
     val channelsLabel: String?
         get() = when (channels) {

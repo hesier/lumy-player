@@ -109,6 +109,7 @@ data class MediaSourceDto(
     val container: String? = null,
     val size: Long? = null,
     val bitrate: Int? = null,
+    val path: String? = null,
     val runTimeTicks: Long? = null,
     val mediaStreams: List<MediaStreamDto> = emptyList(),
     val defaultAudioStreamIndex: Int? = null,
@@ -141,6 +142,9 @@ data class MediaStreamDto(
     /** Emby：DolbyVision 等，子类型如 DoviProfile81 */
     val extendedVideoType: String? = null,
     val extendedVideoSubType: String? = null,
+    /** bps */
+    val bitRate: Int? = null,
+    val sampleRate: Int? = null,
 )
 
 /** Jellyfin 10.10 起的片头 / 片尾片段 */

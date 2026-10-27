@@ -16,8 +16,12 @@ import androidx.recyclerview.widget.RecyclerView
  * - 横向行：焦点在可见卡片间移动时不滚动，只有下一张要出屏时才滚到刚好露出，
  *   不会每按一次整行都滑动；左右移动只在本行内进行，不会跳到别的行。
  */
-class StartAlignedLayoutManager(context: Context, orientation: Int) :
-    LinearLayoutManager(context, orientation, false) {
+class StartAlignedLayoutManager(
+    context: Context,
+    orientation: Int,
+    /** 行首按左也停在本行（页面左边没有侧边栏等可去的地方时，避免跳到上下行） */
+    private val stayAtStart: Boolean = false,
+) : LinearLayoutManager(context, orientation, false) {
 
     private var recyclerView: RecyclerView? = null
 
@@ -38,7 +42,7 @@ class StartAlignedLayoutManager(context: Context, orientation: Int) :
         val position = getPosition(item)
         val next = if (direction == View.FOCUS_RIGHT) position + 1 else position - 1
         if (next >= itemCount) return focused
-        if (next < 0) return leaveRow(focused, direction)
+        if (next < 0) return if (stayAtStart) focused else leaveRow(focused, direction)
         val target = findViewByPosition(next)
         if (target != null) return target
         // 下一张还没布局出来（长按时常见）：先滚过去，焦点原地不动

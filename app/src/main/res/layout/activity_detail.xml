@@ -223,6 +223,30 @@
                 android:paddingEnd="@dimen/screen_padding_h"
                 android:paddingBottom="8dp"
                 android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/file_info_title"
+                style="@style/Text.Title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="64dp"
+                android:layout_marginTop="24dp"
+                android:text="@string/detail_file_info"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
+            <!-- 文件、视频、每条音轨、字幕（多条一张）各一张卡片，左右切换 -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/file_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:paddingStart="64dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="@dimen/screen_padding_h"
+                android:paddingBottom="12dp"
+                android:visibility="gone" />
         </LinearLayout>
     </ScrollView>
 

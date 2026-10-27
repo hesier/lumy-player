@@ -72,6 +72,7 @@ class DetailActivity : ThemedActivity() {
     private var episodesAdapter: CardAdapter? = null
 
     private var versionIndex = 0
+    private lateinit var fileInfo: FileInfoSection
     private var firstLoad = true
 
     /** “查看全部”选完季回来：切换到该季，焦点放在它的标签上 */
@@ -95,6 +96,7 @@ class DetailActivity : ThemedActivity() {
         binding = ActivityDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.posterFrame.clipToRoundedBackground()
+        fileInfo = FileInfoSection(binding.fileInfoTitle, binding.fileInfo)
         // 标签很短，用普通布局：焦点移动时整行不滚动，不会左右闪动
         binding.seasons.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
         binding.summary.setOnClickListener {
@@ -228,6 +230,7 @@ class DetailActivity : ThemedActivity() {
         val versions = d?.versions.orEmpty()
         versionIndex = versionIndex.coerceIn(0, (versions.size - 1).coerceAtLeast(0))
         renderBadges(versions.getOrNull(versionIndex))
+        fileInfo.render(versions.getOrNull(versionIndex))
         renderActions(item, d)
     }
 
@@ -291,6 +294,7 @@ class DetailActivity : ThemedActivity() {
         OptionsPanel(this, getString(R.string.version_title), options) { i ->
             versionIndex = i
             renderBadges(d.versions[i])
+            fileInfo.render(d.versions[i])
         }.show()
     }
 
