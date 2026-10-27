@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 浅色主题；深色在 values-night，由 ThemedActivity 按设置切换 -->
+<resources>
+    <color name="bg">#FFEEEFF2</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="placeholder">#FFD5D7DD</color>
+    <!-- 浅底上原来的金色偏淡，压暗一点保证文字对比度 -->
+    <color name="accent">#FFC98A00</color>
+    <color name="on_accent">#FF111111</color>
+    <color name="text_primary">#FF16171B</color>
+    <color name="text_secondary">#B316171B</color>
+    <color name="text_tertiary">#8016171B</color>
+    <color name="focus_ring">#FF16171B</color>
+    <color name="sidebar_bg">#FAF8F8FA</color>
+    <color name="item_focused_bg">#1A000000</color>
+    <color name="chip_focused_bg">@color/accent</color>
+    <color name="fill_strong">#1F000000</color>
+    <color name="fill">#0F000000</color>
+    <color name="fill_faint">#0A000000</color>
+    <color name="scrim_left_center">#B3EEEFF2</color>
+    <color name="scrim_bottom_center">#E6EEEFF2</color>
+    <color name="scrim_end">#00EEEFF2</color>
+    <color name="icon">@color/text_primary</color>
+    <!-- 桌面图标 / 横幅底色，不随主题变 -->
+    <color name="launcher_background">#FF14151B</color>
+</resources>

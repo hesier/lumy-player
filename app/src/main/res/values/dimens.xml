@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 以 960x540dp 的 TV 画布为准，四周留出安全边距 -->
+    <dimen name="screen_padding_h">48dp</dimen>
+    <dimen name="screen_padding_v">27dp</dimen>
+    <dimen name="sidebar_collapsed">72dp</dimen>
+    <dimen name="sidebar_expanded">240dp</dimen>
+    <!-- 侧边栏顶部的切换服务器和下面导航项之间的间距 -->
+    <dimen name="sidebar_group_gap">16dp</dimen>
+    <dimen name="poster_width">114dp</dimen>
+    <dimen name="poster_height">171dp</dimen>
+    <dimen name="landscape_width">212dp</dimen>
+    <dimen name="landscape_height">119dp</dimen>
+    <dimen name="card_gap">14dp</dimen>
+    <dimen name="card_radius">6dp</dimen>
+</resources>

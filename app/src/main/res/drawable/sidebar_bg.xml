@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 展开时的侧边栏面板：主体不透明，避免后面的文字透出来 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/sidebar_bg" />
+</shape>

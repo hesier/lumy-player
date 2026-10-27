@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Plex 标识（由提供的 SVG 转换），深色圆底，图形缩到 60% 居中 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="1024" android:viewportHeight="1024">
+    <path android:fillColor="#FF282A2D" android:pathData="M512,0a512,512 0,1 1,0 1024a512,512 0,1 1,0 -1024z" />
+    <group android:scaleX="0.6" android:scaleY="0.6" android:translateX="204.8" android:translateY="204.8">
+        <path
+            android:fillColor="#FFE5A00D"
+            android:fillType="evenOdd"
+            android:pathData="M496.768 0H199.68l327.637333 512L199.68 1024h297.088l327.552-512-327.552-512" />
+    </group>
+</vector>

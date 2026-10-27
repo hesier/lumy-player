@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 26 以下的桌面图标：包一层 layer-list 复用完整图标；mipmap 直接别名到 drawable 会被 lint 判为致命错误。26+ 由 mipmap-anydpi-v26 覆盖为自适应图标 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_launcher" />
+</layer-list>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 深色主题（默认） -->
+<resources>
+    <color name="bg">#FF0F1013</color>
+    <color name="surface">#FF1D1E23</color>
+    <color name="placeholder">#FF2A2C32</color>
+    <color name="accent">#FFE5A00D</color>
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#B3FFFFFF</color>
+    <color name="text_tertiary">#80FFFFFF</color>
+    <color name="focus_ring">#FFFFFFFF</color>
+    <color name="sidebar_bg">#FA16171B</color>
+    <color name="item_focused_bg">#26FFFFFF</color>
+    <color name="chip_focused_bg">#FFFFFFFF</color>
+    <color name="fill_strong">#33FFFFFF</color>
+    <color name="fill">#1AFFFFFF</color>
+    <color name="fill_faint">#14FFFFFF</color>
+    <color name="scrim_left_center">#B30F1013</color>
+    <color name="scrim_bottom_center">#E60F1013</color>
+    <color name="scrim_end">#000F1013</color>
+</resources>

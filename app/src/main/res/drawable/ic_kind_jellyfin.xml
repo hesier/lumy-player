@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Jellyfin 标识（由提供的 SVG 转换），深色圆底，图形缩到 60% 居中 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="1024" android:viewportHeight="1024">
+    <path android:fillColor="#FF282A2D" android:pathData="M512,0a512,512 0,1 1,0 1024a512,512 0,1 1,0 -1024z" />
+    <group android:scaleX="0.6" android:scaleY="0.6" android:translateX="204.8" android:translateY="204.8">
+        <path
+            android:fillColor="#FFAA5CC3"
+            android:fillType="evenOdd"
+            android:pathData="M512.018347 0.085333C376.59446 0.085333-59.629177 790.911341 6.845434 924.41523c66.559945 133.503889 944.639213 132.010557 1010.431158 0C1083.068537 792.44734 647.570234 0 512.018347 0z m331.093057 808.489993c-43.007964 86.527928-618.367485 87.466594-661.930115 0C137.575992 721.066066 423.271754 202.879831 512.146347 202.879831c88.789259 0 374.186355 519.082234 331.05039 605.695495zM512.018347 392.447673c-44.970629 0-189.695842 262.399781-167.679861 306.730411 22.101315 44.373296 313.514405 43.81863 335.359721 0 21.802648-43.81863-122.623898-306.773078-167.67986-306.773078z" />
+    </group>
+</vector>

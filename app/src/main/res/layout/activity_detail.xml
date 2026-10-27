@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/backdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0.6"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/scrim_left" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/scrim_bottom" />
+
+    <ScrollView
+        android:id="@+id/scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipChildren="false"
+            android:orientation="vertical"
+            android:paddingTop="56dp"
+            android:paddingBottom="@dimen/screen_padding_v">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipChildren="false"
+                android:orientation="horizontal"
+                android:paddingStart="64dp"
+                android:paddingEnd="@dimen/screen_padding_h">
+
+                <FrameLayout
+                    android:id="@+id/poster_frame"
+                    android:layout_width="160dp"
+                    android:layout_height="240dp"
+                    android:background="@drawable/card_placeholder">
+
+                    <ImageView
+                        android:id="@+id/poster"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:importantForAccessibility="no"
+                        android:scaleType="centerCrop" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="36dp"
+                    android:layout_weight="1"
+                    android:clipChildren="false"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/parent_title"
+                        style="@style/Text.Title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="28sp"
+                        android:gravity="center_vertical"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        android:textColor="@color/text_secondary"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/title"
+                        style="@style/Text.Hero"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44sp"
+                        android:gravity="center_vertical"
+                        android:includeFontPadding="false"
+                        android:maxLines="1" />
+
+                    <TextView
+                        android:id="@+id/meta"
+                        style="@style/Text.Body"
+                        android:layout_width="wrap_content"
+                        android:layout_height="22sp"
+                        android:gravity="center_vertical"
+                        android:includeFontPadding="false"
+                        android:layout_marginTop="8dp"
+                        android:ellipsize="end"
+                        android:maxLines="1" />
+
+                    <LinearLayout
+                        android:id="@+id/badges"
+                        android:layout_width="wrap_content"
+                        android:layout_height="22dp"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal" />
+
+                    <TextView
+                        android:id="@+id/tagline"
+                        style="@style/Text.Body"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:textColor="@color/text_primary"
+                        android:textStyle="italic"
+                        android:visibility="gone" />
+
+                    <!-- 固定 3 行高：切换剧集时页面不跳动；显示不全时按上键选中、确认键看全文 -->
+                    <TextView
+                        android:id="@+id/summary"
+                        style="@style/Text.Body"
+                        android:layout_width="match_parent"
+                        android:layout_height="80sp"
+                        android:gravity="top"
+                        android:layout_marginStart="-10dp"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/list_item_bg"
+                        android:ellipsize="end"
+                        android:focusable="false"
+                        android:maxLines="3"
+                        android:paddingStart="10dp"
+                        android:paddingTop="4dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="4dp" />
+
+                    <TextView
+                        android:id="@+id/credits"
+                        style="@style/Text.Caption"
+                        android:layout_width="wrap_content"
+                        android:layout_height="18sp"
+                        android:gravity="center_vertical"
+                        android:includeFontPadding="false"
+                        android:layout_marginTop="8dp"
+                        android:maxLines="1" />
+
+                    <LinearLayout
+                        android:id="@+id/actions"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:clipChildren="false"
+                        android:orientation="horizontal" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- 分季标签：焦点移上去就切换下面的剧集，不用按确认 -->
+            <com.hesier.lumy.ui.widget.PreferredFocusRecyclerView
+                android:id="@+id/seasons"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:paddingStart="64dp"
+                android:paddingEnd="@dimen/screen_padding_h"
+                android:visibility="gone" />
+
+            <com.hesier.lumy.ui.widget.PreferredFocusRecyclerView
+                android:id="@+id/episodes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:paddingStart="64dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="@dimen/screen_padding_h"
+                android:paddingBottom="8dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/cast_title"
+                style="@style/Text.Title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="64dp"
+                android:layout_marginTop="24dp"
+                android:text="@string/detail_cast"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/cast"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:paddingStart="64dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="@dimen/screen_padding_h"
+                android:paddingBottom="8dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/similar_title"
+                style="@style/Text.Title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="64dp"
+                android:layout_marginTop="24dp"
+                android:text="@string/detail_similar"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/similar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:paddingStart="64dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="@dimen/screen_padding_h"
+                android:paddingBottom="8dp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </ScrollView>
+
+    <include
+        android:id="@+id/state"
+        layout="@layout/view_state" />
+</FrameLayout>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 完整图标（圆角深色底 + 主体）：API 26 以下的桌面图标，以及应用内的 logo -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape>
+            <size android:width="48dp" android:height="48dp" />
+            <corners android:radius="10dp" />
+            <solid android:color="@color/launcher_background" />
+        </shape>
+    </item>
+    <item android:drawable="@drawable/ic_lumy_mark" />
+</layer-list>

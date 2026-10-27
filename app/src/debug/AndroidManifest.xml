@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 仅 debug 包：允许用 adb am start 直接打开详情页/播放器，方便测试 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity android:name=".ui.detail.DetailActivity" android:exported="true" />
+        <activity android:name=".ui.player.PlayerActivity" android:exported="true" />
+        <activity android:name=".ui.settings.SettingsActivity" android:exported="true" />
+    </application>
+</manifest>

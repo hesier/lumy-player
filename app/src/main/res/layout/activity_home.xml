@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- 背景：当前聚焦条目的剧照，左侧和底部渐隐到背景色 -->
+    <FrameLayout
+        android:id="@+id/backdrop_frame"
+        android:layout_width="680dp"
+        android:layout_height="383dp"
+        android:layout_gravity="top|end">
+
+        <ImageView
+            android:id="@+id/backdrop"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="0.85"
+            android:importantForAccessibility="no"
+            android:scaleType="centerCrop" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/scrim_left" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/scrim_bottom" />
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="@dimen/sidebar_collapsed" />
+
+    <!-- 侧边栏浮在内容上方，获得焦点时展开 -->
+    <LinearLayout
+        android:id="@+id/sidebar"
+        android:layout_width="@dimen/sidebar_collapsed"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingStart="12dp"
+        android:paddingTop="40dp"
+        android:paddingEnd="12dp">
+
+        <!-- 触屏上点图标展开 / 收起侧边栏；不可获得焦点，遥控器仍按焦点展开。加了 4dp 内边距扩大点击范围，图标位置不变 -->
+        <ImageView
+            android:id="@+id/sidebar_logo"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="-4dp"
+            android:layout_marginBottom="24dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/nav_menu"
+            android:padding="4dp"
+            android:src="@drawable/ic_launcher" />
+
+        <!-- 添加了多台服务器时显示切换按钮 -->
+        <LinearLayout
+            android:id="@+id/sidebar_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <!-- 媒体库多时可以滚动，焦点移动时自动滚到可见位置 -->
+        <ScrollView
+            android:id="@+id/sidebar_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fadingEdgeLength="24dp"
+            android:requiresFadingEdge="vertical"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/sidebar_items"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
+
+        <LinearLayout
+            android:id="@+id/sidebar_footer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:orientation="vertical" />
+    </LinearLayout>
+</FrameLayout>

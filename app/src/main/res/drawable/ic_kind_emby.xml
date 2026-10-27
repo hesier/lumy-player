@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Emby 标识（由提供的 SVG 转换），深色圆底，图形缩到 60% 居中 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="1024" android:viewportHeight="1024">
+    <path android:fillColor="#FF282A2D" android:pathData="M512,0a512,512 0,1 1,0 1024a512,512 0,1 1,0 -1024z" />
+    <group android:scaleX="0.6" android:scaleY="0.6" android:translateX="204.8" android:translateY="204.8">
+        <path
+            android:fillColor="#FF52B54B"
+            android:fillType="evenOdd"
+            android:pathData="M469.333333 85.333333L256 298.666667l42.666667 42.666666-213.333334 213.333334 213.333334 213.333333 42.666666-42.666667 213.333334 213.333334 213.333333-213.333334-42.666667-42.666666 213.333334-213.333334-213.333334-213.333333-42.666666 42.666667-213.333334-213.333334m-42.666666 277.333334l256 149.333333-256 149.333333v-298.666666z" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M426.67,362.67l256,149.33l-256,149.33z" />
+    </group>
+</vector>
