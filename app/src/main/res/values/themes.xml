@@ -10,6 +10,12 @@
         <item name="android:windowContentTransitions">false</item>
     </style>
 
+    <!-- 启动窗口：系统在进程起来前按系统配置画它，读不到设置里的主题，固定用深色（默认主题），
+         避免深色模式下先闪一下浅色。HomeActivity 在 onCreate 里换回 Theme.Lumy -->
+    <style name="Theme.Lumy.Launch" parent="Theme.Lumy">
+        <item name="android:windowBackground">@color/launch_bg</item>
+    </style>
+
     <style name="Theme.Lumy.Player" parent="Theme.Lumy">
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:windowFullscreen">true</item>

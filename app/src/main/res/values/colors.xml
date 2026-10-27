@@ -2,6 +2,8 @@
 <!-- 浅色主题；深色在 values-night，由 ThemedActivity 按设置切换 -->
 <resources>
     <color name="bg">#FFEEEFF2</color>
+    <!-- 启动窗口背景，不随深浅色变化，和深色的 bg 一致 -->
+    <color name="launch_bg">#FF0F1013</color>
     <color name="surface">#FFFFFFFF</color>
     <color name="placeholder">#FFD5D7DD</color>
     <!-- 浅底上原来的金色偏淡，压暗一点保证文字对比度 -->

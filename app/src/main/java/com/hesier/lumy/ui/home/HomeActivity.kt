@@ -80,6 +80,8 @@ class HomeActivity : ThemedActivity(), HomeHost {
     private var backdropRef: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 清单里是固定深色的启动主题，窗口创建前换回按设置取色的主题
+        setTheme(R.style.Theme_Lumy)
         super.onCreate(savedInstanceState)
         val app = LumyApp.instance
         val current = app.currentServer()
