@@ -10,7 +10,7 @@ import com.hesier.lumy.R
 import com.hesier.lumy.databinding.ViewTextPanelBinding
 
 /** 右侧弹出的长文本面板（完整简介），上下键滚动，返回键关闭 */
-class TextPanel(context: Context, private val title: String, private val text: String) :
+class TextPanel(context: Context, private val title: String, private val text: CharSequence) :
     Dialog(context, R.style.Theme_Lumy_Panel) {
 
     override fun onCreate(savedInstanceState: Bundle?) {

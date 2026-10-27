@@ -11,7 +11,9 @@ import com.hesier.lumy.ui.ThemedActivity
 import androidx.core.view.children
 import androidx.lifecycle.lifecycleScope
 import com.hesier.lumy.ui.widget.attempt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -42,6 +44,7 @@ import com.hesier.lumy.ui.widget.Option
 import com.hesier.lumy.ui.widget.OptionsPanel
 import com.hesier.lumy.ui.widget.ReorderPanel
 import com.hesier.lumy.ui.widget.StepperPanel
+import com.hesier.lumy.ui.widget.TextPanel
 import com.hesier.lumy.ui.player.formatDelay
 
 class SettingsActivity : ThemedActivity() {
@@ -262,7 +265,10 @@ class SettingsActivity : ThemedActivity() {
             serverRows() + Row(getString(R.string.settings_add_server), "", getString(R.string.settings_add_server_detail)) {
                 startActivity(AddServerActivity.intent(this))
             },
-            listOf(Row(getString(R.string.settings_version), BuildConfig.VERSION_NAME) {}),
+            listOf(
+                Row(getString(R.string.settings_version), BuildConfig.VERSION_NAME) {},
+                Row(getString(R.string.device_info), "", getString(R.string.device_info_detail)) { showDeviceInfo() },
+            ),
         )
         showRows()
     }
@@ -344,6 +350,13 @@ class SettingsActivity : ThemedActivity() {
                 if (!hidden.add(id)) hidden.remove(id)
                 settings.setHiddenSidebarItems(entryId, hidden.toSet())
             }.apply { setOnDismissListener { render() } }.show()
+        }
+    }
+
+    private fun showDeviceInfo() {
+        lifecycleScope.launch {
+            val text = withContext(Dispatchers.Default) { DeviceInfo.build(this@SettingsActivity) }
+            TextPanel(this@SettingsActivity, getString(R.string.device_info), text).show()
         }
     }
 

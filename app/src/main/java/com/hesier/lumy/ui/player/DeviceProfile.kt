@@ -78,6 +78,13 @@ class DeviceProfile(context: Context) {
 
     fun decoderSummary(mime: String): String = decoders(mime).joinToString { it.name }
 
+    /** 本机信息页用：有没有解码器、是否硬解、是否支持 10-bit */
+    fun hasDecoder(mime: String): Boolean = decoders(mime).isNotEmpty()
+
+    fun hasHardwareDecoder(mime: String): Boolean = decoders(mime).any { it.hardwareAccelerated }
+
+    fun supportsTenBit(mime: String): Boolean = decoders(mime).any { supportsTenBit(it, mime) }
+
     private fun decoders(mime: String): List<MediaCodecInfo> = decoderCache.getOrPut(mime) {
         try {
             MediaCodecUtil.getDecoderInfos(mime, false, false)
