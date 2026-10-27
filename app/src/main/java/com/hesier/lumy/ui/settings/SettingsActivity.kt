@@ -156,6 +156,18 @@ class SettingsActivity : ThemedActivity() {
             },
             Row(getString(R.string.settings_sidebar), sidebarSummary(), getString(R.string.settings_sidebar_detail)) { pickSidebarItems() },
             Row(getString(R.string.settings_sidebar_order), "", getString(R.string.settings_sidebar_order_detail)) { reorderSidebar() },
+            Row(getString(R.string.settings_detail_cast), onOff(settings.detailShowCast)) {
+                settings.detailShowCast = !settings.detailShowCast
+                render()
+            },
+            Row(getString(R.string.settings_detail_similar), onOff(settings.detailShowSimilar)) {
+                settings.detailShowSimilar = !settings.detailShowSimilar
+                render()
+            },
+            Row(getString(R.string.settings_detail_file_info), onOff(settings.detailShowFileInfo)) {
+                settings.detailShowFileInfo = !settings.detailShowFileInfo
+                render()
+            },
             ),
             listOf(
             Row(getString(R.string.settings_default_quality), qualityLabel(this, Quality.presets[settings.defaultQuality.coerceIn(0, Quality.presets.lastIndex)])) {

@@ -31,7 +31,7 @@ import java.util.Locale
  * 详情页底部的文件信息：文件、视频、每条音轨各一张卡片，字幕每 [SUBTITLES_PER_CARD] 条一张，
  * 几十条字幕时左右翻看。跟随当前选择的版本。
  */
-class FileInfoSection(private val title: View, private val row: RecyclerView) {
+class FileInfoSection(private val title: View, private val row: RecyclerView, private val enabled: Boolean) {
 
     private val context: Context get() = row.context
     private val adapter = CardsAdapter()
@@ -43,7 +43,7 @@ class FileInfoSection(private val title: View, private val row: RecyclerView) {
     }
 
     fun render(version: MediaVersion?) {
-        val cards = version?.let(::cards).orEmpty()
+        val cards = version?.takeIf { enabled }?.let(::cards).orEmpty()
         title.visibility = if (cards.isEmpty()) View.GONE else View.VISIBLE
         row.visibility = title.visibility
         adapter.submit(cards)

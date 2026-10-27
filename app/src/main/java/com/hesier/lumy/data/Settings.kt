@@ -119,6 +119,19 @@ class Settings(context: Context) {
             ?.let { runCatching { AppLanguage.valueOf(it) }.getOrNull() } ?: AppLanguage.SYSTEM
         set(v) = prefs.edit().putString("language", v.name).apply()
 
+    /** 详情页底部各区块是否显示 */
+    var detailShowCast: Boolean
+        get() = prefs.getBoolean("detail_show_cast", true)
+        set(v) = prefs.edit().putBoolean("detail_show_cast", v).apply()
+
+    var detailShowSimilar: Boolean
+        get() = prefs.getBoolean("detail_show_similar", true)
+        set(v) = prefs.edit().putBoolean("detail_show_similar", v).apply()
+
+    var detailShowFileInfo: Boolean
+        get() = prefs.getBoolean("detail_show_file_info", true)
+        set(v) = prefs.edit().putBoolean("detail_show_file_info", v).apply()
+
     var matchFrameRate: Boolean
         get() = prefs.getBoolean("match_frame_rate", false)
         set(v) = prefs.edit().putBoolean("match_frame_rate", v).apply()

@@ -64,6 +64,9 @@
     <string name="sidebar_all">全部</string>
     <string name="settings_sidebar_order">側邊欄排序</string>
     <string name="settings_sidebar_order_detail">確認鍵選取一項，上下鍵移動，再按確認放下，返回鍵完成；觸控螢幕上點一項再點目標位置</string>
+    <string name="settings_detail_cast">詳細資訊頁顯示演員</string>
+    <string name="settings_detail_similar">詳細資訊頁顯示更多類似內容</string>
+    <string name="settings_detail_file_info">詳細資訊頁顯示檔案資訊</string>
     <string name="reorder_moving">移動中 ↑↓</string>
     <string name="settings_section_servers">伺服器</string>
     <string name="settings_section_about">關於</string>

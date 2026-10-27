@@ -77,6 +77,9 @@
     <string name="sidebar_all">All</string>
     <string name="settings_sidebar_order">Sidebar order</string>
     <string name="settings_sidebar_order_detail">Press OK to pick up an item, Up/Down to move it, OK again to drop it, Back when done. On touch, tap an item, then tap where it should go</string>
+    <string name="settings_detail_cast">Show cast on details page</string>
+    <string name="settings_detail_similar">Show “More like this” on details page</string>
+    <string name="settings_detail_file_info">Show file info on details page</string>
     <string name="reorder_moving">Moving ↑↓</string>
     <string name="settings_section_servers">Servers</string>
     <string name="settings_section_about">About</string>

@@ -97,7 +97,7 @@ class DetailActivity : ThemedActivity() {
         binding = ActivityDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.posterFrame.clipToRoundedBackground()
-        fileInfo = FileInfoSection(binding.fileInfoTitle, binding.fileInfo)
+        fileInfo = FileInfoSection(binding.fileInfoTitle, binding.fileInfo, LumyApp.instance.settings.detailShowFileInfo)
         // 标签很短，用普通布局：焦点移动时整行不滚动，不会左右闪动
         binding.seasons.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
         binding.summary.setOnClickListener {
@@ -473,13 +473,15 @@ class DetailActivity : ThemedActivity() {
     // ---- 演员、更多类似 ----
 
     private fun renderExtras(d: MediaDetail) {
-        if (d.people.isNotEmpty()) {
+        val settings = LumyApp.instance.settings
+        if (settings.detailShowCast && d.people.isNotEmpty()) {
             binding.castTitle.visibility = View.VISIBLE
             binding.cast.visibility = View.VISIBLE
             binding.cast.adapter = CardAdapter(server, HubStyle.PERSON, onFocused = {}, onClick = { Navigator.open(this, it, d.libraryId) })
                 .also { it.submit(d.people.take(MAX_PEOPLE)) }
         }
-        if (d.item.type != MediaType.MOVIE && d.item.type != MediaType.SHOW) return
+        // 关闭时连请求都不发
+        if (!settings.detailShowSimilar || (d.item.type != MediaType.MOVIE && d.item.type != MediaType.SHOW)) return
         lifecycleScope.launch {
             val similar = attempt { server.similar(d.item.id) }.getOrDefault(emptyList())
             if (similar.isEmpty()) return@launch
