@@ -23,6 +23,7 @@ import com.hesier.lumy.data.AppLanguage
 import com.hesier.lumy.data.SavedServer
 import com.hesier.lumy.data.SessionStore
 import com.hesier.lumy.util.DebugLog
+import com.hesier.lumy.util.withLegacyTls
 import com.hesier.lumy.data.Settings
 import com.hesier.lumy.data.TrackMemory
 import coil.ImageLoader
@@ -98,6 +99,7 @@ class LumyApp : Application(), ImageLoaderFactory {
                 device = Build.MODEL,
                 language = uiLocale().toLanguageTag(),
             ),
+            http = PlexClient.defaultHttpClient().withLegacyTls(this),
         )
         // 和 Plex 共用连接池
         jellyfin = JellyfinClient(

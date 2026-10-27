@@ -147,3 +147,13 @@ Lumy Player is built on these open-source projects:
 Lumy Player is released under the [GNU General Public License v3.0](LICENSE).
 
 Lumy Player is not affiliated with Plex Inc., the Jellyfin project or Emby. All names and trademarks belong to their respective owners.
+
+### Enter Jellyfin / Emby details with a phone
+
+Choose **Enter with phone** on the Jellyfin / Emby sign-in screen and scan the QR code with a phone on the same LAN. Enter the address, username, optional password and display name. The TV fills in its existing form; review it and choose **Connect**. Plex keeps its existing plex.tv/link authorization flow.
+
+The TV serves the page directly, without third-party resources or a relay. Each code expires after five minutes and accepts one submission. Dismissing the dialog or backgrounding the app stops the receiver. The phone-to-TV connection is local HTTP: use a trusted network. Disable phone VPNs and check guest Wi-Fi / AP isolation if the page cannot open. Disconnect unrelated interfaces if the TV has several LAN connections.
+
+### HTTPS on older Android devices
+
+On Android 5.0–7.0, the shared HTTP client supplements the system CA roots with the official ISRG Root X1. This supports valid Let's Encrypt chains on older trust stores while preserving certificate and hostname verification for API, images and playback. See [TLS compatibility](docs/tls-compatibility.md).

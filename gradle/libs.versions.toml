@@ -20,11 +20,14 @@ media3Ffmpeg = "1.8.0+1"
 assMedia = "0.5.1"
 
 [libraries]
+# ZXing 3.3.3 uses Java 7 and supports the API 21 baseline (encoding only).
+zxing-core = { module = "com.google.zxing:core", version = "3.3.3" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-tls = { module = "com.squareup.okhttp3:okhttp-tls", version.ref = "okhttp" }
 okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "okhttp" }
 coil = { module = "io.coil-kt:coil", version.ref = "coil" }
 androidx-core = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
