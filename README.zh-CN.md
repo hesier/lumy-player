@@ -157,3 +157,7 @@ Lumy Player 与 Plex Inc.、Jellyfin 项目、Emby 均无关联，相关名称�
 - 无法打开时，请确认设备在同一局域网、关闭手机 VPN，并检查路由器访客网络或 AP 隔离。连接多个网卡时可能需要断开无关网络。
 
 修改后的 APK 仍需在 Android 5.0/5.1 电视上实际验证扫码、遥控器焦点、后台关闭与登录流程。
+
+### 旧版 Android 的 HTTPS 证书兼容
+
+Android 5.0–7.0 额外内置官方 ISRG Root X1，以支持系统证书库较旧时仍有效的 Let's Encrypt 证书链。API、海报及播放器共用此配置，仍验证证书链、有效期及域名。它不能解决自签名证书、错误域名或缺失中间证书的问题；详见 [TLS 兼容说明](docs/tls-compatibility.md)。
