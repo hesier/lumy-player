@@ -57,7 +57,7 @@
     <string name="settings_theme">主题</string>
     <string name="settings_theme_detail">播放器始终使用深色</string>
     <string name="settings_ui_scale">界面大小</string>
-    <string name="settings_ui_scale_detail">不影响播放器</string>
+    <string name="settings_ui_scale_detail">字幕大小单独设置，不受影响</string>
     <string name="ui_scale_default">默认</string>
     <string name="ui_scale_percent">%1$d%%</string>
     <string name="theme_dark">深色</string>

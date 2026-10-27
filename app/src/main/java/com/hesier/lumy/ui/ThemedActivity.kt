@@ -16,9 +16,6 @@ abstract class ThemedActivity : FragmentActivity() {
     /** 播放器固定深色：看视频时浅色控件太刺眼，字幕和遮罩也是按深色设计的 */
     protected open val alwaysDark: Boolean get() = false
 
-    /** 播放器不跟随界面缩放：控制条和字幕有自己的尺寸 */
-    protected open val scalesUi: Boolean get() = true
-
     private var appliedNight = true
     private var appliedLanguage = AppLanguage.SYSTEM
     private var appliedScale = 1f
@@ -64,7 +61,8 @@ abstract class ThemedActivity : FragmentActivity() {
         }
     }
 
-    private fun wantedScale() = if (scalesUi) LumyApp.instance.settings.uiScale else 1f
+    /** 播放器也跟着缩放：控制栏和选集按 dp 布局，字幕按画面比例算大小，不受影响 */
+    private fun wantedScale() = LumyApp.instance.settings.uiScale
 
     private fun wantsNight(system: Configuration): Boolean {
         if (alwaysDark) return true

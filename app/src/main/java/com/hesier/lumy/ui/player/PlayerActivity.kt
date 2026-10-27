@@ -85,7 +85,6 @@ import kotlin.math.abs
 class PlayerActivity : ThemedActivity() {
 
     override val alwaysDark get() = true
-    override val scalesUi get() = false
 
     private lateinit var binding: ActivityPlayerBinding
     private lateinit var server: MediaServer
