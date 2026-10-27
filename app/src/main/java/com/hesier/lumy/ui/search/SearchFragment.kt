@@ -54,7 +54,8 @@ class SearchFragment : Fragment(), ItemChangeListener {
                 schedule(binding.query.text.toString(), 0)
                 hideKeyboard()
                 // 搜完把焦点移到结果上，遥控器可以直接选
-                binding.rows.post { binding.rows.requestFocus() }
+                val rows = binding.rows
+                rows.post { rows.requestFocus() }
             }
             submit
         }

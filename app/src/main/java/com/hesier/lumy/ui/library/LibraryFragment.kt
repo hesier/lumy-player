@@ -51,7 +51,8 @@ class LibraryFragment : Fragment(), ItemChangeListener {
     private val binding get() = _binding!!
     private val host get() = requireActivity() as HomeHost
 
-    private val libraryId get() = requireArguments().getString(ARG_ID)!!
+    /** 侧边栏据此判断当前是哪个媒体库 */
+    val libraryId get() = requireArguments().getString(ARG_ID)!!
     private val isMovieLibrary get() = requireArguments().getString(ARG_TYPE) == MediaType.MOVIE.name
     private lateinit var adapter: CardAdapter
     private var query = LibraryQuery()
@@ -128,7 +129,9 @@ class LibraryFragment : Fragment(), ItemChangeListener {
                 binding.filters.getChildAt(0)?.requestFocus()
             } else {
                 binding.state.hide()
-                binding.grid.post { binding.grid.getChildAt(0)?.requestFocus() }
+                // 回调里不能再取 binding：页面重建或切走时 View 可能已经销毁
+                val grid = binding.grid
+                grid.post { grid.getChildAt(0)?.requestFocus() }
             }
             loadLetters(gen)
         }
@@ -180,7 +183,8 @@ class LibraryFragment : Fragment(), ItemChangeListener {
 
     private fun jumpTo(position: Int) {
         (binding.grid.layoutManager as GridLayoutManager).scrollToPositionWithOffset(position, 0)
-        binding.grid.post { binding.grid.findViewHolderForAdapterPosition(position)?.itemView?.requestFocus() }
+        val grid = binding.grid
+        grid.post { grid.findViewHolderForAdapterPosition(position)?.itemView?.requestFocus() }
     }
 
     // ---- 筛选 ----

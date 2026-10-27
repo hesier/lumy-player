@@ -115,7 +115,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
     private fun setupSidebar() {
         setupServerSwitch()
         addNavItem(NavTarget.Search, R.drawable.ic_search, getString(R.string.nav_search))
-        addNavItem(NavTarget.Home, R.drawable.ic_home, getString(R.string.nav_home)).root.isActivated = true
+        addNavItem(NavTarget.Home, R.drawable.ic_home, getString(R.string.nav_home))
         addFooterItem(R.drawable.ic_settings, getString(R.string.nav_settings)) {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -133,7 +133,8 @@ class HomeActivity : ThemedActivity(), HomeHost {
         // 触屏点击不移动焦点，上面的焦点监听不会展开侧边栏，只能点图标
         binding.sidebarLogo.setOnClickListener { setSidebarExpanded(!sidebarExpanded) }
         lifecycleScope.launch {
-            val libraries = attempt { server.libraries() }.getOrDefault(emptyList())
+            val loaded = attempt { server.libraries() }.getOrNull()
+            val libraries = loaded ?: emptyList()
             val settings = LumyApp.instance.settings
             val hidden = settings.hiddenSidebarItems(entryId)
             sidebarSnapshot = sidebarState()
@@ -141,6 +142,9 @@ class HomeActivity : ThemedActivity(), HomeHost {
                 val icon = if (lib.type == MediaType.SHOW) R.drawable.ic_tv else R.drawable.ic_movie
                 addNavItem(NavTarget.Section(lib), icon, lib.title)
             }
+            // 在设置里隐藏了当前所在的媒体库：重建后侧边栏没有对应项，回到首页。
+            // 媒体库没加载出来时不算，免得断网时把用户踢回首页
+            if (loaded != null && navItems.none { it.binding.root.isActivated }) navigate(NavTarget.Home)
             // 有视频播放列表才显示入口
             if (Settings.PLAYLISTS_ID !in hidden && attempt { server.playlists() }.getOrDefault(emptyList()).isNotEmpty()) {
                 addFooterItem(R.drawable.ic_list, getString(R.string.nav_playlists), index = 0) {
@@ -172,11 +176,22 @@ class HomeActivity : ThemedActivity(), HomeHost {
     private fun addNavItem(target: NavTarget, icon: Int, label: String): ItemSidebarBinding {
         val item = inflateSidebarItem(binding.sidebarItems, icon, label)
         navItems += NavItem(target, item)
+        item.root.isActivated = isCurrentPage(target)
         item.root.setOnClickListener {
             collapseSidebarOnTouch()
             navigate(target)
         }
         return item
+    }
+
+    /** 换主题、缩放等重建页面后，FragmentManager 会恢复原来的内容页，侧边栏高亮要跟它一致 */
+    private fun isCurrentPage(target: NavTarget): Boolean {
+        val page = supportFragmentManager.findFragmentById(R.id.content) ?: return target == NavTarget.Home
+        return when (target) {
+            NavTarget.Search -> page is SearchFragment
+            NavTarget.Home -> page is HomeFragment
+            is NavTarget.Section -> (page as? LibraryFragment)?.libraryId == target.library.id
+        }
     }
 
     private fun addFooterItem(icon: Int, label: String, index: Int = -1, onClick: () -> Unit) {
