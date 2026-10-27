@@ -38,9 +38,8 @@ import com.hesier.lumy.ui.widget.OptionsPanel
 import com.hesier.lumy.ui.settings.SettingsActivity
 import com.hesier.lumy.ui.widget.ItemMenu
 import com.hesier.lumy.ui.widget.KeyRepeatThrottle
+import com.hesier.lumy.ui.widget.Backdrop
 import com.hesier.lumy.ui.widget.attempt
-import coil.dispose
-import coil.load
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -367,15 +366,11 @@ class HomeActivity : ThemedActivity(), HomeHost {
         backdropJob = lifecycleScope.launch {
             delay(if (ref == null) 0 else 300)
             if (ref == null) {
-                binding.backdrop.dispose()
                 binding.backdrop.setImageDrawable(null)
             } else {
                 val w = binding.backdropFrame.width.takeIf { it > 0 } ?: 1280
                 val h = binding.backdropFrame.height.takeIf { it > 0 } ?: 720
-                binding.backdrop.load(server.imageUrl(ref, w, h)) {
-                    size(w, h)
-                    crossfade(400)
-                }
+                Backdrop.showIn(binding.backdrop, server.imageUrl(ref, w, h), alpha = 0.85f)
             }
         }
     }

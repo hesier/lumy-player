@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- 背景：当前聚焦条目的剧照，左侧和底部渐隐到背景色 -->
+    <!-- 背景：当前聚焦条目的剧照，左侧和底部渐隐到背景色（和遮罩合成成一张图，见 Backdrop） -->
     <FrameLayout
         android:id="@+id/backdrop_frame"
         android:layout_width="680dp"
@@ -14,19 +14,8 @@
             android:id="@+id/backdrop"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:alpha="0.85"
             android:importantForAccessibility="no"
-            android:scaleType="centerCrop" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/scrim_left" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/scrim_bottom" />
+            android:scaleType="fitXY" />
     </FrameLayout>
 
     <FrameLayout

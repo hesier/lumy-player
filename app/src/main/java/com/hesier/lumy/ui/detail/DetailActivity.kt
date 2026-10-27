@@ -162,7 +162,7 @@ class DetailActivity : ThemedActivity() {
     /** 背景、海报：剧页面始终用剧的图，切换剧集时不跳动 */
     private fun renderStatic(d: MediaDetail) {
         val dm = resources.displayMetrics
-        d.item.backdrop?.let { lifecycleScope.launch { Backdrop.show(this@DetailActivity, server.imageUrl(it, dm.widthPixels, dm.heightPixels)) } }
+        d.item.backdrop?.let { lifecycleScope.launch { Backdrop.showAsWindowBackground(this@DetailActivity, server.imageUrl(it, dm.widthPixels, dm.heightPixels)) } }
         val lp = binding.posterFrame.layoutParams
         d.item.poster?.let { binding.poster.load(server.imageUrl(it, lp.width, lp.height)) }
     }

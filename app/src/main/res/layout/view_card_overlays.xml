@@ -26,13 +26,10 @@
         android:textSize="11sp"
         android:visibility="gone" />
 
-    <ProgressBar
+    <com.hesier.lumy.ui.widget.ProgressLine
         android:id="@+id/progress"
-        style="@android:style/Widget.ProgressBar.Horizontal"
         android:layout_width="match_parent"
         android:layout_height="4dp"
         android:layout_gravity="bottom"
-        android:max="1000"
-        android:progressDrawable="@drawable/progress_track"
         android:visibility="gone" />
 </merge>

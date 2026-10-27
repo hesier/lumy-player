@@ -5,7 +5,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SimpleItemAnimator
@@ -121,8 +120,14 @@ class CardAdapter(
         private val subtitle: TextView = view.findViewById(R.id.subtitle)
         private val corner: View = view.findViewById(R.id.unwatched_corner)
         private val badge: TextView = view.findViewById(R.id.badge)
-        private val progress: ProgressBar = view.findViewById(R.id.progress)
+        private val progress: ProgressLine = view.findViewById(R.id.progress)
         private var item: MediaItem? = null
+
+        /**
+         * 首页各行共用卡片池，卡片可能是别的行（别的 adapter）创建的：
+         * 回调和选中状态要取当前绑定的 adapter，不能用创建它的那个
+         */
+        private val owner: CardAdapter get() = bindingAdapter as? CardAdapter ?: this@CardAdapter
 
         init {
             frame.clipToRoundedBackground()
@@ -131,25 +136,28 @@ class CardAdapter(
             val baseFocus = view.onFocusChangeListener
             view.setOnFocusChangeListener { v, hasFocus ->
                 baseFocus?.onFocusChange(v, hasFocus)
-                if (hasFocus) item?.let(onFocused)
+                if (hasFocus) item?.let(owner.onFocused)
             }
-            view.setOnClickListener { item?.let(onClick) }
-            if (onLongClick != null) {
-                view.setOnLongClickListener { item?.let(onLongClick); item != null }
-                // 很多遥控器长按确认键不可靠，菜单键同样打开操作菜单
-                view.setOnKeyListener { _, keyCode, event ->
-                    if (keyCode == KeyEvent.KEYCODE_MENU && event.action == KeyEvent.ACTION_UP) {
-                        item?.let(onLongClick)
-                    }
-                    keyCode == KeyEvent.KEYCODE_MENU && item != null
+            view.setOnClickListener { item?.let(owner.onClick) }
+            view.setOnLongClickListener {
+                val longClick = owner.onLongClick ?: return@setOnLongClickListener false
+                item?.let(longClick)
+                item != null
+            }
+            // 很多遥控器长按确认键不可靠，菜单键同样打开操作菜单
+            view.setOnKeyListener { _, keyCode, event ->
+                val longClick = owner.onLongClick ?: return@setOnKeyListener false
+                if (keyCode == KeyEvent.KEYCODE_MENU && event.action == KeyEvent.ACTION_UP) {
+                    item?.let(longClick)
                 }
+                keyCode == KeyEvent.KEYCODE_MENU && item != null
             }
         }
 
         fun bind(item: MediaItem?) {
             this.item = item
             itemView.syncFocusScale(frame)
-            itemView.isSelected = item != null && item.id == selectedId
+            itemView.isSelected = item != null && item.id == owner.selectedId
             if (item == null) {
                 title.text = null
                 subtitle.text = null
@@ -182,7 +190,7 @@ class CardAdapter(
             corner.visibility =
                 if (unwatchedEpisodes == null && !item.watched && inProgress == null && item.type == MediaType.MOVIE) View.VISIBLE else View.GONE
             progress.visibility = if (inProgress != null) View.VISIBLE else View.GONE
-            progress.progress = ((inProgress ?: 0f) * 1000).toInt()
+            progress.progress = inProgress ?: 0f
         }
     }
 }
