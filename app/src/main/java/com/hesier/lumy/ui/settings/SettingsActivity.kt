@@ -352,8 +352,12 @@ class SettingsActivity : ThemedActivity() {
         lifecycleScope.launch {
             val libraries = attempt { server.libraries() }.getOrDefault(emptyList())
             val ordered = Settings.applyOrder(libraries, settings.sidebarOrder(entryId)) { it.id }
-            ReorderPanel(this@SettingsActivity, getString(R.string.settings_sidebar_order), ordered.map { it.id to it.title }) {
-                settings.setSidebarOrder(entryId, it)
+            val hidden = settings.hiddenSidebarItems(entryId)
+            val visible = ordered.filterNot { it.id in hidden }
+            ReorderPanel(this@SettingsActivity, getString(R.string.settings_sidebar_order), visible.map { it.id to it.title }) { ids ->
+                // 隐藏的库不参与排序但留在原位，显示中的库按新顺序填回原来的位置；取消隐藏后回到原处
+                val next = ids.iterator()
+                settings.setSidebarOrder(entryId, ordered.map { if (it.id in hidden) it.id else next.next() })
             }.show()
         }
     }
