@@ -36,7 +36,7 @@ class DeviceProfile(context: Context) {
     fun videoProblem(v: VideoStream): PlaybackIssue? {
         val mime = videoMime(v.codec) ?: return PlaybackIssue.UnknownVideoCodec(v.codec)
         // 杜比视界 P5 没有 HDR10 兼容层，没有杜比视界解码器时颜色会完全错误
-        if (v.hdr == HdrType.DOLBY_VISION && v.doviProfile == 5 && decoders(MimeTypes.VIDEO_DOLBY_VISION).isEmpty()) {
+        if (v.hdr == HdrType.DOLBY_VISION && v.doviProfile == 5 && !hasDolbyVisionDecoder()) {
             return PlaybackIssue.DolbyVisionProfile5
         }
         val candidates = decoders(mime)
@@ -73,6 +73,8 @@ class DeviceProfile(context: Context) {
             !transcoding && codec in EMBEDDED_SUBTITLES
         }
     }
+
+    fun hasDolbyVisionDecoder(): Boolean = decoders(MimeTypes.VIDEO_DOLBY_VISION).isNotEmpty()
 
     fun decoderSummary(mime: String): String = decoders(mime).joinToString { it.name }
 

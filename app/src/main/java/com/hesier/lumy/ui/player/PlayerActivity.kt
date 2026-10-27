@@ -348,7 +348,10 @@ class PlayerActivity : ThemedActivity() {
         request = req
         plan = p
         doviWatchJob?.cancel()
-        codecs.baseLayerOnly = doviBaseLayer || version.video?.doviProfile in settings.brokenDolbyVisionProfiles
+        val doviProfile = version.video?.doviProfile
+        // 没有杜比视界解码器时 Media3 只会把 P8 等退回 HEVC，P7 会直接初始化失败再去转码，这里提前改播基础层
+        codecs.baseLayerOnly = doviBaseLayer || doviProfile in settings.brokenDolbyVisionProfiles ||
+            (doviProfile == 7 && !device.hasDolbyVisionDecoder())
         tracksApplied = false
         timeBase = 0
         // 新的播放源准备好之前，播放器里还是旧的，位置以起播目标为准
