@@ -33,6 +33,7 @@ import com.hesier.lumy.ui.widget.OptionsPanel
 import com.hesier.lumy.ui.widget.StartAlignedLayoutManager
 import com.hesier.lumy.ui.widget.KeyRepeatThrottle
 import com.hesier.lumy.ui.widget.TextPanel
+import com.hesier.lumy.ui.widget.Backdrop
 import com.hesier.lumy.ui.widget.addActionButton
 import com.hesier.lumy.ui.widget.addBadge
 import com.hesier.lumy.ui.widget.attempt
@@ -161,7 +162,7 @@ class DetailActivity : ThemedActivity() {
     /** 背景、海报：剧页面始终用剧的图，切换剧集时不跳动 */
     private fun renderStatic(d: MediaDetail) {
         val dm = resources.displayMetrics
-        d.item.backdrop?.let { binding.backdrop.load(server.imageUrl(it, dm.widthPixels, dm.heightPixels)) }
+        d.item.backdrop?.let { lifecycleScope.launch { Backdrop.show(this@DetailActivity, server.imageUrl(it, dm.widthPixels, dm.heightPixels)) } }
         val lp = binding.posterFrame.layoutParams
         d.item.poster?.let { binding.poster.load(server.imageUrl(it, lp.width, lp.height)) }
     }

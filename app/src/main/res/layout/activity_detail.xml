@@ -3,23 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <ImageView
-        android:id="@+id/backdrop"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:alpha="0.6"
-        android:importantForAccessibility="no"
-        android:scaleType="centerCrop" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@drawable/scrim_left" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@drawable/scrim_bottom" />
+    <!-- 背景图和渐变遮罩合成后作为窗口背景，见 Backdrop -->
 
     <ScrollView
         android:id="@+id/scroll"
