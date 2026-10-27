@@ -1,4 +1,4 @@
-package com.hesier.lumy.core.pairing
+package com.hesier.lumy.net
 
 import org.junit.Assert.*
 import org.junit.Test

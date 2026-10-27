@@ -121,6 +121,7 @@ androidComponents {
 }
 
 dependencies {
+    implementation(project(":net"))
     implementation(project(":server-plex"))
     implementation(project(":server-jellyfin"))
 

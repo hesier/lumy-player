@@ -1,5 +1,7 @@
 # HTTPS on Android 5.0–7.0
 
+English | [简体中文](tls-compatibility.zh-CN.md)
+
 Android releases before 7.1.1 do not normally include ISRG Root X1. A valid Let's Encrypt chain ending at this root can therefore fail with `CertPathValidatorException: Trust anchor for certification path not found`.
 
 For API 21–24, the Android app adds the bundled official ISRG Root X1 to the system trust anchors in its shared OkHttp client. The platform still performs certificate path validation and OkHttp still verifies the hostname. Existing system roots remain available. This covers Plex / Jellyfin / Emby API requests, Coil image requests and the Media3 OkHttp data source. API 25+ keeps its normal platform trust configuration.
@@ -17,6 +19,6 @@ Review the official root program guidance when updating this resource. Do not su
 
 ## Validation
 
-`TlsTrustTest` uses local TLS servers and a simulated old trust store. It verifies additional CA support through an intermediate, retained existing CAs, and rejection of an unknown self-signed leaf, wrong hostname, expired leaf and missing intermediate. It also rejects adding a leaf as a CA root.
+`TlsTrustTest` (in the `net` module) uses local TLS servers and a simulated old trust store. It verifies additional CA support through an intermediate, retained existing CAs, and rejection of an unknown self-signed leaf, wrong hostname, expired leaf and missing intermediate. It also rejects adding a leaf as a CA root.
 
-A debug build and an Android 5.1.1 device check are needed to validate the actual device provider and server negotiation. JVM tests do not emulate Android's TLS provider.
+JVM tests do not emulate Android's TLS provider, so the fix was also checked on a Hisense VIDAA TV (Android 5.1.1 / API 22): an Emby server with a Let's Encrypt certificate failed with the error above before the fix, and signs in and plays after it.

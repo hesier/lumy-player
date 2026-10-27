@@ -2,7 +2,14 @@
 
 [English](CHANGELOG.md) | 简体中文
 
-每个版本在这里和英文更新日志里各有一节 `## <versionName> - <日期>`。发布工作流会把这两节合起来作为 GitHub Release 的说明，打 tag 前要先写好。
+每个版本在这里和英文更新日志里各有一节 `## <versionName> - <日期>`。发布工作流会把这两节合起来作为 GitHub Release 的说明，打 tag 前要先写好。还没发布的改动写在 `## Unreleased` 下，改 `versionName` 时把它改成新版本号。
+
+## Unreleased
+
+### 登录
+
+- Jellyfin / Emby 可以用手机填写登录信息：在登录页扫码，电视会自动填好表单（感谢 @zhiyxn）
+- Android 5.0–7.0 的系统证书库缺少 ISRG Root X1，现在也能连接使用 Let's Encrypt 证书的 HTTPS 服务器（感谢 @zhiyxn）
 
 ## 0.2.0 - 2026-10-28
 

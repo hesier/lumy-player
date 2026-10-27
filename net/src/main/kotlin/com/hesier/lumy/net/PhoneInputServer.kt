@@ -1,4 +1,4 @@
-package com.hesier.lumy.core.pairing
+package com.hesier.lumy.net
 
 import java.io.Closeable
 import java.io.InputStream

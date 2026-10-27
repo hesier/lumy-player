@@ -15,7 +15,8 @@
 
 - **登录与服务器**
   - Plex：plex.tv PIN 码登录，自动发现账号下的服务器并探测可用地址（局域网 / 远程 / 中继），连不上时自动重连
-  - Jellyfin / Emby：输入服务器地址、用户名和密码登录（只填 IP 时默认 http 和端口 8096）
+  - Jellyfin / Emby：输入服务器地址、用户名和密码登录（只填 IP 时默认 http 和端口 8096），也可以扫码在手机上填写
+  - Android 5.0–7.0 的系统证书库较旧，也能连接使用 Let's Encrypt 证书的 HTTPS 服务器（见 [TLS 兼容说明](docs/tls-compatibility.zh-CN.md)）
   - 可以添加多台服务器（同一台服务器也可以添加多次），在侧边栏顶部切换，在设置里重命名、删除
 - **浏览**：首页推荐行（继续观看、最近添加等）、媒体库网格（筛选、排序、首字母索引）、搜索、合集、播放列表、演员作品、更多类似
 - **详情页**：影片 / 剧集 / 季 / 集，多版本选择，标记已看 / 未看
@@ -62,10 +63,13 @@
 - 不支持 Plex Home 切换用户和 Jellyfin Quick Connect，请直接登录要使用的账号
 - 杜比视界 Profile 5 需要设备有杜比视界解码器，否则需要服务器转码（详见[播放与解码支持](docs/playback.zh-CN.md#杜比视界)）
 - 只支持 ARM 设备（`armeabi-v7a` / `arm64-v8a`）
+- 手机扫码输入要求手机和电视在同一局域网。打不开网页时，请关闭手机 VPN，检查路由器的访客网络或 AP 隔离；电视连着多个网络时，断开用不到的那个
 
 ## 隐私
 
 Lumy Player 不包含任何统计或追踪，只连接你添加的服务器，以及 Plex 登录和发现服务器时用到的 plex.tv。
+
+手机扫码输入的网页由电视自己提供，不经过中转，也不加载第三方资源。每个二维码五分钟内有效、只接受一次提交，关闭窗口或应用切到后台就立即停止接收。手机通过局域网 HTTP 明文把信息发到电视，请只在可信的网络里使用。
 
 ## 开发环境
 
@@ -100,10 +104,10 @@ keyPassword=...
 
 `storeFile` 相对于 `.local/`。也可以用环境变量 `LUMY_KEYSTORE_FILE`、`LUMY_KEYSTORE_PASSWORD`、`LUMY_KEY_ALIAS`、`LUMY_KEY_PASSWORD` 提供（方便 CI，`LUMY_KEYSTORE_FILE` 相对于项目根目录）。两者都没有时 release 包退回 debug 签名，只适合侧载测试，不能用于发布。
 
-运行单元测试（core 和服务器模块，纯 JVM）：
+运行单元测试（core、net 和服务器模块，纯 JVM）：
 
 ```bash
-./gradlew :core:test :server-plex:test :server-jellyfin:test
+./gradlew :core:test :net:test :server-plex:test :server-jellyfin:test
 ```
 
 ### 发布版本
@@ -121,6 +125,7 @@ keyPassword=...
 
 ```
 core/          纯 Kotlin：媒体模型和 MediaServer 接口，与具体服务器无关
+net/           纯 Kotlin：手机扫码输入的局域网接收服务、旧版 Android 补充的 TLS 根证书
 server-plex/   纯 Kotlin：Plex 账号、服务器发现、连接探测和 API 实现（OkHttp + kotlinx.serialization）
 server-jellyfin/ 纯 Kotlin：Jellyfin 和 Emby 的登录与 API 实现（两者接口同源，按 ServerKind 区分认证头）
 app/           Android 应用：界面（View + RecyclerView，无 Leanback/Compose）和播放器
@@ -140,24 +145,10 @@ Lumy Player 基于以下开源项目：
 - [jellyfin-androidx-media](https://github.com/jellyfin/jellyfin-androidx-media)：预编译的 Media3 FFmpeg 音频解码扩展（GPL-3.0），内含 [FFmpeg](https://ffmpeg.org)
 - [libass-android / ass-media](https://github.com/peerless2012/libass-android)：Media3 的 ASS / SSA 字幕渲染（MIT），基于 [libass](https://github.com/libass/libass)（ISC）
 - [OkHttp](https://github.com/square/okhttp)、[kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)、[kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) 和 [Coil](https://github.com/coil-kt/coil)（Apache-2.0）
+- [ZXing](https://github.com/zxing/zxing)：二维码生成（Apache-2.0）
 
 ## 许可证
 
 本项目以 [GNU General Public License v3.0](LICENSE) 发布。
 
 Lumy Player 与 Plex Inc.、Jellyfin 项目、Emby 均无关联，相关名称和商标归各自所有者。
-
-### 手机扫码输入 Jellyfin / Emby 服务信息
-
-在添加 Jellyfin 或 Emby 的登录页面选择「手机扫码输入」，用同一局域网的手机扫描二维码，在浏览器填写服务器地址、用户名、密码及备注。发送后信息会回填到电视，检查后按「连接」登录。密码可以留空；地址支持端口及反向代理路径。Plex 仍使用原有 plex.tv/link 授权流程。
-
-- 无需额外部署，网页由电视临时提供，不加载第三方资源，也不保存手机填写内容。
-- 每次二维码五分钟内有效，仅接受一次提交；关闭窗口或应用切到后台立即停止接收。重新打开会生成新二维码。
-- 手机与电视之间使用局域网 HTTP，请仅在可信网络操作；不会将账号信息发送到公共中转服务。
-- 无法打开时，请确认设备在同一局域网、关闭手机 VPN，并检查路由器访客网络或 AP 隔离。连接多个网卡时可能需要断开无关网络。
-
-修改后的 APK 仍需在 Android 5.0/5.1 电视上实际验证扫码、遥控器焦点、后台关闭与登录流程。
-
-### 旧版 Android 的 HTTPS 证书兼容
-
-Android 5.0–7.0 额外内置官方 ISRG Root X1，以支持系统证书库较旧时仍有效的 Let's Encrypt 证书链。API、海报及播放器共用此配置，仍验证证书链、有效期及域名。它不能解决自签名证书、错误域名或缺失中间证书的问题；详见 [TLS 兼容说明](docs/tls-compatibility.md)。

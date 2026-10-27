@@ -15,7 +15,8 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
 
 - **Sign-in and servers**
   - Plex: sign in with a plex.tv PIN, discover the servers on your account, and probe for a reachable address (local / remote / relay), reconnecting automatically when the connection drops
-  - Jellyfin / Emby: sign in with server address, username and password (a bare IP defaults to http and port 8096)
+  - Jellyfin / Emby: sign in with server address, username and password (a bare IP defaults to http and port 8096), or scan a QR code and type them on your phone
+  - HTTPS servers with Let's Encrypt certificates also work on Android 5.0–7.0, whose built-in trust store is too old (see [TLS compatibility](docs/tls-compatibility.md))
   - Add multiple servers (even the same server more than once), switch between them at the top of the sidebar, and rename or remove them in Settings
 - **Browsing**: home hubs (Continue Watching, Recently Added, …), library grids with filters, sorting and an A–Z index, search, collections, playlists, cast filmographies and "More Like This"
 - **Details**: movies, shows, seasons and episodes, version selection, mark as watched / unwatched
@@ -63,10 +64,13 @@ APKs you build yourself are signed with a different key, so they cannot be insta
 - Plex Home user switching and Jellyfin Quick Connect are not supported; sign in with the account you want to use
 - Dolby Vision Profile 5 needs a device with a Dolby Vision decoder; otherwise the server has to transcode it (details in [Playback and Decoding](docs/playback.md#dolby-vision))
 - ARM devices only (`armeabi-v7a` / `arm64-v8a`)
+- Phone input needs the phone and TV on the same LAN. If the page does not open, turn off the phone's VPN and check guest Wi-Fi / AP isolation; on a TV with several network connections, disconnect the unused ones
 
 ## Privacy
 
 Lumy Player has no analytics or tracking. It only connects to the servers you add, plus plex.tv for Plex sign-in and server discovery.
+
+Phone input is served by the TV itself, with no relay or third-party resources. Each QR code is valid for five minutes and accepts one submission, and the TV stops listening as soon as the dialog closes or the app goes to the background. The phone sends the details to the TV over plain local HTTP, so use it only on a network you trust.
 
 ## Development requirements
 
@@ -101,10 +105,10 @@ keyPassword=...
 
 `storeFile` is relative to `.local/`. The same values can also come from the environment variables `LUMY_KEYSTORE_FILE`, `LUMY_KEYSTORE_PASSWORD`, `LUMY_KEY_ALIAS` and `LUMY_KEY_PASSWORD` (useful in CI; `LUMY_KEYSTORE_FILE` is relative to the project root). Without either, the release build falls back to the debug key, which is fine for sideloading but not for distribution.
 
-Run the unit tests (core and server modules, plain JVM):
+Run the unit tests (core, net and server modules, plain JVM):
 
 ```bash
-./gradlew :core:test :server-plex:test :server-jellyfin:test
+./gradlew :core:test :net:test :server-plex:test :server-jellyfin:test
 ```
 
 ### Publishing a release
@@ -122,6 +126,7 @@ Pushing a tag `v<versionName>` (e.g. `v0.1.0`) runs [release.yml](.github/workfl
 
 ```
 core/            Plain Kotlin: media models and the MediaServer interface, independent of any server
+net/             Plain Kotlin: the LAN receiver for phone input and the extra TLS trust roots for older Android
 server-plex/     Plain Kotlin: Plex account, server discovery, connection probing and API (OkHttp + kotlinx.serialization)
 server-jellyfin/ Plain Kotlin: Jellyfin and Emby sign-in and API (same API family, auth headers chosen by ServerKind)
 app/             Android app: UI (View + RecyclerView, no Leanback / Compose) and the player
@@ -141,19 +146,10 @@ Lumy Player is built on these open-source projects:
 - [jellyfin-androidx-media](https://github.com/jellyfin/jellyfin-androidx-media) — prebuilt Media3 FFmpeg audio decoder extension (GPL-3.0), which bundles [FFmpeg](https://ffmpeg.org)
 - [libass-android / ass-media](https://github.com/peerless2012/libass-android) — ASS / SSA subtitle rendering for Media3 (MIT), built on [libass](https://github.com/libass/libass) (ISC)
 - [OkHttp](https://github.com/square/okhttp), [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization), [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) and [Coil](https://github.com/coil-kt/coil) (Apache-2.0)
+- [ZXing](https://github.com/zxing/zxing) — QR code generation (Apache-2.0)
 
 ## License
 
 Lumy Player is released under the [GNU General Public License v3.0](LICENSE).
 
 Lumy Player is not affiliated with Plex Inc., the Jellyfin project or Emby. All names and trademarks belong to their respective owners.
-
-### Enter Jellyfin / Emby details with a phone
-
-Choose **Enter with phone** on the Jellyfin / Emby sign-in screen and scan the QR code with a phone on the same LAN. Enter the address, username, optional password and display name. The TV fills in its existing form; review it and choose **Connect**. Plex keeps its existing plex.tv/link authorization flow.
-
-The TV serves the page directly, without third-party resources or a relay. Each code expires after five minutes and accepts one submission. Dismissing the dialog or backgrounding the app stops the receiver. The phone-to-TV connection is local HTTP: use a trusted network. Disable phone VPNs and check guest Wi-Fi / AP isolation if the page cannot open. Disconnect unrelated interfaces if the TV has several LAN connections.
-
-### HTTPS on older Android devices
-
-On Android 5.0–7.0, the shared HTTP client supplements the system CA roots with the official ISRG Root X1. This supports valid Let's Encrypt chains on older trust stores while preserving certificate and hostname verification for API, images and playback. See [TLS compatibility](docs/tls-compatibility.md).

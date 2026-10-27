@@ -1,4 +1,4 @@
-package com.hesier.lumy.core.security
+package com.hesier.lumy.net
 
 import okhttp3.OkHttpClient
 import okhttp3.Request

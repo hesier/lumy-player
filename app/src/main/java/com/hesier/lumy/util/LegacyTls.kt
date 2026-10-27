@@ -3,7 +3,7 @@ package com.hesier.lumy.util
 import android.content.Context
 import android.os.Build
 import com.hesier.lumy.R
-import com.hesier.lumy.core.security.TlsTrust
+import com.hesier.lumy.net.TlsTrust
 import okhttp3.OkHttpClient
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate

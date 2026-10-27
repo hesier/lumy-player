@@ -11,7 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.hesier.lumy.R
-import com.hesier.lumy.core.pairing.PhoneInputServer
+import com.hesier.lumy.net.PhoneInputServer
 import com.hesier.lumy.databinding.ViewPhoneInputPanelBinding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

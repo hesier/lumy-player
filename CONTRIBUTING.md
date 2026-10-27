@@ -20,7 +20,7 @@ Please include:
 See [README](README.md#build-and-install) for requirements. Before opening a pull request:
 
 ```bash
-./gradlew :core:test :server-plex:test :server-jellyfin:test
+./gradlew :core:test :net:test :server-plex:test :server-jellyfin:test
 ./gradlew :app:assembleDebug
 ```
 
@@ -35,6 +35,7 @@ On devices with logcat disabled (e.g. XGIMI projectors), debug builds also write
 ## Architecture
 
 - `core` is plain JVM: the `MediaServer` interface and media models. It must not depend on Android or on any specific server.
+- `net` is plain JVM: networking that is not tied to a media server (the LAN receiver for phone input, extra TLS trust roots). It must not depend on Android.
 - `server-plex` and `server-jellyfin` (shared by Jellyfin and Emby) implement `MediaServer`. They are plain JVM and tested with MockWebServer.
 - `app` talks to servers **only** through `MediaServer`. When the UI needs a new capability, add it to the interface in `core` first, then implement it in each server module. Do not call server-specific APIs from `app`.
 - For Jellyfin / Emby, prefer endpoints that exist in both and across versions; fall back on 404 where Jellyfin 10.9 moved things.

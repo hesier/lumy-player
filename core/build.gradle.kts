@@ -17,7 +17,4 @@ dependencies {
     implementation(libs.coroutines.core)
 
     testImplementation(libs.junit)
-    testImplementation(libs.okhttp)
-    testImplementation(libs.okhttp.tls)
-    testImplementation(libs.okhttp.mockwebserver)
 }
