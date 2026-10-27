@@ -28,6 +28,7 @@ class DirectLoginActivity : ThemedActivity() {
     private lateinit var binding: ActivityDirectLoginBinding
     private val app get() = LumyApp.instance
     private var busy = false
+    private var phoneInput: PhoneInputPanel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,7 +41,23 @@ class DirectLoginActivity : ThemedActivity() {
             false
         }
         binding.connect.setOnClickListener { connect() }
+        binding.phoneInput.setOnClickListener {
+            if (busy || phoneInput?.isShowing == true) return@setOnClickListener
+            phoneInput = PhoneInputPanel(this) { input ->
+                binding.address.setText(input.address)
+                binding.username.setText(input.username)
+                binding.password.setText(input.password)
+                binding.name.setText(input.name)
+                showStatus(getString(R.string.phone_input_received), binding.connect)
+            }.also { it.show() }
+        }
         binding.address.requestFocus()
+    }
+
+    override fun onStop() {
+        phoneInput?.dismiss()
+        phoneInput = null
+        super.onStop()
     }
 
     private fun connect() {
