@@ -109,7 +109,7 @@ Run the unit tests (core and server modules, plain JVM):
 
 ### Publishing a release
 
-Pushing a tag `v<versionName>` (e.g. `v0.1.0`) runs [release.yml](.github/workflows/release.yml), which builds a signed APK and attaches it to a GitHub release. It needs these repository secrets:
+Pushing a tag `v<versionName>` (e.g. `v0.1.0`) runs [release.yml](.github/workflows/release.yml), which builds a signed APK and attaches it to a GitHub release. The release notes come from that version's section in [CHANGELOG.md](CHANGELOG.md) and [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md), and the workflow fails if either is missing. It needs these repository secrets:
 
 | Secret | Value |
 |---|---|
