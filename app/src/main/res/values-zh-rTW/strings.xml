@@ -56,6 +56,10 @@
     <string name="settings_language">語言</string>
     <string name="settings_theme">主題</string>
     <string name="settings_theme_detail">播放器一律使用深色</string>
+    <string name="settings_ui_scale">介面大小</string>
+    <string name="settings_ui_scale_detail">不影響播放器</string>
+    <string name="ui_scale_default">預設</string>
+    <string name="ui_scale_percent">%1$d%%</string>
     <string name="theme_dark">深色</string>
     <string name="theme_light">淺色</string>
     <string name="theme_system">跟隨系統</string>

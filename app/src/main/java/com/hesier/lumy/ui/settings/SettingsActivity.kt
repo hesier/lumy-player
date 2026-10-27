@@ -12,6 +12,7 @@ import androidx.core.view.children
 import androidx.lifecycle.lifecycleScope
 import com.hesier.lumy.ui.widget.attempt
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.hesier.lumy.core.TrackLanguage
@@ -151,6 +152,15 @@ class SettingsActivity : ThemedActivity() {
                     if (modes[it] == settings.theme) return@OptionsPanel
                     settings.theme = modes[it]
                     // 当前页面立即重建；返回栈里的页面回到前台时由 ThemedActivity 重建
+                    recreate()
+                }.show()
+            },
+            Row(getString(R.string.settings_ui_scale), uiScaleLabel(settings.uiScale), getString(R.string.settings_ui_scale_detail)) {
+                val scales = Settings.UI_SCALES
+                OptionsPanel(this, getString(R.string.settings_ui_scale), scales.map { Option(uiScaleLabel(it), selected = it == settings.uiScale) }) {
+                    if (scales[it] == settings.uiScale) return@OptionsPanel
+                    settings.uiScale = scales[it]
+                    // 和换主题一样：当前页面立即重建，返回栈里的页面回到前台时重建
                     recreate()
                 }.show()
             },
@@ -372,6 +382,9 @@ class SettingsActivity : ThemedActivity() {
             AppLanguage.TRADITIONAL_CHINESE -> R.string.language_zh_hant
         },
     )
+
+    private fun uiScaleLabel(scale: Float) =
+        if (scale == 1f) getString(R.string.ui_scale_default) else getString(R.string.ui_scale_percent, (scale * 100).roundToInt())
 
     private fun themeLabel(mode: ThemeMode) = getString(
         when (mode) {
