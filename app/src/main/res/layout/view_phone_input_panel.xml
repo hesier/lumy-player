@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@drawable/panel_bg"
     android:padding="32dp"
     android:gravity="center"
     android:orientation="horizontal">
@@ -31,6 +32,8 @@
         <TextView
             android:id="@+id/status"
             style="@style/Text.Caption"
+            android:maxLines="3"
+            android:ellipsize="none"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp" />
