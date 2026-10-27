@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- debug 包和正式版共存，桌面上区分开 -->
+<resources>
+    <string name="app_name" translatable="false">Lumy Debug</string>
+</resources>

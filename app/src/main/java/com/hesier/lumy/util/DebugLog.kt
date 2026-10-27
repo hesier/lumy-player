@@ -10,7 +10,7 @@ import java.util.Locale
 
 /**
  * 有些电视盒子/投影仪（如极米）关闭了系统日志，logcat 读不到任何东西。
- * debug 包同时写一份到应用私有目录，用 `adb shell run-as com.hesier.lumy cat files/debug.log` 查看。
+ * debug 包同时写一份到应用私有目录，用 `adb shell run-as com.hesier.lumy.debug cat files/debug.log` 查看。
  */
 object DebugLog {
     private var file: File? = null

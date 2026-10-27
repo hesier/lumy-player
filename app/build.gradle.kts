@@ -62,6 +62,10 @@ android {
     }
 
     buildTypes {
+        // debug 用单独的包名，和正式版共存：测试包不影响日常使用的数据，正式版签名也只用于正式版
+        debug {
+            applicationIdSuffix = ".debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
