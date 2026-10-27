@@ -286,4 +286,15 @@
     <plurals name="unwatched_episodes">
         <item quantity="other">%1$d 集未看</item>
     </plurals>
+
+    <!-- Phone input -->
+    <string name="phone_input_title">手機掃碼輸入</string>
+    <string name="phone_input_hint">手機與電視連上同一區域網路後掃碼，五分鐘內有效，僅可傳送一次。區域網路連線使用 HTTP，請在可信任的網路操作。無法開啟時請關閉手機 VPN，或檢查路由器的裝置隔離設定。</string>
+    <string name="phone_input_web_hint">填寫 Jellyfin / Emby 伺服器資訊，傳送後請在電視上確認連線。資訊透過區域網路 HTTP 直接傳送到電視，請在可信任的網路操作。</string>
+    <string name="phone_input_send">傳送到電視</string>
+    <string name="phone_input_sent">已傳送，請在電視上選擇「連線」完成登入。</string>
+    <string name="phone_input_received">已收到手機輸入，請檢查資訊後選擇「連線」。</string>
+    <string name="phone_input_web_error">傳送失敗，請檢查位址與使用者名稱。若電視視窗已關閉或 QR Code 過期，請重新掃碼；若電視已顯示填寫內容，請直接在電視確認。</string>
+    <string name="phone_input_expired">QR Code 已失效，請關閉此視窗後重新開啟。</string>
+    <string name="phone_input_unavailable">無法啟動手機輸入，請檢查電視的區域網路連線後重新開啟。</string>
 </resources>

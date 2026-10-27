@@ -286,4 +286,15 @@
     <plurals name="unwatched_episodes">
         <item quantity="other">%1$d 集未看</item>
     </plurals>
+
+    <!-- Phone input -->
+    <string name="phone_input_title">手机扫码输入</string>
+    <string name="phone_input_hint">手机与电视连接同一局域网后扫码，五分钟内有效，仅可提交一次。局域网连接使用 HTTP，请在可信网络操作。无法打开时请关闭手机 VPN，或检查路由器的设备隔离设置。</string>
+    <string name="phone_input_web_hint">填写 Jellyfin / Emby 服务信息，发送后请在电视上确认连接。信息通过局域网 HTTP 直接发送到电视，请在可信网络操作。</string>
+    <string name="phone_input_send">发送到电视</string>
+    <string name="phone_input_sent">已发送，请在电视上选择“连接”完成登录。</string>
+    <string name="phone_input_received">已收到手机输入，请检查信息后选择“连接”。</string>
+    <string name="phone_input_web_error">发送失败，请检查地址和用户名。若电视窗口已关闭或二维码过期，请重新扫码；若电视已显示填写内容，请直接在电视确认。</string>
+    <string name="phone_input_expired">二维码已失效，请关闭此窗口后重新打开。</string>
+    <string name="phone_input_unavailable">无法启动手机输入，请检查电视的局域网连接后重新打开。</string>
 </resources>

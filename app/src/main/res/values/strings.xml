@@ -302,4 +302,15 @@
         <item quantity="one">%1$d unwatched</item>
         <item quantity="other">%1$d unwatched</item>
     </plurals>
+
+    <!-- Phone input -->
+    <string name="phone_input_title">Enter with phone</string>
+    <string name="phone_input_hint">Scan with your phone on the same LAN. Valid for 5 minutes, once only. Use a trusted network: this local connection uses HTTP. If it cannot open, turn off the phone VPN or check Wi-Fi client isolation.</string>
+    <string name="phone_input_web_hint">Enter your Jellyfin / Emby server details, then confirm Connect on your TV. Details are sent directly to your TV over local HTTP. Use a trusted network.</string>
+    <string name="phone_input_send">Send to TV</string>
+    <string name="phone_input_sent">Sent. Select Connect on your TV to sign in.</string>
+    <string name="phone_input_received">Received from phone. Check the details and select Connect.</string>
+    <string name="phone_input_web_error">Could not send. Check the address and username. If the TV dialog was closed or the code expired, scan a new code. If it already shows your details, confirm on the TV.</string>
+    <string name="phone_input_expired">Code expired. Close this dialog and open it again for a new code.</string>
+    <string name="phone_input_unavailable">Cannot start phone input. Check the TV LAN connection, then reopen this dialog.</string>
 </resources>
