@@ -922,14 +922,7 @@ class PlayerActivity : ThemedActivity() {
         showHint(if (total < 0) "‹ -$amount" else "+$amount ›")
     }
 
-    private fun formatSkip(ms: Long): String {
-        val sec = (ms / 1000).toInt()
-        return when {
-            sec < 60 -> getString(R.string.skip_seconds, sec)
-            sec % 60 == 0 -> getString(R.string.skip_minutes, sec / 60)
-            else -> getString(R.string.skip_minutes_seconds, sec / 60, sec % 60)
-        }
-    }
+    private fun formatSkip(ms: Long): String = getString(R.string.skip_seconds, (ms / 1000).toInt())
 
     private fun showHint(text: String) {
         binding.hint.text = text

@@ -239,8 +239,6 @@
     <string name="player_network_error">无法连接服务器，请检查网络</string>
     <string name="no_playable_file">没有可播放的文件</string>
     <string name="skip_seconds">%1$d 秒</string>
-    <string name="skip_minutes">%1$d 分钟</string>
-    <string name="skip_minutes_seconds">%1$d 分 %2$d 秒</string>
 
     <string name="issue_video_decode_failed">本机视频解码失败</string>
     <string name="issue_direct_play_failed">直接播放失败</string>

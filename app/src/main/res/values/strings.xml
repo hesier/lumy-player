@@ -252,8 +252,6 @@
     <string name="player_network_error">Can\'t reach the server. Check your network</string>
     <string name="no_playable_file">No playable file</string>
     <string name="skip_seconds">%1$d s</string>
-    <string name="skip_minutes">%1$d min</string>
-    <string name="skip_minutes_seconds">%1$d min %2$d s</string>
 
     <string name="issue_video_decode_failed">Video decoding failed on this device</string>
     <string name="issue_direct_play_failed">Direct Play failed</string>
