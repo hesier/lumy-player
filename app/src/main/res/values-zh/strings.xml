@@ -3,7 +3,8 @@
 <resources>
     <string name="login_title">登录 Plex 账号</string>
     <string name="login_step1">在手机或电脑上打开</string>
-    <string name="login_step2">登录后输入下面的代码</string>
+    <string name="login_step2">或者登录后输入下面的代码</string>
+    <string name="login_scan">用手机扫码登录</string>
     <string name="login_waiting">正在等待授权…</string>
     <string name="login_refresh">换一个代码</string>
     <string name="login_error">无法连接 plex.tv：%1$s</string>

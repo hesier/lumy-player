@@ -16,7 +16,8 @@
 
     <string name="login_title">Sign in to Plex</string>
     <string name="login_step1">On your phone or computer, open</string>
-    <string name="login_step2">Sign in and enter this code</string>
+    <string name="login_step2">Or sign in and enter this code</string>
+    <string name="login_scan">Scan with your phone to sign in</string>
     <string name="login_waiting">Waiting for authorization…</string>
     <string name="login_refresh">Get a new code</string>
     <string name="login_error">Can\'t reach plex.tv: %1$s</string>

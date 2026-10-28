@@ -19,7 +19,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * PIN 登录：TV 上不输密码，用户在手机上打开 plex.tv/link 输入屏幕上的代码。
+ * PIN 登录：TV 上不输密码，用户用手机扫码直接授权，或打开 plex.tv/link 输入屏幕上的代码。
  * 只在页面可见时轮询，代码过期后自动换新的。
  */
 class LoginActivity : ThemedActivity() {
@@ -58,6 +58,7 @@ class LoginActivity : ThemedActivity() {
                 return@launch
             }
             showCode(pin.code)
+            binding.qr.setImageBitmap(qrBitmap(app.plexAccount.linkUrl(pin)))
             val deadline = SystemClock.elapsedRealtime() + (pin.expiresIn ?: DEFAULT_EXPIRY_SEC) * 1000L
             while (SystemClock.elapsedRealtime() < deadline) {
                 delay(POLL_MS)
@@ -76,6 +77,9 @@ class LoginActivity : ThemedActivity() {
         binding.code.text = code.orEmpty()
         binding.code.visibility = if (code == null) View.INVISIBLE else View.VISIBLE
         binding.codeProgress.visibility = if (code == null) View.VISIBLE else View.GONE
+        // 二维码和代码绑定，换码时先清掉旧的；没码时隐藏，免得显示一块空白
+        if (code == null) binding.qr.setImageDrawable(null)
+        binding.qr.visibility = if (code == null) View.INVISIBLE else View.VISIBLE
     }
 
     private fun onAuthorized(token: String) {

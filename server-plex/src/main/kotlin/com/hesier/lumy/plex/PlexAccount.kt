@@ -12,6 +12,12 @@ class PlexAccount(private val client: PlexClient) {
             .build(),
     )
 
+    /**
+     * 手机扫码打开的地址：plex.tv/link 会自动填好代码，已登录时点一下 Link 即可。
+     * 和 PIN 响应里 qr 图片的内容一致。不用 app.plex.tv/auth，它只认 strong=true 的长码。
+     */
+    fun linkUrl(pin: PlexPin): String = "https://www.plex.tv/link/?pin=${pin.code}"
+
     /** 用户在手机上完成授权后，返回的 [PlexPin.authToken] 不再为空 */
     suspend fun checkPin(id: Long): PlexPin =
         client.fetch(client.request("$PLEX_TV/api/v2/pins/$id", token = null).build())

@@ -48,21 +48,14 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="@string/login_step2" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:gravity="center_horizontal"
-        android:orientation="vertical">
 
         <FrameLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:background="@drawable/card_placeholder"
-            android:minWidth="320dp"
-            android:minHeight="140dp"
+            android:minWidth="280dp"
+            android:minHeight="110dp"
             android:paddingStart="40dp"
             android:paddingEnd="40dp">
 
@@ -74,7 +67,7 @@
                 android:fontFamily="monospace"
                 android:letterSpacing="0.35"
                 android:textColor="@color/text_primary"
-                android:textSize="64sp"
+                android:textSize="52sp"
                 android:textStyle="bold" />
 
             <ProgressBar
@@ -84,13 +77,36 @@
                 android:layout_gravity="center"
                 android:indeterminateTint="@color/accent" />
         </FrameLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <ImageView
+            android:id="@+id/qr"
+            android:layout_width="240dp"
+            android:layout_height="240dp"
+            android:background="#FFFFFF"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            style="@style/Text.Body"
+            android:layout_width="320dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:text="@string/login_scan" />
 
         <TextView
             android:id="@+id/status"
             style="@style/Text.Body"
             android:layout_width="320dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="12dp"
             android:gravity="center"
             android:text="@string/login_waiting" />
 

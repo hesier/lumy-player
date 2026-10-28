@@ -3,7 +3,8 @@
 <resources>
     <string name="login_title">登入 Plex 帳號</string>
     <string name="login_step1">在手機或電腦上開啟</string>
-    <string name="login_step2">登入後輸入下面的代碼</string>
+    <string name="login_step2">或是登入後輸入下面的代碼</string>
+    <string name="login_scan">用手機掃描 QR 碼登入</string>
     <string name="login_waiting">正在等待授權…</string>
     <string name="login_refresh">換一個代碼</string>
     <string name="login_error">無法連線至 plex.tv：%1$s</string>

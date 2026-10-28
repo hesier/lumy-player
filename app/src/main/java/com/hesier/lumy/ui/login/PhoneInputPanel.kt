@@ -1,15 +1,11 @@
 package com.hesier.lumy.ui.login
 
 import android.app.Dialog
-import android.graphics.Bitmap
-import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.WindowManager
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
 import com.hesier.lumy.R
 import com.hesier.lumy.net.PhoneInputServer
 import com.hesier.lumy.databinding.ViewPhoneInputPanelBinding
@@ -59,10 +55,7 @@ internal class PhoneInputPanel(
                 }
             })
             server = receiver
-            val size = 660
-            val matrix = QRCodeWriter().encode(receiver.url, BarcodeFormat.QR_CODE, size, size)
-            val pixels = IntArray(size * size) { i -> if (matrix[i % size, i / size]) Color.BLACK else Color.WHITE }
-            b.qr.setImageBitmap(Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888))
+            b.qr.setImageBitmap(qrBitmap(receiver.url))
             b.status.text = receiver.url
             expiry = activity.lifecycleScope.launch {
                 while (receiver.isRunning) delay(500)
