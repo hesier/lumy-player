@@ -1,9 +1,12 @@
 name: CI
 
+# main 只接收 dev 的快进合并和已通过 CI 的 PR，不再重复跑；发布由 release.yml 自己测试和构建
 on:
   push:
-    branches: ["**"]
+    branches: [dev]
+    paths-ignore: ["**.md", "docs/**"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**"]
 
 concurrency:
   group: ci-${{ github.ref }}

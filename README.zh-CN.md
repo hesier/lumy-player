@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-[![CI](https://github.com/hesier/lumy-player/actions/workflows/ci.yml/badge.svg)](https://github.com/hesier/lumy-player/actions/workflows/ci.yml)
+[![CI](https://github.com/hesier/lumy-player/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/hesier/lumy-player/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/hesier/lumy-player)](https://github.com/hesier/lumy-player/releases/latest)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 ![Android 5.0+](https://img.shields.io/badge/Android-5.0%2B-3DDC84?logo=android&logoColor=white)
@@ -112,7 +112,7 @@ keyPassword=...
 
 ### 发布版本
 
-推送 `v<versionName>` 格式的 tag（如 `v0.1.0`）会触发 [release.yml](.github/workflows/release.yml)，构建签名好的 APK 并上传到 GitHub Release。发布说明取自 [CHANGELOG.md](CHANGELOG.md) 和 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md) 里对应版本的那一节，任意一份缺少都会失败。需要在仓库里配置这些 secrets：
+推送 `v<versionName>` 格式的 tag（如 `v0.1.0`）会触发 [release.yml](.github/workflows/release.yml)，构建签名好的 APK 并上传到 GitHub Release。发布说明取自 [CHANGELOG.md](CHANGELOG.md) 和 [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md) 里对应版本的那一节，任意一份缺少都会失败。打 tag 的提交必须已经合并进 `main`。需要在仓库里配置这些 secrets：
 
 | Secret | 值 |
 |---|---|

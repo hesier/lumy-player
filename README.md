@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-[![CI](https://github.com/hesier/lumy-player/actions/workflows/ci.yml/badge.svg)](https://github.com/hesier/lumy-player/actions/workflows/ci.yml)
+[![CI](https://github.com/hesier/lumy-player/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/hesier/lumy-player/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/hesier/lumy-player)](https://github.com/hesier/lumy-player/releases/latest)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 ![Android 5.0+](https://img.shields.io/badge/Android-5.0%2B-3DDC84?logo=android&logoColor=white)
@@ -113,7 +113,7 @@ Run the unit tests (core, net and server modules, plain JVM):
 
 ### Publishing a release
 
-Pushing a tag `v<versionName>` (e.g. `v0.1.0`) runs [release.yml](.github/workflows/release.yml), which builds a signed APK and attaches it to a GitHub release. The release notes come from that version's section in [CHANGELOG.md](CHANGELOG.md) and [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md), and the workflow fails if either is missing. It needs these repository secrets:
+Pushing a tag `v<versionName>` (e.g. `v0.1.0`) runs [release.yml](.github/workflows/release.yml), which builds a signed APK and attaches it to a GitHub release. The release notes come from that version's section in [CHANGELOG.md](CHANGELOG.md) and [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md), and the workflow fails if either is missing. The tagged commit must already be on `main`. It needs these repository secrets:
 
 | Secret | Value |
 |---|---|
