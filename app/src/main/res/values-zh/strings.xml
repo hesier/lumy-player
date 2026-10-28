@@ -283,6 +283,7 @@
     <string name="settings_allow_burn">允许服务器烧录字幕</string>
     <string name="settings_allow_burn_detail">为了显示字幕而让服务器转码并烧录。默认关闭：字幕尽量在本机渲染（含 ASS 特效字幕）。视频已经在转码时，本机显示不了的字幕总会烧录</string>
     <string name="player_error">播放失败：%1$s</string>
+    <string name="player_back_again_exit">再按一次返回键退出播放</string>
     <string name="player_fallback">设备无法直接播放，已切换到服务器转码</string>
     <string name="player_unseekable_fallback">这个文件直接播放时无法跳转，已切换到服务器转码</string>
     <string name="player_network_error">无法连接服务器，请检查网络</string>

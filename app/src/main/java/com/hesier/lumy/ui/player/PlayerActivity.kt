@@ -8,6 +8,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import com.hesier.lumy.util.DebugLog
 import android.view.GestureDetector
 import android.view.KeyEvent
@@ -827,6 +828,7 @@ class PlayerActivity : ThemedActivity() {
         showControls(if (focusSeek) ControlsFocus.SEEK else ControlsFocus.NONE)
 
     private fun showControls(target: ControlsFocus) {
+        autoHiddenAt = 0L
         if (!controlsVisible) {
             // 控制栏和跳过按钮不同时出现；控制栏收起后由标记检查重新显示
             hideSkip()
@@ -862,12 +864,30 @@ class PlayerActivity : ThemedActivity() {
 
     private var hideJob: Job? = null
 
+    /** 控制栏自动收起的时间：之后不久按的返回键多半是想关控制栏，要再按一次才退出 */
+    private var autoHiddenAt = 0L
+    private var exitConfirmUntil = 0L
+
     private fun scheduleHideControls() {
         hideJob?.cancel()
         hideJob = lifecycleScope.launch {
             delay(5_000)
-            if (player.isPlaying && scrubTarget == null) hideControls()
+            if (player.isPlaying && scrubTarget == null) {
+                hideControls()
+                autoHiddenAt = SystemClock.elapsedRealtime()
+            }
         }
+    }
+
+    /** 控制栏刚自动收起时拦下第一次返回键，提示再按一次退出 */
+    private fun guardBackAfterAutoHide(down: Boolean): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (autoHiddenAt == 0L || now - autoHiddenAt > BACK_GUARD_MS || now < exitConfirmUntil) return false
+        if (!down) {
+            exitConfirmUntil = now + BACK_GUARD_MS
+            Toast.makeText(this, R.string.player_back_again_exit, Toast.LENGTH_SHORT).show()
+        }
+        return true
     }
 
     private fun updateProgress() {
@@ -967,6 +987,7 @@ class PlayerActivity : ThemedActivity() {
                     if (!down) dismissUpNext()
                     return true
                 }
+                if (guardBackAfterAutoHide(down)) return true
             }
         }
         if (!controlsVisible) {
@@ -1394,6 +1415,7 @@ class PlayerActivity : ThemedActivity() {
         private const val EXTERNAL_PREFIX = "ext:"
         private const val TAG = "LumyPlayer"
         private const val UP_NEXT_SECONDS = 10
+        private const val BACK_GUARD_MS = 3_000L
         private const val MODE_SWITCH_PAUSE_MS = 2_500L
         private const val UP_NEXT_FALLBACK_MS = 20_000L
         private const val MAX_NETWORK_RETRIES = 3

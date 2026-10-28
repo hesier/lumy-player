@@ -296,6 +296,7 @@
     <string name="settings_allow_burn">Allow server subtitle burn-in</string>
     <string name="settings_allow_burn_detail">Off by default: subtitles are rendered on this device when possible, including ASS. Ones it can\'t show are always burned in when the video is re-encoded anyway</string>
     <string name="player_error">Playback failed: %1$s</string>
+    <string name="player_back_again_exit">Press Back again to exit</string>
     <string name="player_fallback">This device can\'t play the file directly. Switched to server transcoding</string>
     <string name="player_unseekable_fallback">This file doesn\'t support seeking in direct play. Switched to server transcoding</string>
     <string name="player_network_error">Can\'t reach the server. Check your network</string>
