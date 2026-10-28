@@ -2,5 +2,5 @@
 <!-- API 26+ 的自适应图标，交给桌面按自己的形状裁切；更低版本走 mipmap/ic_app.xml -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/launcher_background" />
-    <foreground android:drawable="@drawable/ic_lumy_mark" />
+    <foreground android:drawable="@drawable/ic_lumy_mark_adaptive" />
 </adaptive-icon>

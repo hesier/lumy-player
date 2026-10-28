@@ -24,5 +24,5 @@
     <color name="scrim_end">#00EEEFF2</color>
     <color name="icon">@color/text_primary</color>
     <!-- 桌面图标 / 横幅底色，不随主题变 -->
-    <color name="launcher_background">#FF14151B</color>
+    <color name="launcher_background">#FF1E1F24</color>
 </resources>

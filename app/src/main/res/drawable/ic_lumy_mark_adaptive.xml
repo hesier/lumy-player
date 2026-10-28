@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自适应前景额外留边，保证圆形等桌面裁切不会切掉双层图形的左侧圆角。
+     用百分比（108 网格的 10）而不是 dp：前景层随桌面显示尺寸缩放，固定 dp 会让小图标缩得更多。
+     百分比要 API 26，只被 mipmap-anydpi-v26 引用 -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_lumy_mark"
+    android:inset="9.26%" />

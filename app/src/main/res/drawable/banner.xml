@@ -2,7 +2,7 @@
 <!-- Android TV 桌面横幅 320x180dp：左边图标主体，右边字标 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item><shape><solid android:color="@color/launcher_background" /></shape></item>
-    <item android:left="19dp" android:right="171dp" android:top="25dp" android:bottom="25dp"
+    <item android:left="1dp" android:right="189dp" android:top="25dp" android:bottom="25dp"
         android:drawable="@drawable/ic_lumy_mark" />
     <item android:drawable="@drawable/ic_lumy_wordmark" />
 </layer-list>
