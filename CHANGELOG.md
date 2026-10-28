@@ -4,6 +4,18 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.3.0 - 2026-10-29
+
+### Playback
+
+- Resume and fast-forward now work in MKV files whose index the player could not find (common in concert and recorded videos), without server transcoding. Before, they always went back to the start
+- In the movie player, press Down to open the chapter row. The chapters button sits right before More, and chapters without a thumbnail show their start time
+
+### Interface
+
+- New app icon and banner
+- Moving focus up or down plays the focus sound
+
 ## 0.2.3 - 2026-10-28
 
 ### Updates
