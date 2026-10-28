@@ -814,9 +814,9 @@ class PlayerActivity : ThemedActivity() {
         playPauseIcon = playButton.findViewById(R.id.icon)
         if (version.subtitles.isNotEmpty()) row.addActionButton(R.drawable.ic_subtitles, getString(R.string.player_subtitles)) { pickSubtitle() }
         if (version.audio.size > 1) row.addActionButton(R.drawable.ic_audio, getString(R.string.player_audio)) { pickAudio() }
-        if (detail.chapters.size > 1) row.addActionButton(R.drawable.ic_list, getString(R.string.player_chapters)) { pickChapter() }
         if (settings.allowTranscode) row.addActionButton(R.drawable.ic_hd, getString(R.string.player_quality)) { pickQuality() }
         row.addActionButton(R.drawable.ic_speed, getString(R.string.player_speed)) { pickSpeed() }
+        if (detail.chapters.size > 1) row.addActionButton(R.drawable.ic_list, getString(R.string.player_chapters)) { pickChapter() }
         row.addActionButton(R.drawable.ic_more, getString(R.string.player_more)) { showMore() }
         binding.seek.setOnFocusChangeListener { _, hasFocus ->
             binding.seekBar.animate().scaleY(if (hasFocus) 1.6f else 1f).setDuration(120).start()
@@ -1084,10 +1084,12 @@ class PlayerActivity : ThemedActivity() {
 
     private fun monoWidth(s: String): Int = s.sumOf { if (it.code >= 0x2E80) 2 else 1 }
 
-    // ---- 剧集行：从播放列表进来时是播放列表，否则是本季剧集 ----
+    // ---- 剧集行：从播放列表进来时是播放列表，剧集是本季剧集，电影是章节 ----
 
     private var seasonEpisodes: List<MediaItem> = emptyList()
     private var episodesAdapter: CardAdapter? = null
+    /** 电影没有剧集行，按下键展开章节行 */
+    private var chapterAdapter: ChapterAdapter? = null
     /** 剧集行和“下一个”都要用，共用一次请求 */
     private var playlistJob: Deferred<List<MediaItem>?>? = null
 
@@ -1103,7 +1105,20 @@ class PlayerActivity : ThemedActivity() {
 
     private fun loadRowItems() {
         val seasonId = item.parentId?.takeIf { item.type == MediaType.EPISODE }
-        if (seasonId == null && !intent.hasExtra(EXTRA_PLAYLIST)) return
+        chapterAdapter = null
+        if (seasonId == null && !intent.hasExtra(EXTRA_PLAYLIST)) {
+            if (detail.chapters.size > 1) {
+                chapterAdapter = ChapterAdapter(server, detail.chapters) {
+                    seekTo(it.startMs)
+                    chapterAdapter?.selected = detail.chapters.indexOf(it)
+                }.also {
+                    binding.episodes.layoutManager = StartAlignedLayoutManager(this, RecyclerView.HORIZONTAL)
+                    binding.episodes.adapter = it
+                    binding.episodes.preferredPosition = { currentChapter() }
+                }
+            }
+            return
+        }
         val itemId = item.id
         lifecycleScope.launch {
             val list = playlistItems() ?: run {
@@ -1120,8 +1135,10 @@ class PlayerActivity : ThemedActivity() {
                 onClick = { ep -> if (ep.id != item.id) switchTo(ep, ep.viewOffsetMs?.takeIf { it > 30_000 } ?: 0) },
             ).also {
                 episodesAdapter = it
+            }
+            if (binding.episodes.adapter !== adapter) {
                 binding.episodes.layoutManager = StartAlignedLayoutManager(this@PlayerActivity, RecyclerView.HORIZONTAL)
-                binding.episodes.adapter = it
+                binding.episodes.adapter = adapter
                 binding.episodes.preferredPosition = { episodesAdapter?.indexOf(item.id) ?: -1 }
             }
             adapter.submit(list)
@@ -1129,7 +1146,9 @@ class PlayerActivity : ThemedActivity() {
         }
     }
 
-    /** 按钮行按下键展开剧集行并选中当前集；剧集行按上键收起回到按钮行 */
+    private fun currentChapter(): Int = detail.chapters.indexOfLast { positionMs >= it.startMs }.coerceAtLeast(0)
+
+    /** 按钮行按下键展开剧集行并选中当前集（电影是章节行和当前章节）；剧集行按上键收起回到按钮行 */
     private fun handleEpisodeRowKey(event: KeyEvent): Boolean {
         val focused = currentFocus ?: return false
         val inButtons = focused.parent === binding.buttons
@@ -1139,10 +1158,15 @@ class PlayerActivity : ThemedActivity() {
         }
         when {
             event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && inButtons -> {
-                if (seasonEpisodes.isEmpty()) return true
+                val chapters = chapterAdapter
+                if (chapters == null && seasonEpisodes.isEmpty()) return true
                 if (event.action == KeyEvent.ACTION_DOWN) {
                     lastButton = binding.buttons.indexOfChild(focused)
-                    val index = seasonEpisodes.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
+                    val index = if (chapters != null) {
+                        currentChapter().also { chapters.selected = it }
+                    } else {
+                        seasonEpisodes.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
+                    }
                     binding.episodes.visibility = View.VISIBLE
                     (binding.episodes.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(index, 0)
                     binding.episodes.post {
@@ -1189,8 +1213,7 @@ class PlayerActivity : ThemedActivity() {
 
     private fun pickChapter() {
         val chapters = detail.chapters
-        val pos = positionMs
-        val current = chapters.indexOfLast { pos >= it.startMs }.coerceAtLeast(0)
+        val current = currentChapter()
         val options = chapters.mapIndexed { i, c ->
             Option("${i + 1}. ${c.title ?: getString(R.string.chapter_n, i + 1)}", formatClock(c.startMs), i == current)
         }
