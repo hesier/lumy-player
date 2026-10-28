@@ -4,7 +4,7 @@
 
 每个版本在这里和英文更新日志里各有一节 `## <versionName> - <日期>`。发布工作流会把这两节合起来作为 GitHub Release 的说明，打 tag 前要先写好。还没发布的改动写在 `## Unreleased` 下，改 `versionName` 时把它改成新版本号。
 
-## Unreleased
+## 0.2.1 - 2026-10-28
 
 ### 登录
 
