@@ -2,6 +2,8 @@
 <resources>
     <!-- 以 960x540dp 的 TV 画布为准，四周留出安全边距 -->
     <dimen name="screen_padding_h">48dp</dimen>
+    <!-- 让横向列表铺满到屏幕边缘，放大的卡片不被父布局的 padding 裁掉 -->
+    <dimen name="screen_padding_h_negative">-48dp</dimen>
     <dimen name="screen_padding_v">27dp</dimen>
     <dimen name="sidebar_collapsed">72dp</dimen>
     <dimen name="sidebar_expanded">240dp</dimen>
