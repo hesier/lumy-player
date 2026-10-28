@@ -26,7 +26,6 @@ import androidx.media3.extractor.DefaultExtractorsFactory
 import io.github.peerless2012.ass.media.AssHandler
 import io.github.peerless2012.ass.media.AssHandlerConfig
 import io.github.peerless2012.ass.media.factory.AssRenderersFactory
-import io.github.peerless2012.ass.media.kt.withAssMkvSupport
 import io.github.peerless2012.ass.media.parser.AssSubtitleParserFactory
 import io.github.peerless2012.ass.media.type.AssRenderType
 import okhttp3.OkHttpClient
@@ -63,10 +62,11 @@ object PlayerFactory {
         passthrough: Boolean = false,
     ): PlayerBundle {
         val upstream = OkHttpDataSource.Factory(http).setDefaultRequestProperties(headers)
-        // ASS/SSA 交给 libass 渲染（保留字体、颜色、位置、动画），内封（MKV）和外挂都走这里
+        // ASS/SSA 交给 libass 渲染（保留字体、颜色、位置、动画），内封（MKV）和外挂都走这里；
+        // 没有索引的 MKV 由 ClusterSeekingExtractor 按簇查找来跳转
         val ass = AssHandler(AssRenderType.OVERLAY_OPEN_GL, AssHandlerConfig())
         val assParsers = AssSubtitleParserFactory(ass)
-        val extractors = DefaultExtractorsFactory().withAssMkvSupport(assParsers, ass)
+        val extractors = DefaultExtractorsFactory().withSeekableAssMkv(assParsers, ass)
         val mediaSources = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, upstream), extractors)
             .setSubtitleParserFactory(assParsers)
 
