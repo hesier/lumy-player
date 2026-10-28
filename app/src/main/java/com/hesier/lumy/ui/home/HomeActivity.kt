@@ -278,7 +278,8 @@ class HomeActivity : ThemedActivity(), HomeHost {
     }
 
     /** 返回键：内容区 → 侧边栏 → 首页 → 退出，和官方客户端一致 */
-    private val keyThrottle = KeyRepeatThrottle()
+    // 首页和媒体库卡片多，长按移动比其他页面快一倍
+    private val keyThrottle = KeyRepeatThrottle(80)
     private var lastContentFocus: java.lang.ref.WeakReference<View>? = null
     private var restoringFocus = false
 
