@@ -1145,13 +1145,19 @@ class PlayerActivity : ThemedActivity() {
                     val index = seasonEpisodes.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
                     binding.episodes.visibility = View.VISIBLE
                     (binding.episodes.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(index, 0)
-                    binding.episodes.post { binding.episodes.findViewHolderForAdapterPosition(index)?.itemView?.requestFocus() }
+                    binding.episodes.post {
+                        if (binding.episodes.findViewHolderForAdapterPosition(index)?.itemView?.requestFocus() == true) {
+                            playFocusSound(View.FOCUS_DOWN)
+                        }
+                    }
                 }
                 return true
             }
             event.keyCode == KeyEvent.KEYCODE_DPAD_UP && inEpisodes -> {
                 if (event.action == KeyEvent.ACTION_DOWN) {
-                    binding.buttons.getChildAt(lastButton.coerceIn(0, binding.buttons.childCount - 1))?.requestFocus()
+                    if (binding.buttons.getChildAt(lastButton.coerceIn(0, binding.buttons.childCount - 1))?.requestFocus() == true) {
+                        playFocusSound(View.FOCUS_UP)
+                    }
                     binding.episodes.visibility = View.GONE
                 }
                 return true

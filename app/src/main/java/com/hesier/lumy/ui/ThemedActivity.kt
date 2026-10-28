@@ -2,6 +2,9 @@ package com.hesier.lumy.ui
 
 import android.content.Context
 import android.content.res.Configuration
+import android.view.KeyEvent
+import android.view.SoundEffectConstants
+import android.view.View
 import androidx.fragment.app.FragmentActivity
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.data.AppLanguage
@@ -38,6 +41,32 @@ abstract class ThemedActivity : FragmentActivity() {
                 smallestScreenWidthDp = (system.smallestScreenWidthDp / appliedScale).roundToInt()
             }
         })
+    }
+
+    /**
+     * 系统只在自己按方向键移动焦点时播放导航音；按键被页面或 ScrollView 等控件消费后再手动移动焦点，
+     * 就没有声音（详情页的上下键就是这样）。这里补上：按键被消费且焦点变了才播，系统自己处理的不会重复。
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val before = currentFocus
+        val handled = super.dispatchKeyEvent(event)
+        if (handled && event.action == KeyEvent.ACTION_DOWN && currentFocus !== before) {
+            focusDirection(event.keyCode)?.let(::playFocusSound)
+        }
+        return handled
+    }
+
+    /** 自己拦截方向键、手动移动焦点后调用，补上系统的导航音（遵循系统的按键音设置） */
+    protected fun playFocusSound(direction: Int) {
+        window.decorView.playSoundEffect(SoundEffectConstants.getContantForFocusDirection(direction))
+    }
+
+    private fun focusDirection(keyCode: Int): Int? = when (keyCode) {
+        KeyEvent.KEYCODE_DPAD_UP -> View.FOCUS_UP
+        KeyEvent.KEYCODE_DPAD_DOWN -> View.FOCUS_DOWN
+        KeyEvent.KEYCODE_DPAD_LEFT -> View.FOCUS_LEFT
+        KeyEvent.KEYCODE_DPAD_RIGHT -> View.FOCUS_RIGHT
+        else -> null
     }
 
     override fun onResume() {

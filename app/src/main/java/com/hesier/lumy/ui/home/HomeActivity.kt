@@ -313,7 +313,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
             val items = sidebarFocusables()
             val i = items.indexOf(focused)
             val next = items.getOrNull(if (up) i - 1 else i + 1)
-            next?.requestFocus()
+            if (next?.requestFocus() == true) playFocusSound(if (up) View.FOCUS_UP else View.FOCUS_DOWN)
             return true
         }
         if (focused.isInside(binding.content)) {
@@ -323,7 +323,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
             val direction = if (up) View.FOCUS_UP else View.FOCUS_DOWN
             val next = focused.focusSearch(direction)
             if (next == null || next === focused || next.isInside(binding.sidebar)) return true
-            next.requestFocus(direction)
+            if (next.requestFocus(direction)) playFocusSound(direction)
             return true
         }
         return false
@@ -355,7 +355,10 @@ class HomeActivity : ThemedActivity(), HomeHost {
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && sidebarExpanded) {
             if (event.action == KeyEvent.ACTION_DOWN) {
                 restoringFocus = restoreContentFocus()
-                if (restoringFocus) return true
+                if (restoringFocus) {
+                    playFocusSound(View.FOCUS_RIGHT)
+                    return true
+                }
             } else if (event.action == KeyEvent.ACTION_UP && restoringFocus) {
                 restoringFocus = false
                 return true
