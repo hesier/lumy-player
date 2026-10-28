@@ -85,7 +85,7 @@ class Settings(context: Context) {
     fun setHiddenSidebarItems(serverId: String, ids: Set<String>) =
         prefs.edit().putStringSet("hidden_sidebar:$serverId", ids).apply()
 
-    /** 侧边栏媒体库的顺序（媒体库 id）；不在列表里的新媒体库排在后面 */
+    /** 侧边栏媒体库的顺序（媒体库 id，以及 [PLAYLISTS_ID]）；不在列表里的新媒体库排在后面 */
     fun sidebarOrder(serverId: String): List<String> =
         prefs.getString("sidebar_order:$serverId", null)?.split(',')?.filter { it.isNotBlank() } ?: emptyList()
 

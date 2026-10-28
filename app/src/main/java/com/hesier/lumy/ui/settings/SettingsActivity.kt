@@ -364,13 +364,15 @@ class SettingsActivity : ThemedActivity() {
         val server = app.currentServer() ?: return
         lifecycleScope.launch {
             val libraries = attempt { server.libraries() }.getOrDefault(emptyList())
-            val ordered = Settings.applyOrder(libraries, settings.sidebarOrder(entryId)) { it.id }
+            // 播放列表也参与排序，没排过时在媒体库最后
+            val entries = libraries.map { it.id to it.title } + (Settings.PLAYLISTS_ID to getString(R.string.nav_playlists))
+            val ordered = Settings.applyOrder(entries, settings.sidebarOrder(entryId)) { it.first }
             val hidden = settings.hiddenSidebarItems(entryId)
-            val visible = ordered.filterNot { it.id in hidden }
-            ReorderPanel(this@SettingsActivity, getString(R.string.settings_sidebar_order), visible.map { it.id to it.title }) { ids ->
-                // 隐藏的库不参与排序但留在原位，显示中的库按新顺序填回原来的位置；取消隐藏后回到原处
+            val visible = ordered.filterNot { it.first in hidden }
+            ReorderPanel(this@SettingsActivity, getString(R.string.settings_sidebar_order), visible) { ids ->
+                // 隐藏的项不参与排序但留在原位，显示中的项按新顺序填回原来的位置；取消隐藏后回到原处
                 val next = ids.iterator()
-                settings.setSidebarOrder(entryId, ordered.map { if (it.id in hidden) it.id else next.next() })
+                settings.setSidebarOrder(entryId, ordered.map { if (it.first in hidden) it.first else next.next() })
             }.show()
         }
     }

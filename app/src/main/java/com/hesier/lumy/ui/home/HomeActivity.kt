@@ -41,6 +41,7 @@ import com.hesier.lumy.ui.widget.KeyRepeatThrottle
 import com.hesier.lumy.ui.widget.Backdrop
 import com.hesier.lumy.ui.widget.attempt
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -118,7 +119,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
         setupServerSwitch()
         addNavItem(NavTarget.Search, R.drawable.ic_search, getString(R.string.nav_search))
         addNavItem(NavTarget.Home, R.drawable.ic_home, getString(R.string.nav_home))
-        addFooterItem(R.drawable.ic_settings, getString(R.string.nav_settings)) {
+        addActionItem(binding.sidebarFooter, R.drawable.ic_settings, getString(R.string.nav_settings)) {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
         binding.root.viewTreeObserver.addOnGlobalFocusChangeListener { old, new ->
@@ -135,24 +136,30 @@ class HomeActivity : ThemedActivity(), HomeHost {
         // 触屏点击不移动焦点，上面的焦点监听不会展开侧边栏，只能点图标
         binding.sidebarLogo.setOnClickListener { setSidebarExpanded(!sidebarExpanded) }
         lifecycleScope.launch {
-            val loaded = attempt { server.libraries() }.getOrNull()
-            val libraries = loaded ?: emptyList()
             val settings = LumyApp.instance.settings
             val hidden = settings.hiddenSidebarItems(entryId)
+            // 播放列表入口和媒体库一起排序，要等两边都拿到再建侧边栏；有视频播放列表才显示
+            val hasPlaylists = async {
+                Settings.PLAYLISTS_ID !in hidden && attempt { server.playlists() }.getOrDefault(emptyList()).isNotEmpty()
+            }
+            val loaded = attempt { server.libraries() }.getOrNull()
+            val libraries = loaded ?: emptyList()
             sidebarSnapshot = sidebarState()
-            Settings.applyOrder(libraries, settings.sidebarOrder(entryId)) { it.id }.filterNot { it.id in hidden }.forEach { lib ->
-                val icon = if (lib.type == MediaType.SHOW) R.drawable.ic_tv else R.drawable.ic_movie
-                addNavItem(NavTarget.Section(lib), icon, lib.title)
+            val ids = libraries.map { it.id } + listOfNotNull(Settings.PLAYLISTS_ID.takeIf { hasPlaylists.await() })
+            Settings.applyOrder(ids, settings.sidebarOrder(entryId)) { it }.filterNot { it in hidden }.forEach { id ->
+                val lib = libraries.firstOrNull { it.id == id }
+                if (lib == null) {
+                    addActionItem(binding.sidebarItems, R.drawable.ic_list, getString(R.string.nav_playlists)) {
+                        startActivity(ItemListActivity.playlists(this@HomeActivity))
+                    }
+                } else {
+                    val icon = if (lib.type == MediaType.SHOW) R.drawable.ic_tv else R.drawable.ic_movie
+                    addNavItem(NavTarget.Section(lib), icon, lib.title)
+                }
             }
             // 在设置里隐藏了当前所在的媒体库：重建后侧边栏没有对应项，回到首页。
             // 媒体库没加载出来时不算，免得断网时把用户踢回首页
             if (loaded != null && navItems.none { it.binding.root.isActivated }) navigate(NavTarget.Home)
-            // 有视频播放列表才显示入口
-            if (Settings.PLAYLISTS_ID !in hidden && attempt { server.playlists() }.getOrDefault(emptyList()).isNotEmpty()) {
-                addFooterItem(R.drawable.ic_list, getString(R.string.nav_playlists), index = 0) {
-                    startActivity(ItemListActivity.playlists(this@HomeActivity))
-                }
-            }
         }
     }
 
@@ -196,12 +203,9 @@ class HomeActivity : ThemedActivity(), HomeHost {
         }
     }
 
-    private fun addFooterItem(icon: Int, label: String, index: Int = -1, onClick: () -> Unit) {
-        val item = inflateSidebarItem(binding.sidebarFooter, icon, label)
-        if (index >= 0) {
-            binding.sidebarFooter.removeView(item.root)
-            binding.sidebarFooter.addView(item.root, index)
-        }
+    /** 打开新页面而不是切换内容区的项（播放列表、设置），不会处于选中状态 */
+    private fun addActionItem(parent: android.view.ViewGroup, icon: Int, label: String, onClick: () -> Unit) {
+        val item = inflateSidebarItem(parent, icon, label)
         item.root.setOnClickListener {
             collapseSidebarOnTouch()
             onClick()
@@ -260,7 +264,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
             start()
         }
         val alpha = if (expanded) 1f else 0f
-        (navItems.map { it.binding.label } + binding.sidebarHeader.labels() + binding.sidebarFooter.labels()).forEach {
+        (binding.sidebarHeader.labels() + binding.sidebarItems.labels() + binding.sidebarFooter.labels()).forEach {
             it.animate().alpha(alpha).setDuration(160).start()
         }
     }
@@ -313,7 +317,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
         return false
     }
 
-    /** 侧边栏里可选的项，从上到下：切换服务器、搜索、主页、各媒体库，然后底部的播放列表、设置 */
+    /** 侧边栏里可选的项，从上到下：切换服务器、搜索、主页、各媒体库和播放列表，然后底部的设置 */
     private fun sidebarFocusables(): List<View> =
         listOf(binding.sidebarHeader, binding.sidebarItems, binding.sidebarFooter).flatMap { group ->
             (0 until group.childCount).map { group.getChildAt(it) }.filter { it.visibility == View.VISIBLE && it.isFocusable }
