@@ -107,10 +107,15 @@ class ItemListActivity : ThemedActivity() {
         }
     }
 
+    private val isPlaylist get() = kind == Kind.CONTAINER && itemType == MediaType.PLAYLIST
+
     private fun onItemClick(item: MediaItem) {
         if (kind == Kind.PICK_SEASON) {
             setResult(RESULT_OK, Intent().putExtra(RESULT_SEASON_ID, item.id))
             finish()
+        } else if (isPlaylist && item.playable) {
+            // 播放列表里点一项就从它开始在列表里播放（接着上次的进度）；菜单键 / 长按里可以进详情
+            startActivity(PlayerActivity.intent(this, item.id, 0, item.viewOffsetMs ?: 0, playlistId = itemId))
         } else {
             Navigator.open(this, item)
         }
@@ -119,10 +124,10 @@ class ItemListActivity : ThemedActivity() {
     /** 播放列表可以从头连续播放 */
     private fun renderActions() {
         binding.actions.removeAllViews()
-        if (kind == Kind.CONTAINER && itemType == MediaType.PLAYLIST && items.isNotEmpty()) {
+        if (isPlaylist && items.isNotEmpty()) {
             binding.actions.addActionButton(R.drawable.ic_play, getString(R.string.play_all)) {
-                val ids = items.filter { it.type == MediaType.MOVIE || it.type == MediaType.EPISODE }.map { it.id }
-                if (ids.isNotEmpty()) startActivity(PlayerActivity.intent(this, ids.first(), 0, 0, queue = ids))
+                val first = items.firstOrNull { it.playable } ?: return@addActionButton
+                startActivity(PlayerActivity.intent(this, first.id, 0, 0, playlistId = itemId))
             }
         }
     }
@@ -172,3 +177,5 @@ class ItemListActivity : ThemedActivity() {
             .putExtra(EXTRA_TITLE, context.getString(R.string.nav_playlists))
     }
 }
+
+private val MediaItem.playable get() = type == MediaType.MOVIE || type == MediaType.EPISODE

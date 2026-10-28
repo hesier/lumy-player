@@ -76,7 +76,9 @@ import com.hesier.lumy.ui.widget.showMessage
 import coil.load
 import io.github.peerless2012.ass.media.AssHandler
 import io.github.peerless2012.ass.media.widget.AssSubtitleView
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -249,12 +251,11 @@ class PlayerActivity : ThemedActivity() {
             start(intent.getLongExtra(EXTRA_START, 0))
             if (progressJob == null) startProgressReporting()
             startMarkerWatch()
-            loadSeasonEpisodes()
+            loadRowItems()
             // 播放列表按顺序连播；剧集接着播下一集
-            val queue = intent.getStringArrayListExtra(EXTRA_QUEUE)
+            val playlist = playlistItems()
             nextEpisode = when {
-                queue != null -> queue.getOrNull(queue.indexOf(item.id) + 1)
-                    ?.let { next -> attempt { server.detail(next).item }.getOrNull() }
+                playlist != null -> playlist.getOrNull(playlist.indexOfFirst { it.id == item.id } + 1)
                 item.type == MediaType.EPISODE -> attempt { server.nextEpisode(item) }.getOrNull()
                 else -> null
             }
@@ -286,6 +287,8 @@ class PlayerActivity : ThemedActivity() {
         hideOverlays()
         intent.putExtra(EXTRA_ID, next.id).putExtra(EXTRA_VERSION, 0).putExtra(EXTRA_START, startMs)
         seasonEpisodes = emptyList()
+        // 播放列表重新拉一次，切回看过一半的条目时进度是新的
+        playlistJob = null
         hideControls()
         nextEpisode = null
         autoSkipped.clear()
@@ -1081,18 +1084,35 @@ class PlayerActivity : ThemedActivity() {
 
     private fun monoWidth(s: String): Int = s.sumOf { if (it.code >= 0x2E80) 2 else 1 }
 
-    // ---- 本季剧集行 ----
+    // ---- 剧集行：从播放列表进来时是播放列表，否则是本季剧集 ----
 
     private var seasonEpisodes: List<MediaItem> = emptyList()
     private var episodesAdapter: CardAdapter? = null
+    /** 剧集行和“下一个”都要用，共用一次请求 */
+    private var playlistJob: Deferred<List<MediaItem>?>? = null
 
-    private fun loadSeasonEpisodes() {
-        val seasonId = item.parentId?.takeIf { item.type == MediaType.EPISODE } ?: return
+    /** 从播放列表进来时它的条目（只留能播放的），否则为 null */
+    private suspend fun playlistItems(): List<MediaItem>? {
+        val id = intent.getStringExtra(EXTRA_PLAYLIST) ?: return null
+        val job = playlistJob ?: lifecycleScope.async {
+            attempt { server.containerItems(MediaItem(id, MediaType.PLAYLIST, "")) }.getOrNull()
+                ?.filter { it.type == MediaType.MOVIE || it.type == MediaType.EPISODE }
+        }.also { playlistJob = it }
+        return job.await()
+    }
+
+    private fun loadRowItems() {
+        val seasonId = item.parentId?.takeIf { item.type == MediaType.EPISODE }
+        if (seasonId == null && !intent.hasExtra(EXTRA_PLAYLIST)) return
+        val itemId = item.id
         lifecycleScope.launch {
-            val result = attempt { server.children(seasonId) }
-            DebugLog.i(TAG, "season $seasonId episodes=${result.getOrNull()?.size} error=${result.exceptionOrNull()}")
-            val list = result.getOrDefault(emptyList())
-            if (item.parentId != seasonId) return@launch
+            val list = playlistItems() ?: run {
+                if (seasonId == null) return@launch
+                val result = attempt { server.children(seasonId) }
+                DebugLog.i(TAG, "season $seasonId episodes=${result.getOrNull()?.size} error=${result.exceptionOrNull()}")
+                result.getOrDefault(emptyList())
+            }
+            if (item.id != itemId) return@launch
             seasonEpisodes = list
             val adapter = episodesAdapter ?: CardAdapter(
                 server, HubStyle.LANDSCAPE,
@@ -1411,7 +1431,7 @@ class PlayerActivity : ThemedActivity() {
         private const val EXTRA_ID = "id"
         private const val EXTRA_VERSION = "version"
         private const val EXTRA_START = "start"
-        private const val EXTRA_QUEUE = "queue"
+        private const val EXTRA_PLAYLIST = "playlist"
         private const val EXTERNAL_PREFIX = "ext:"
         private const val TAG = "LumyPlayer"
         private const val UP_NEXT_SECONDS = 10
@@ -1433,11 +1453,12 @@ class PlayerActivity : ThemedActivity() {
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
         )
 
-        fun intent(context: Context, itemId: String, versionIndex: Int, startMs: Long, queue: List<String>? = null): Intent =
+        /** [playlistId]：在这个播放列表里播放，剧集行显示播放列表，按它的顺序连播 */
+        fun intent(context: Context, itemId: String, versionIndex: Int, startMs: Long, playlistId: String? = null): Intent =
             Intent(context, PlayerActivity::class.java)
                 .putExtra(EXTRA_ID, itemId)
                 .putExtra(EXTRA_VERSION, versionIndex)
                 .putExtra(EXTRA_START, startMs)
-                .apply { queue?.let { putStringArrayListExtra(EXTRA_QUEUE, ArrayList(it)) } }
+                .apply { playlistId?.let { putExtra(EXTRA_PLAYLIST, it) } }
     }
 }
