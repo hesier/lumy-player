@@ -41,7 +41,10 @@ jobs:
 
       # 更新日志里没有这个版本时在构建前就失败；--generate-notes 只会在后面追加对比链接
       - name: Extract release notes
-        run: bash .github/scripts/release-notes.sh "${GITHUB_REF_NAME#v}" "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/notes.md"
+        run: |
+          bash .github/scripts/release-notes.sh "${GITHUB_REF_NAME#v}" "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/notes.md"
+          bash .github/scripts/release-notes.sh "${GITHUB_REF_NAME#v}" "$GITHUB_REPOSITORY" en > "$RUNNER_TEMP/notes-en.md"
+          bash .github/scripts/release-notes.sh "${GITHUB_REF_NAME#v}" "$GITHUB_REPOSITORY" zh > "$RUNNER_TEMP/notes-zh.md"
 
       # 没配置签名 secrets 时直接失败，不能退回 debug 签名发布
       - name: Decode keystore
@@ -81,4 +84,15 @@ jobs:
           apk="lumy-player-$GITHUB_REF_NAME.apk"
           cp app/build/outputs/apk/release/app-release.apk "$apk"
           sha256sum "$apk" > "$apk.sha256"
-          gh release create "$GITHUB_REF_NAME" "$apk" "$apk.sha256" --title "Lumy Player $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
+          # 应用内更新从 releases/latest/download/update.json 取版本信息，直连和走镜像都用这一个文件
+          jq -n \
+            --argjson versionCode "$(sed -nE 's/^ *versionCode = ([0-9]+)/\1/p' app/build.gradle.kts)" \
+            --arg versionName "${GITHUB_REF_NAME#v}" \
+            --arg apk "$apk" \
+            --argjson size "$(stat -c %s "$apk")" \
+            --arg sha256 "$(cut -d' ' -f1 "$apk.sha256")" \
+            --rawfile en "$RUNNER_TEMP/notes-en.md" \
+            --rawfile zh "$RUNNER_TEMP/notes-zh.md" \
+            '{versionCode: $versionCode, versionName: $versionName, apk: $apk, size: $size, sha256: $sha256, notes: {en: $en, zh: $zh}}' \
+            > update.json
+          gh release create "$GITHUB_REF_NAME" "$apk" "$apk.sha256" update.json --title "Lumy Player $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes

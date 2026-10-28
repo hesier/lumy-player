@@ -11,6 +11,9 @@ import com.hesier.lumy.ui.ThemedActivity
 import androidx.core.view.children
 import androidx.lifecycle.lifecycleScope
 import com.hesier.lumy.ui.widget.attempt
+import com.hesier.lumy.ui.widget.readableMessage
+import com.hesier.lumy.update.AppUpdater
+import com.hesier.lumy.update.UpdatePanel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -267,6 +270,24 @@ class SettingsActivity : ThemedActivity() {
             },
             listOf(
                 Row(getString(R.string.settings_version), BuildConfig.VERSION_NAME) {},
+                Row(getString(R.string.update_check), updateStatus(), getString(R.string.update_check_detail)) { checkForUpdate() },
+                Row(getString(R.string.update_auto_check), onOff(settings.autoCheckUpdates), getString(R.string.update_auto_check_detail)) {
+                    settings.autoCheckUpdates = !settings.autoCheckUpdates
+                    render()
+                },
+                Row(getString(R.string.update_mirror), onOff(settings.useUpdateMirror), getString(R.string.update_mirror_detail)) {
+                    settings.useUpdateMirror = !settings.useUpdateMirror
+                    render()
+                },
+            ) + listOfNotNull(
+                // 打开镜像后才显示地址
+                Row(getString(R.string.update_mirror_url), settings.updateMirrorUrl, getString(R.string.update_mirror_url_detail)) {
+                    InputPanel(this, getString(R.string.update_mirror_url), settings.updateMirrorUrl, Settings.DEFAULT_UPDATE_MIRROR, getString(R.string.server_rename_save)) {
+                        settings.updateMirrorUrl = it
+                        render()
+                    }.show()
+                }.takeIf { settings.useUpdateMirror },
+            ) + listOf(
                 Row(getString(R.string.device_info), "", getString(R.string.device_info_detail)) { showDeviceInfo() },
             ),
         )
@@ -350,6 +371,31 @@ class SettingsActivity : ThemedActivity() {
                 if (!hidden.add(id)) hidden.remove(id)
                 settings.setHiddenSidebarItems(entryId, hidden.toSet())
             }.apply { setOnDismissListener { render() } }.show()
+        }
+    }
+
+    private var checkingUpdate = false
+
+    private fun updateStatus() = when {
+        checkingUpdate -> getString(R.string.update_checking)
+        else -> AppUpdater.available?.let { getString(R.string.update_available_short, it.versionName) }.orEmpty()
+    }
+
+    private fun checkForUpdate() {
+        if (checkingUpdate) return
+        checkingUpdate = true
+        render()
+        lifecycleScope.launch {
+            val result = attempt { AppUpdater.check() }
+            checkingUpdate = false
+            render()
+            result.onSuccess { info ->
+                if (info == null) Toast.makeText(this@SettingsActivity, R.string.update_up_to_date, Toast.LENGTH_SHORT).show()
+                else UpdatePanel(this@SettingsActivity, info, auto = false).apply { setOnDismissListener { render() } }.show()
+            }.onFailure { e ->
+                val hint = if (settings.useUpdateMirror) "" else "\n" + getString(R.string.update_mirror_hint)
+                Toast.makeText(this@SettingsActivity, getString(R.string.update_check_failed, e.readableMessage()) + hint, Toast.LENGTH_LONG).show()
+            }
         }
     }
 

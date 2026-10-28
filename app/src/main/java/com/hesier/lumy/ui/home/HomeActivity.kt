@@ -36,6 +36,9 @@ import com.hesier.lumy.ui.detail
 import com.hesier.lumy.ui.widget.Option
 import com.hesier.lumy.ui.widget.OptionsPanel
 import com.hesier.lumy.ui.settings.SettingsActivity
+import com.hesier.lumy.update.AppUpdater
+import com.hesier.lumy.update.UpdatePanel
+import androidx.lifecycle.withResumed
 import com.hesier.lumy.ui.widget.ItemMenu
 import com.hesier.lumy.ui.widget.KeyRepeatThrottle
 import com.hesier.lumy.ui.widget.Backdrop
@@ -102,6 +105,15 @@ class HomeActivity : ThemedActivity(), HomeHost {
         checkConnection()
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction().replace(R.id.content, HomeFragment()).commit()
+            checkForUpdate()
+        }
+    }
+
+    /** 每天最多一次；检查完时如果已经进了别的页面，等回到首页再弹 */
+    private fun checkForUpdate() {
+        lifecycleScope.launch {
+            val info = AppUpdater.autoCheck() ?: return@launch
+            withResumed { UpdatePanel(this@HomeActivity, info, auto = true).show() }
         }
     }
 

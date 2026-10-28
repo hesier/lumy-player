@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # 从 CHANGELOG.md 和 CHANGELOG.zh-CN.md 取出某个版本的那一节，拼成双语发布说明输出到 stdout。
-# 用法：release-notes.sh <versionName> [repo]，repo 形如 owner/name，用来把相对链接改成绝对链接。
+# 用法：release-notes.sh <versionName> [repo] [en|zh]，repo 形如 owner/name，用来把相对链接改成绝对链接；
+# 给了语言时只输出那一种（写进 update.json，给应用内更新显示）。
 set -euo pipefail
 
 version="$1"
 repo="${2:-}"
+lang="${3:-}"
 
 # 取 "## <version>" 到下一个 "## " 之间的内容，去掉首尾空行
 section() {
@@ -30,7 +32,11 @@ for pair in "CHANGELOG.md:$en" "CHANGELOG.zh-CN.md:$zh"; do
   fi
 done
 
-notes=$(printf '%s\n\n---\n\n%s\n' "$en" "$zh")
+case "$lang" in
+  en) notes="$en" ;;
+  zh) notes="$zh" ;;
+  *) notes=$(printf '%s\n\n---\n\n%s\n' "$en" "$zh") ;;
+esac
 
 # Release 页面上相对链接打不开，指向这个 tag 下的文件
 if [ -n "$repo" ]; then

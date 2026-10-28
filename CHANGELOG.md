@@ -4,6 +4,12 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## Unreleased
+
+### Updates
+
+- Check for and install new versions from inside the app: once a day when the app opens, or from Settings › About. Download mirror routes the check and download through a GitHub proxy when GitHub is slow or blocked
+
 ## 0.2.2 - 2026-10-28
 
 ### Sign-in

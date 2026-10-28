@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 下载的新版本安装包，交给系统安装器读取 -->
+<paths>
+    <cache-path name="update" path="update/" />
+</paths>

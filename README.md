@@ -55,6 +55,8 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
 
 Download `lumy-player-vX.Y.Z.apk` from the [latest release](https://github.com/hesier/lumy-player/releases/latest) and sideload it onto your TV, box or projector. Requires Android 5.0 or later on an ARM device.
 
+Later versions can be installed from inside the app: it checks for a new release once a day (Settings › About also has Check for updates), downloads it and opens the system installer. The first time, Android asks you to allow Lumy to install apps. If GitHub is slow or blocked on your network, turn on Download mirror in the same section.
+
 APKs you build yourself are signed with a different key, so they cannot be installed over a release build (or vice versa). Uninstall the existing app first; your servers and settings will need to be set up again.
 
 ## Known limitations
@@ -113,7 +115,7 @@ Run the unit tests (core, net and server modules, plain JVM):
 
 ### Publishing a release
 
-Pushing a tag `v<versionName>` (e.g. `v0.1.0`) runs [release.yml](.github/workflows/release.yml), which builds a signed APK and attaches it to a GitHub release. The release notes come from that version's section in [CHANGELOG.md](CHANGELOG.md) and [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md), and the workflow fails if either is missing. The tagged commit must already be on `main`. It needs these repository secrets:
+Pushing a tag `v<versionName>` (e.g. `v0.1.0`) runs [release.yml](.github/workflows/release.yml), which builds a signed APK and attaches it to a GitHub release. The release notes come from that version's section in [CHANGELOG.md](CHANGELOG.md) and [CHANGELOG.zh-CN.md](CHANGELOG.zh-CN.md), and the workflow fails if either is missing. The workflow also uploads `update.json` (version, APK checksum and the notes in each language), which the in-app updater reads from the latest release. The tagged commit must already be on `main`. It needs these repository secrets:
 
 | Secret | Value |
 |---|---|
@@ -126,7 +128,7 @@ Pushing a tag `v<versionName>` (e.g. `v0.1.0`) runs [release.yml](.github/workfl
 
 ```
 core/            Plain Kotlin: media models and the MediaServer interface, independent of any server
-net/             Plain Kotlin: the LAN receiver for phone input and the extra TLS trust roots for older Android
+net/             Plain Kotlin: the LAN receiver for phone input, the extra TLS trust roots for older Android and the update checker
 server-plex/     Plain Kotlin: Plex account, server discovery, connection probing and API (OkHttp + kotlinx.serialization)
 server-jellyfin/ Plain Kotlin: Jellyfin and Emby sign-in and API (same API family, auth headers chosen by ServerKind)
 app/             Android app: UI (View + RecyclerView, no Leanback / Compose) and the player

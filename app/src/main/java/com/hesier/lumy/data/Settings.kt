@@ -188,6 +188,32 @@ class Settings(context: Context) {
             SubtitleMode.OFF -> SubtitleRule.Off
         }
 
+    /** 启动时每天最多检查一次新版本 */
+    var autoCheckUpdates: Boolean
+        get() = prefs.getBoolean("auto_check_updates", true)
+        set(v) = prefs.edit().putBoolean("auto_check_updates", v).apply()
+
+    var lastUpdateCheck: Long
+        get() = prefs.getLong("last_update_check", 0)
+        set(v) = prefs.edit().putLong("last_update_check", v).apply()
+
+    /** 自动检查时不再提示的版本（versionCode）；手动检查仍会显示 */
+    var skippedUpdate: Int
+        get() = prefs.getInt("skipped_update", 0)
+        set(v) = prefs.edit().putInt("skipped_update", v).apply()
+
+    /** github.com 很慢或打不开时，版本信息和 APK 都通过 [updateMirrorUrl] 下载 */
+    var useUpdateMirror: Boolean
+        get() = prefs.getBoolean("use_update_mirror", false)
+        set(v) = prefs.edit().putBoolean("use_update_mirror", v).apply()
+
+    /** 留空恢复默认镜像 */
+    var updateMirrorUrl: String
+        get() = prefs.getString("update_mirror_url", null)?.takeIf { it.isNotBlank() } ?: DEFAULT_UPDATE_MIRROR
+        set(v) = prefs.edit().putString("update_mirror_url", v.trim()).apply()
+
+    val updateMirror: String? get() = updateMirrorUrl.takeIf { useUpdateMirror }
+
     private fun enumOr(name: String?, default: SkipMode) =
         name?.let { runCatching { SkipMode.valueOf(it) }.getOrNull() } ?: default
 
@@ -201,6 +227,8 @@ class Settings(context: Context) {
         }
 
         const val PLAYLISTS_ID = "__playlists"
+        /** GitHub 下载代理：原地址拼在它后面 */
+        const val DEFAULT_UPDATE_MIRROR = "https://ghfast.top/"
         val SUBTITLE_SCALES = listOf(0.8f, 1f, 1.25f, 1.5f)
         val UI_SCALES = listOf(0.8f, 0.9f, 1f, 1.1f, 1.2f)
         /** 字幕离底部的距离（占画面高度的比例）：靠下、标准、偏高、更高 */
