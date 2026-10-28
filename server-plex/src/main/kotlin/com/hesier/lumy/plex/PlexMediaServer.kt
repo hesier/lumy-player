@@ -325,8 +325,9 @@ private val CLIENT_PROFILE_EXTRA = clientProfileExtra("h264,hevc")
 private val CLIENT_PROFILE_EXTRA_SDR = clientProfileExtra("h264")
 
 internal fun PlexHub.toHub(): Hub? {
-    if (metadata.isEmpty()) return null
-    val items = metadata.map { it.toItem() }
+    // 音乐和照片暂不支持：首页的“最近添加的音乐”、音频播放列表等去掉，整行都是就不显示
+    val items = metadata.filter { it.isSupported() }.map { it.toItem() }
+    if (items.isEmpty()) return null
     // 继续观看/待看用横版截图，其余（最近添加等）用竖版海报，和官方客户端一致
     val landscape = isContinueHub() || items.all { it.type == MediaType.EPISODE }
     return Hub(
@@ -335,6 +336,12 @@ internal fun PlexHub.toHub(): Hub? {
         style = if (landscape) HubStyle.LANDSCAPE else HubStyle.POSTER,
         items = items,
     )
+}
+
+internal fun PlexMetadata.isSupported(): Boolean = when (mediaType(type)) {
+    MediaType.MUSIC, MediaType.PHOTO -> false
+    MediaType.PLAYLIST -> playlistType == null || playlistType == "video"
+    else -> true
 }
 
 internal fun PlexMetadata.toItem(): MediaItem {

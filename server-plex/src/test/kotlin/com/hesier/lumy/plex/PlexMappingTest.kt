@@ -4,6 +4,7 @@ import com.hesier.lumy.core.HubStyle
 import com.hesier.lumy.core.MediaType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -44,6 +45,16 @@ class PlexMappingTest {
     fun `recently added movies use poster style`() {
         val json = """{"hubIdentifier":"movie.recentlyadded.1","title":"Recently Added","Metadata":[{"ratingKey":"1","type":"movie","title":"M"}]}"""
         assertEquals(HubStyle.POSTER, client.json.decodeFromString<PlexHub>(json).toHub()!!.style)
+    }
+
+    @Test
+    fun `music and audio playlists are dropped from hubs`() {
+        val music = """{"hubIdentifier":"music.recent","title":"Recently Added Music","Metadata":[{"ratingKey":"1","type":"album","title":"A"}]}"""
+        assertNull(client.json.decodeFromString<PlexHub>(music).toHub())
+        val playlists = """{"hubIdentifier":"home.playlists","title":"Playlists","Metadata":[
+            {"ratingKey":"2","type":"playlist","title":"Songs","playlistType":"audio"},
+            {"ratingKey":"3","type":"playlist","title":"Films","playlistType":"video"}]}"""
+        assertEquals(listOf("3"), client.json.decodeFromString<PlexHub>(playlists).toHub()!!.items.map { it.id })
     }
 
     @Test

@@ -102,6 +102,8 @@ data class PlexMetadata(
     val childCount: Int? = null,
     /** 播放列表的拼图封面 */
     val composite: String? = null,
+    /** 播放列表的内容类型：video / audio / photo */
+    val playlistType: String? = null,
     val librarySectionID: Long? = null,
     val librarySectionTitle: String? = null,
     // ---- 以下只在详情接口里有 ----
