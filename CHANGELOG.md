@@ -4,6 +4,24 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.2.2 - 2026-10-28
+
+### Sign-in
+
+- The Plex sign-in screen shows a QR code: scan it with a phone to open the link page with the code filled in
+
+### Playback
+
+- Playing from a playlist stays in the playlist: selecting an item starts it right away (Menu opens its details), the row below the player controls lists the playlist, and playback continues in playlist order
+- Right after the player controls hide on their own, Back has to be pressed twice to leave the player
+- The first card in the player's episode row is no longer cut off when focused
+
+### Interface
+
+- Holding a direction key moves twice as fast on the home screen, libraries and search
+- Music and photo rows no longer appear on the Plex home screen
+- Playlists sits with the libraries in the sidebar and can be reordered in Settings
+
 ## 0.2.1 - 2026-10-28
 
 ### Sign-in
