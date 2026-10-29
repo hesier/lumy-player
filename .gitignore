@@ -8,6 +8,7 @@ captures/
 .kotlin/
 .claude/worktrees/
 CLAUDE.md
+/AGENTS.md
 /.local/
 *.jks
 *.keystore
