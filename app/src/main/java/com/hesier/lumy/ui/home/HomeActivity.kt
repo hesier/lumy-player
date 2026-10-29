@@ -11,6 +11,7 @@ import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import android.widget.EditText
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.hesier.lumy.ui.ThemedActivity
@@ -308,6 +309,8 @@ class HomeActivity : ThemedActivity(), HomeHost {
         val up = event.keyCode == KeyEvent.KEYCODE_DPAD_UP
         if (!up && event.keyCode != KeyEvent.KEYCODE_DPAD_DOWN) return false
         val focused = currentFocus ?: return false
+        // 输入框自行区分键盘操作、文字光标和控件导航。
+        if (focused is EditText) return false
         if (focused.isInside(binding.sidebar)) {
             if (event.action != KeyEvent.ACTION_DOWN) return true
             val items = sidebarFocusables()

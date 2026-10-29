@@ -16,6 +16,7 @@ import com.hesier.lumy.databinding.ActivityDirectLoginBinding
 import com.hesier.lumy.ui.home.HomeActivity
 import com.hesier.lumy.ui.label
 import com.hesier.lumy.ui.widget.attempt
+import com.hesier.lumy.ui.widget.enableDpadNavigation
 import com.hesier.lumy.ui.widget.readableMessage
 import kotlinx.coroutines.launch
 
@@ -36,6 +37,7 @@ class DirectLoginActivity : ThemedActivity() {
         setContentView(binding.root)
         val kind = runCatching { ServerKind.valueOf(intent.getStringExtra(EXTRA_KIND)!!) }.getOrDefault(ServerKind.JELLYFIN)
         binding.title.text = getString(R.string.direct_login_title, kind.label(this))
+        setupInputNavigation()
         binding.name.setOnEditorActionListener { _, action, _ ->
             if (action == EditorInfo.IME_ACTION_DONE) connect()
             false
@@ -52,6 +54,25 @@ class DirectLoginActivity : ThemedActivity() {
             }.also { it.show() }
         }
         binding.address.requestFocus()
+    }
+
+    private fun setupInputNavigation() {
+        val fields = listOf(binding.address, binding.username, binding.password, binding.name)
+        fields.forEachIndexed { index, field ->
+            field.enableDpadNavigation { direction ->
+                when (direction) {
+                    View.FOCUS_UP -> fields.getOrNull(index - 1)
+                    View.FOCUS_DOWN -> fields.getOrNull(index + 1) ?: binding.connect
+                    View.FOCUS_LEFT -> binding.phoneInput
+                    else -> null
+                }
+            }
+        }
+        binding.phoneInput.nextFocusRightId = R.id.address
+        binding.connect.nextFocusUpId = R.id.name
+        binding.connect.nextFocusLeftId = R.id.phone_input
+        binding.connect.nextFocusRightId = R.id.connect
+        binding.connect.nextFocusDownId = R.id.connect
     }
 
     override fun onStop() {

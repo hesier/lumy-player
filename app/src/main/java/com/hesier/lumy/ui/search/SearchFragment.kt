@@ -21,6 +21,7 @@ import com.hesier.lumy.ui.home.ItemChangeListener
 import com.hesier.lumy.ui.widget.HubRowAdapter
 import com.hesier.lumy.ui.widget.StartAlignedLayoutManager
 import com.hesier.lumy.ui.widget.attempt
+import com.hesier.lumy.ui.widget.enableDpadNavigation
 import com.hesier.lumy.ui.widget.readableMessage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -42,6 +43,13 @@ class SearchFragment : Fragment(), ItemChangeListener {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         binding.rows.layoutManager = StartAlignedLayoutManager(requireContext(), RecyclerView.VERTICAL)
+        binding.query.enableDpadNavigation { direction ->
+            when (direction) {
+                View.FOCUS_DOWN -> binding.rows.takeIf { (it.adapter?.itemCount ?: 0) > 0 }
+                View.FOCUS_LEFT -> binding.query.focusSearch(direction)
+                else -> null
+            }
+        }
         binding.query.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
@@ -59,8 +67,11 @@ class SearchFragment : Fragment(), ItemChangeListener {
             }
             submit
         }
-        binding.query.requestFocus()
-        binding.query.post { showKeyboard() }
+        // 等搜索框挂载后再接收焦点，让侧边栏随焦点离开自动收起。
+        binding.query.post {
+            binding.query.requestFocus()
+            showKeyboard()
+        }
     }
 
     override fun onDestroyView() {
