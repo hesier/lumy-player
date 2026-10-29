@@ -73,7 +73,10 @@ class LibraryFragment : Fragment(), ItemChangeListener {
             host.server, HubStyle.POSTER, host::showBackdrop, host::openItem, host::showItemMenu,
             onMissing = { loadPage(it / PAGE_SIZE) },
         )
-        binding.grid.layoutManager = GridLayoutManager(requireContext(), spanCount())
+        val columns = spanCount()
+        binding.grid.layoutManager = GridLayoutManager(requireContext(), columns)
+        // Keep whole rows available; the default pool holds fewer cards than one TV row.
+        binding.grid.recycledViewPool.setMaxRecycledViews(HubStyle.POSTER.ordinal, columns * RECYCLED_ROWS)
         binding.grid.addItemDecoration(object : RecyclerView.ItemDecoration() {
             private val gap = resources.getDimensionPixelSize(R.dimen.card_gap) + 6
             override fun getItemOffsets(outRect: Rect, view: View, parent: RecyclerView, state: RecyclerView.State) {
@@ -81,6 +84,7 @@ class LibraryFragment : Fragment(), ItemChangeListener {
             }
         })
         binding.grid.adapter = adapter
+        binding.grid.setHasFixedSize(true)
         binding.grid.setItemViewCacheSize(12)
         renderFilters()
         reload()
@@ -286,6 +290,7 @@ class LibraryFragment : Fragment(), ItemChangeListener {
         private const val ARG_TITLE = "title"
         private const val ARG_TYPE = "type"
         private const val PAGE_SIZE = 60
+        private const val RECYCLED_ROWS = 2
 
         fun newInstance(library: Library) = LibraryFragment().apply {
             arguments = bundleOf(ARG_ID to library.id, ARG_TITLE to library.title, ARG_TYPE to library.type.name)

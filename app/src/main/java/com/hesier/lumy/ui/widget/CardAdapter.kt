@@ -177,7 +177,11 @@ class CardAdapter(
             val ref = if (style == HubStyle.LANDSCAPE) item.thumb ?: item.backdrop ?: item.poster else item.poster
             val lp = frame.layoutParams
             if (ref != null) {
-                image.load(server.imageUrl(ref, lp.width, lp.height)) { size(lp.width, lp.height) }
+                image.load(server.imageUrl(ref, lp.width, lp.height)) {
+                    size(lp.width, lp.height)
+                    // Avoid blending every newly visible poster while the list scrolls.
+                    crossfade(false)
+                }
             } else {
                 image.dispose()
                 image.setImageDrawable(null)

@@ -10,11 +10,14 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.TransitionDrawable
+import android.os.Trace
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import coil.size.Size
+import coil.transform.Transformation
 import com.hesier.lumy.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -65,10 +68,29 @@ object Backdrop {
             .size(width, height)
             // 要在软件 Canvas 上读像素，不能是硬件位图
             .allowHardware(false)
+            .transformations(Composition(context, android.util.Size(width, height), alpha))
             .build()
         val result = context.imageLoader.execute(request) as? SuccessResult ?: return null
-        val source = (result.drawable as? BitmapDrawable)?.bitmap ?: return null
-        return withContext(Dispatchers.Default) { draw(context, source, width, height, alpha) }
+        return (result.drawable as? BitmapDrawable)?.bitmap
+    }
+
+    /** Cache the composed image in Coil's existing memory budget, including its theme and geometry. */
+    private class Composition(
+        private val context: Context,
+        private val target: android.util.Size,
+        private val alpha: Float,
+    ) : Transformation {
+        override val cacheKey = "lumy-backdrop-v1:${target.width}x${target.height}:$alpha:" +
+            ContextCompat.getColor(context, R.color.bg)
+
+        override suspend fun transform(input: Bitmap, size: Size): Bitmap = withContext(Dispatchers.Default) {
+            Trace.beginSection("LumyBackdrop.compose")
+            try {
+                draw(context, input, target.width, target.height, alpha)
+            } finally {
+                Trace.endSection()
+            }
+        }
     }
 
     private fun draw(context: Context, source: Bitmap, width: Int, height: Int, alpha: Float): Bitmap {
