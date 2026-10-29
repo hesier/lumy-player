@@ -88,8 +88,16 @@ class DetailActivity : ThemedActivity() {
     private val keyThrottle = KeyRepeatThrottle()
 
     /** 长按方向键时放慢移动速度 */
-    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean =
-        keyThrottle.shouldDrop(event) || super.dispatchKeyEvent(event)
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (keyThrottle.shouldDrop(event)) return true
+        val wasInActions = binding.actions.hasFocus()
+        val handled = super.dispatchKeyEvent(event)
+        // 从下方回到操作按钮时显示完整详情，不只把按钮滚进可见区域。
+        if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+            event.keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP && !wasInActions && binding.actions.hasFocus()
+        ) binding.scroll.smoothScrollTo(0, 0)
+        return handled
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
