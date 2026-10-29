@@ -60,8 +60,13 @@ class PlexBrowseTest {
     }
 
     @Test
-    fun `multi-part playback starts in the right part with per-part sessions`() {
-        val server = PlexMediaServer(ServerSession(ServerKind.PLEX, "m", "NAS", "http://nas:32400", "t"), client)
+    fun `multi-part playback starts in the right part with per-part sessions`() = runBlocking {
+        web.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest) = MockResponse().setBody("{}")
+        }
+        web.start()
+        val base = web.url("").toString().trimEnd('/')
+        val server = PlexMediaServer(ServerSession(ServerKind.PLEX, "m", "NAS", base, "t"), client)
         val version = com.hesier.lumy.core.MediaVersion(
             id = "v", index = 0, container = "mkv", bitrateKbps = null, video = null, audio = emptyList(), subtitles = emptyList(),
             parts = listOf(
@@ -76,7 +81,8 @@ class PlexBrowseTest {
         val direct = server.playbackSource(req(com.hesier.lumy.core.PlaybackMode.Direct, 9_684_716))
         assertEquals(1, direct.startPart)
         assertEquals(0L, direct.startOffsetMs)
-        assertEquals(listOf("http://nas:32400/library/parts/1/file.mkv", "http://nas:32400/library/parts/2/file.mkv"), direct.urls)
+        assertEquals(listOf("$base/library/parts/1/file.mkv", "$base/library/parts/2/file.mkv"), direct.urls)
+        assertEquals(0, web.requestCount)
 
         val hls = server.playbackSource(req(com.hesier.lumy.core.PlaybackMode.Transcode(), 60_000))
         assertEquals(0, hls.startPart)
@@ -89,6 +95,10 @@ class PlexBrowseTest {
         assertEquals("0", second.queryParameter("offset"))
         assertEquals("s-1", second.queryParameter("session"))
         assertEquals(null, first.queryParameter("X-Plex-Session-Identifier"))
+        // 每段起播前都先请求 decision，服务端才会按当前选择的字幕转码
+        val decisions = List(2) { web.takeRequest().requestUrl!! }
+        assertEquals(listOf("/video/:/transcode/universal/decision"), decisions.map { it.encodedPath }.distinct())
+        assertEquals(listOf("s-0", "s-1"), decisions.map { it.queryParameter("session") })
         assert("videoCodec=h264,hevc&" in first.queryParameter("X-Plex-Client-Profile-Extra")!!)
 
         // 输出 SDR 时只允许 H.264

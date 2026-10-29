@@ -55,7 +55,7 @@ interface MediaServer {
     suspend fun children(id: String): List<MediaItem>
 
     /** 生成播放地址。转码会话在 [stopPlayback] 前一直占用服务器资源 */
-    fun playbackSource(request: PlaybackRequest): PlaybackSource
+    suspend fun playbackSource(request: PlaybackRequest): PlaybackSource
 
     /** 播放进度上报；停止时服务端会据此标记已看 */
     suspend fun reportProgress(request: PlaybackRequest, state: PlaybackState, positionMs: Long, durationMs: Long)

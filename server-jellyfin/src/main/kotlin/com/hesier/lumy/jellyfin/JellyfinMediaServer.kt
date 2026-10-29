@@ -243,7 +243,7 @@ class JellyfinMediaServer(
         return get<ItemsResult>(b.withFields()).items.map { it.toItem() }
     }
 
-    override fun playbackSource(request: PlaybackRequest): PlaybackSource {
+    override suspend fun playbackSource(request: PlaybackRequest): PlaybackSource {
         val version = request.version
         val externalSubs = version.subtitles.filter { it.external }.map {
             ExternalSubtitle(

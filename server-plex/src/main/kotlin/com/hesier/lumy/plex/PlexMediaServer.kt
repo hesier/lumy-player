@@ -132,7 +132,7 @@ class PlexMediaServer(
     override suspend fun children(id: String): List<MediaItem> =
         get("/library/metadata/$id/children").metadata.map { it.toItem() }
 
-    override fun playbackSource(request: PlaybackRequest): PlaybackSource {
+    override suspend fun playbackSource(request: PlaybackRequest): PlaybackSource {
         val version = request.version
         val externalSubs = version.subtitles.filter { it.external }.map {
             ExternalSubtitle(
@@ -155,7 +155,11 @@ class PlexMediaServer(
             )
             is PlaybackMode.Transcode -> PlaybackSource(
                 urls = version.parts.indices.map { i ->
-                    transcodeUrl(request, mode, i, offsetMs = if (i == startPart) startOffset else 0)
+                    val url = transcodeUrl(request, mode, i, offsetMs = if (i == startPart) startOffset else 0)
+                    // 先请求一次 decision：直接请求 start.m3u8 时服务端会沿用这台设备上次的决定，
+                    // 实测切换字幕后烧录的还是旧字幕（会话信息里显示的却是新字幕）
+                    runCatching { client.execute(client.request(url.replace("/start.m3u8?", "/decision?"), session.token).build()) }
+                    url
                 },
                 isHls = true,
                 // 烧录字幕时外挂字幕就不需要了

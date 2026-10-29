@@ -121,7 +121,7 @@ class JellyfinTest {
     }
 
     @Test
-    fun `transcode url carries selection and limits`() {
+    fun `transcode url carries selection and limits`() = runBlocking {
         val detail = client.json.decodeFromString<BaseItem>(
             """{"Id":"m1","Type":"Movie","MediaSources":[{"Id":"src","MediaStreams":[]}]}""",
         ).toDetail(emptyList(), null)
