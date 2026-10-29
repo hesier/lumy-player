@@ -345,6 +345,8 @@ class PlayerActivity : ThemedActivity() {
     // ---- 起播 ----
 
     private fun start(positionMs: Long) {
+        // 换字幕 / 音轨 / 画质等重新起播时，旧会话要先报停止，否则服务端的“正在播放”里会一直留着它
+        if (request != null) report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
         val p = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed)
         DebugLog.i(TAG, "plan ${item.title} id=${item.id} [${version.summary}] dovi=${version.video?.doviProfile} audio=${audio?.codec} sub=${subtitle?.codec} -> ${p.mode} reasons=${p.reasons} subUnavailable=${p.subtitleUnavailable}")
