@@ -4,14 +4,12 @@ package com.hesier.lumy.ui.player
 
 import android.content.Context
 import android.os.Handler
-import android.os.Looper
 import androidx.media3.common.audio.ChannelMixingAudioProcessor
 import androidx.media3.common.audio.ChannelMixingMatrix
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
-import androidx.media3.exoplayer.text.TextOutput
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -90,18 +88,6 @@ object PlayerFactory {
                 return DelayedAudioSink(builder.build(), offsets)
             }
 
-            override fun buildTextRenderers(
-                context: Context,
-                output: TextOutput,
-                outputLooper: Looper,
-                extensionRendererMode: Int,
-                out: ArrayList<Renderer>,
-            ) {
-                val built = ArrayList<Renderer>()
-                super.buildTextRenderers(context, output, outputLooper, extensionRendererMode, built)
-                built.mapTo(out) { DelayedTextRenderer(it, offsets) }
-            }
-
             /**
              * 视频不用 FFmpeg 软解：硬解报“超出能力”时 ExoPlayer 会改选软解，
              * 电视盒子软解 4K 必然卡成幻灯片。硬解不了的交给服务器转码。
@@ -126,7 +112,8 @@ object PlayerFactory {
             .setEnableDecoderFallback(true)
             .setMediaCodecSelector(codecs)
 
-        val player = ExoPlayer.Builder(context, AssRenderersFactory(ass, renderers))
+        val delayedRenderers = DelayedSubtitleRenderersFactory(AssRenderersFactory(ass, renderers), offsets, ass)
+        val player = ExoPlayer.Builder(context, delayedRenderers)
             .setMediaSourceFactory(mediaSources)
             .setLoadControl(loadControl())
             .setSeekBackIncrementMs(10_000)
