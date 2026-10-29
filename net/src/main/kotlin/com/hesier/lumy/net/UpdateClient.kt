@@ -1,17 +1,22 @@
 package com.hesier.lumy.net
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.CacheControl
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import kotlin.coroutines.resumeWithException
 
 /** 发布工作流随 APK 一起上传的 update.json */
 @Serializable
@@ -49,7 +54,7 @@ class UpdateClient(
     suspend fun latest(mirror: String?): UpdateInfo = withContext(Dispatchers.IO) {
         // 镜像和 CDN 可能缓存旧的 update.json
         val request = Request.Builder().url(infoUrl(mirror)).cacheControl(CacheControl.FORCE_NETWORK).build()
-        http.newCall(request).execute().use { response ->
+        http.newCall(request).readBody { response ->
             json.decodeFromString(UpdateInfo.serializer(), response.checkedBody().string())
         }
     }
@@ -57,19 +62,21 @@ class UpdateClient(
     /** 下载到 [target]，边下边算校验和；先写临时文件，校验通过才改名，失败时不留下半个文件 */
     suspend fun download(info: UpdateInfo, mirror: String?, target: File, onProgress: (downloaded: Long, total: Long) -> Unit) =
         withContext(Dispatchers.IO) {
-            target.parentFile?.mkdirs()
-            val partial = File(target.path + ".part")
             val call = http.newCall(Request.Builder().url(apkUrl(info, mirror)).build())
+            val directory = target.absoluteFile.parentFile!!.apply { mkdirs() }
+            val partial = File.createTempFile("${target.name}.download-", ".part", directory)
+            val context = currentCoroutineContext()
             try {
-                call.execute().use { response ->
-                    val body = response.checkedBody()
-                    val digest = MessageDigest.getInstance("SHA-256")
-                    var downloaded = 0L
-                    body.byteStream().use { input ->
-                        partial.outputStream().use { output ->
+                // Open before awaiting the response so cancellation cannot race with file creation.
+                partial.outputStream().use { output ->
+                    call.readBody { response ->
+                        val body = response.checkedBody()
+                        val digest = MessageDigest.getInstance("SHA-256")
+                        var downloaded = 0L
+                        body.byteStream().use { input ->
                             val buffer = ByteArray(64 * 1024)
                             while (true) {
-                                ensureActive()
+                                context.ensureActive()
                                 val n = input.read(buffer)
                                 if (n < 0) break
                                 output.write(buffer, 0, n)
@@ -78,20 +85,35 @@ class UpdateClient(
                                 onProgress(downloaded, info.size)
                             }
                         }
+                        if (downloaded != info.size) throw UpdateChecksumException("Expected ${info.size} bytes, got $downloaded")
+                        val sha = digest.digest().joinToString("") { "%02x".format(it) }
+                        if (!sha.equals(info.sha256, ignoreCase = true)) throw UpdateChecksumException("SHA-256 mismatch")
                     }
-                    if (downloaded != info.size) throw UpdateChecksumException("Expected ${info.size} bytes, got $downloaded")
-                    val sha = digest.digest().joinToString("") { "%02x".format(it) }
-                    if (!sha.equals(info.sha256, ignoreCase = true)) throw UpdateChecksumException("SHA-256 mismatch")
                 }
-                target.delete()
+                ensureActive()
                 if (!partial.renameTo(target)) throw IOException("Cannot move ${partial.name}")
-            } catch (e: Throwable) {
-                call.cancel()
+                target
+            } finally {
                 partial.delete()
-                throw e
             }
-            target
         }
+
+    /** Keep cancellation attached until body processing finishes, including a blocked read. */
+    private suspend fun <T> Call.readBody(block: (Response) -> T): T = suspendCancellableCoroutine { cont ->
+        cont.invokeOnCancellation { cancel() }
+        enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) = cont.resumeWithException(e)
+
+            override fun onResponse(call: Call, response: Response) {
+                cont.resumeWith(runCatching {
+                    response.use {
+                        cont.context.ensureActive()
+                        block(it)
+                    }
+                })
+            }
+        })
+    }
 
     private fun Response.checkedBody() = if (isSuccessful) body!! else throw IOException("HTTP $code ${request.url}")
 

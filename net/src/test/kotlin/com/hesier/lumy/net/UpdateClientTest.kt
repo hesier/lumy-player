@@ -1,9 +1,18 @@
 package com.hesier.lumy.net
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import okio.Buffer
 import org.junit.After
 import org.junit.Assert.*
@@ -11,6 +20,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.security.MessageDigest
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class UpdateClientTest {
     @get:Rule val temp = TemporaryFolder()
@@ -88,6 +99,61 @@ class UpdateClientTest {
             client.download(info, null, temp.root.resolve("lumy.apk")) { _, _ -> }
             fail("expected size failure")
         } catch (_: UpdateChecksumException) {
+        }
+    }
+
+    @Test fun cancellationClosesPendingResponse() = runBlocking {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        val slow = UpdateClient(OkHttpClient.Builder().readTimeout(5, TimeUnit.SECONDS).build(), "owner/repo", github)
+        val job = launch(Dispatchers.IO) { slow.download(info, null, temp.root.resolve("lumy.apk")) { _, _ -> } }
+        assertNotNull(server.takeRequest(2, TimeUnit.SECONDS))
+        withTimeout(1_000) { job.cancelAndJoin() }
+        assertTrue(temp.root.listFiles()!!.isEmpty())
+    }
+
+    @Test fun cancellationClosesBodyRead() = runBlocking {
+        server.enqueue(MockResponse().setBody(Buffer().write(apk)).throttleBody(1024, 5, TimeUnit.SECONDS))
+        val slow = UpdateClient(OkHttpClient.Builder().readTimeout(5, TimeUnit.SECONDS).build(), "owner/repo", github)
+        val started = CompletableDeferred<Unit>()
+        val job = launch(Dispatchers.IO) {
+            slow.download(info, null, temp.root.resolve("lumy.apk")) { _, _ -> started.complete(Unit) }
+        }
+        withTimeout(2_000) { started.await() }
+        // Let the reader block waiting for the throttled second chunk.
+        delay(100)
+        withTimeout(1_000) { job.cancelAndJoin() }
+        assertTrue(temp.root.listFiles()!!.isEmpty())
+    }
+
+    @Test fun failedDownloadDoesNotDeleteAnotherDownloadsTemporaryFile() = runBlocking {
+        repeat(2) { server.enqueue(MockResponse().setBody(Buffer().write(apk))) }
+        val target = temp.root.resolve("lumy.apk")
+        val firstStarted = CompletableDeferred<Unit>()
+        val secondStarted = CompletableDeferred<Unit>()
+        val releaseFirst = CountDownLatch(1)
+        val releaseSecond = CountDownLatch(1)
+        try {
+            val first = async(Dispatchers.IO) {
+                runCatching {
+                    client.download(info.copy(sha256 = "bad"), null, target) { _, _ ->
+                        if (firstStarted.complete(Unit)) releaseFirst.await(5, TimeUnit.SECONDS)
+                    }
+                }
+            }
+            withTimeout(2_000) { firstStarted.await() }
+            val second = async(Dispatchers.IO) {
+                client.download(info, null, target) { _, _ ->
+                    if (secondStarted.complete(Unit)) releaseSecond.await(5, TimeUnit.SECONDS)
+                }
+            }
+            withTimeout(2_000) { secondStarted.await() }
+            releaseFirst.countDown()
+            assertTrue(withTimeout(2_000) { first.await() }.exceptionOrNull() is UpdateChecksumException)
+            releaseSecond.countDown()
+            assertArrayEquals(apk, withTimeout(2_000) { second.await() }.readBytes())
+        } finally {
+            releaseFirst.countDown()
+            releaseSecond.countDown()
         }
     }
 }
