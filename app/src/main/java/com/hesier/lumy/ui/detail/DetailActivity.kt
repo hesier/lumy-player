@@ -69,6 +69,7 @@ class DetailActivity : ThemedActivity() {
 
     private var seasons: List<MediaItem> = emptyList()
     private var currentSeasonId: String? = null
+    private var seasonEpisodes: List<MediaItem> = emptyList()
     private var seasonJob: Job? = null
     private var episodesAdapter: CardAdapter? = null
 
@@ -200,6 +201,10 @@ class DetailActivity : ThemedActivity() {
     private val headerItem: MediaItem? get() = selectedEpisode ?: main?.item
     private val headerDetail: MediaDetail?
         get() = selectedEpisode?.let { episodeDetails[it.id] } ?: main.takeIf { selectedEpisode == null }
+    private val seriesPlayTarget: MediaItem?
+        get() = main?.onDeck?.takeIf { currentSeasonId == null || it.parentId == currentSeasonId }
+            ?: seasonEpisodes.firstOrNull { !it.watched }
+            ?: seasonEpisodes.firstOrNull()
 
     private fun renderHeader() {
         val item = headerItem ?: return
@@ -259,7 +264,7 @@ class DetailActivity : ThemedActivity() {
         val focused = binding.actions.indexOfChild(currentFocus)
         binding.actions.removeAllViews()
         if (item.type == MediaType.SHOW) {
-            main?.onDeck?.let { next ->
+            seriesPlayTarget?.let { next ->
                 val label = if (next.seasonNumber != null && next.episodeNumber != null) {
                     getString(R.string.action_play_episode, next.seasonNumber!!, next.episodeNumber!!)
                 } else {
@@ -351,6 +356,9 @@ class DetailActivity : ThemedActivity() {
     private fun switchSeason(season: MediaItem) {
         if (season.id == currentSeasonId) return
         currentSeasonId = season.id
+        seasonEpisodes = emptyList()
+        selectedEpisode = null
+        renderHeader()
         updateTabStates()
         showEpisodePlaceholders()
         loadEpisodes(season.id, scrollTo = null)
@@ -427,6 +435,8 @@ class DetailActivity : ThemedActivity() {
         lifecycleScope.launch {
             val episodes = attempt { server.children(seasonId) }.getOrDefault(emptyList())
             if (seasonId != currentSeasonId) return@launch
+            seasonEpisodes = episodes
+            renderHeader()
             binding.episodes.visibility = View.VISIBLE
             val adapter = episodesAdapter()
             adapter.selectedId = selectedEpisode?.id
@@ -440,7 +450,11 @@ class DetailActivity : ThemedActivity() {
 
     private fun refreshEpisodes(seasonId: String) {
         lifecycleScope.launch {
-            attempt { server.children(seasonId) }.getOrNull()?.let { episodesAdapter?.submit(it) }
+            val episodes = attempt { server.children(seasonId) }.getOrNull() ?: return@launch
+            if (seasonId != currentSeasonId) return@launch
+            seasonEpisodes = episodes
+            episodesAdapter?.submit(episodes)
+            renderHeader()
         }
     }
 
