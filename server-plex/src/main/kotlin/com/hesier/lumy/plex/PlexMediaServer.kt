@@ -307,20 +307,17 @@ internal fun LibraryQuery.params(): Array<Pair<String, String>> {
 }
 
 /**
- * 告诉服务端转码目标：HLS + TS 封装，视频 H.264/HEVC。
- * 只声明 audioCodec 不够，服务端仍会把音频转成 AAC 立体声；还要逐个声明可以原样保留的音频编码
- * 和声道上限，EAC3 7.1 / AC3 5.1 / DTS 才会被直接复制（实测服务端 decision 由 transcode 变为 copy）。
- * TrueHD 不能放进 TS，服务端会转成 EAC3。客户端有 FFmpeg，这些格式都能解码。
+ * Advertise only audio formats supported by the default HLS TS extractor.
+ * FFmpeg decoder support does not make DTS (HDMV), FLAC or Opus extractable from TS.
+ * Explicit codec and channel limits let Plex preserve supported multichannel audio.
  */
 private fun clientProfileExtra(videoCodecs: String) = listOf(
     "add-transcode-target(type=videoProfile&context=streaming&protocol=hls&container=mpegts" +
-        "&videoCodec=$videoCodecs&audioCodec=aac,ac3,eac3,mp3,opus,flac,dca)",
+        "&videoCodec=$videoCodecs&audioCodec=aac,ac3,eac3,mp3)",
     "add-transcode-target-audio-codec(type=videoProfile&context=streaming&protocol=hls&audioCodec=eac3)",
     "add-transcode-target-audio-codec(type=videoProfile&context=streaming&protocol=hls&audioCodec=ac3)",
-    "add-transcode-target-audio-codec(type=videoProfile&context=streaming&protocol=hls&audioCodec=dca)",
     "add-limitation(scope=videoAudioCodec&scopeName=eac3&type=upperBound&name=audio.channels&value=8)",
     "add-limitation(scope=videoAudioCodec&scopeName=ac3&type=upperBound&name=audio.channels&value=6)",
-    "add-limitation(scope=videoAudioCodec&scopeName=dca&type=upperBound&name=audio.channels&value=8)",
 ).joinToString("+")
 
 private val CLIENT_PROFILE_EXTRA = clientProfileExtra("h264,hevc")

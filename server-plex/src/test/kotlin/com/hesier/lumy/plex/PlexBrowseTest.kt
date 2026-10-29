@@ -100,6 +100,9 @@ class PlexBrowseTest {
         assertEquals(listOf("/video/:/transcode/universal/decision"), decisions.map { it.encodedPath }.distinct())
         assertEquals(listOf("s-0", "s-1"), decisions.map { it.queryParameter("session") })
         assert("videoCodec=h264,hevc&" in first.queryParameter("X-Plex-Client-Profile-Extra")!!)
+        val profile = first.queryParameter("X-Plex-Client-Profile-Extra")!!
+        assertTrue(profile.contains("audioCodec=aac,ac3,eac3,mp3)"))
+        assertTrue(listOf("dca", "flac", "opus").none { it in profile })
 
         // 输出 SDR 时只允许 H.264
         val sdr = server.playbackSource(req(com.hesier.lumy.core.PlaybackMode.Transcode(copyVideo = false, sdr = true), 0))
