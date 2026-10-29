@@ -66,7 +66,7 @@ object PlayerFactory {
         val assParsers = AssSubtitleParserFactory(ass)
         val extractors = DefaultExtractorsFactory().withSeekableAssMkv(assParsers, ass)
         val mediaSources = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, upstream), extractors)
-            .setSubtitleParserFactory(assParsers)
+            .setSubtitleParserFactory(LegacySubripParserFactory(assParsers))
 
         val codecs = LumyCodecSelector()
         val renderers = object : DefaultRenderersFactory(context) {

@@ -610,8 +610,13 @@ class PlayerActivity : ThemedActivity() {
             if (firstFrameRendered) return@launch
             val profile = codecsString?.let { DOVI_PROFILE.find(it)?.groupValues?.get(1)?.toIntOrNull() }
                 ?: version.video?.doviProfile
+            if (profile == 5) {
+                DebugLog.i(TAG, "dolby vision profile 5 decoder produced no frame after ${waited}ms; no compatible base layer")
+                player.stop()
+                showError(getString(R.string.issue_dovi_profile5))
+                return@launch
+            }
             DebugLog.i(TAG, "dolby vision decoder stuck (profile=$profile, waited ${waited}ms), retry with base layer")
-            if (profile == 5) return@launch
             profile?.let { settings.brokenDolbyVisionProfiles = settings.brokenDolbyVisionProfiles + it }
             if (profile == null) {
                 doviBaseLayer = true
@@ -709,7 +714,8 @@ class PlayerActivity : ThemedActivity() {
     private fun matchGroup(groups: List<Tracks.Group>, streamIndex: Int?, position: Int): Tracks.Group? {
         if (streamIndex != null) {
             val trackNumber = (streamIndex + 1).toString()
-            groups.firstOrNull { it.getTrackFormat(0).id == trackNumber }?.let { return it }
+            // Merging an external subtitle prefixes embedded track IDs with the source index.
+            groups.firstOrNull { it.getTrackFormat(0).id?.substringAfterLast(':') == trackNumber }?.let { return it }
         }
         return groups.getOrNull(position)
     }
