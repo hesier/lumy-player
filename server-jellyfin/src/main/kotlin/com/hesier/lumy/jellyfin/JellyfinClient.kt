@@ -2,7 +2,9 @@ package com.hesier.lumy.jellyfin
 
 import com.hesier.lumy.core.HttpStatusException
 import com.hesier.lumy.core.ServerKind
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
@@ -71,8 +73,10 @@ class JellyfinClient(
 
     fun jsonBody(body: String): RequestBody = body.toRequestBody(JSON_TYPE)
 
-    suspend inline fun <reified T> fetch(request: Request, client: OkHttpClient = http): T =
-        json.decodeFromString<T>(execute(request, client))
+    suspend inline fun <reified T> fetch(request: Request, client: OkHttpClient = http): T {
+        val body = execute(request, client)
+        return withContext(Dispatchers.Default) { json.decodeFromString<T>(body) }
+    }
 
     suspend fun execute(request: Request, client: OkHttpClient = http): String =
         suspendCancellableCoroutine { cont ->

@@ -1,7 +1,9 @@
 package com.hesier.lumy.plex
 
 import com.hesier.lumy.core.HttpStatusException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.Call
 import okhttp3.Callback
@@ -66,7 +68,7 @@ class PlexClient(
 
     suspend inline fun <reified T> fetch(request: Request, client: OkHttpClient = http): T {
         val body = execute(request, client)
-        return json.decodeFromString<T>(body)
+        return withContext(Dispatchers.Default) { json.decodeFromString<T>(body) }
     }
 
     suspend fun execute(request: Request, client: OkHttpClient = http): String =
