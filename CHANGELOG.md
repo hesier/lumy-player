@@ -4,6 +4,14 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.3.1 - 2026-10-29
+
+### Playback
+
+- Emby and Jellyfin: when the server has to transcode, embedded subtitles (including PGS and ASS) are now sent along and shown on this device instead of being burned in, so image subtitles are no longer squashed or misplaced. The original audio (such as TrueHD) is kept when this device can decode it
+- Plex: switching subtitles while the server transcodes now takes effect; before, the previous subtitle stayed burned in
+- Restarting playback (changing subtitles, audio or quality) no longer leaves extra sessions in the server's Now Playing list
+
 ## 0.3.0 - 2026-10-29
 
 ### Playback
