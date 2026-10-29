@@ -9,6 +9,12 @@ import java.io.IOException
 interface MediaServer {
     val session: ServerSession
 
+    /**
+     * 转码时能把内封字幕原样放进输出（[PlaybackMode.Transcode.embedSubtitleId]），PGS 等图形字幕不用烧录。
+     * Plex 的转码输出带不了图形字幕，只能烧录
+     */
+    val embedsSubtitles: Boolean get() = false
+
     /** 保存的地址是否仍可用，启动时据此决定是否需要重新连接 */
     suspend fun isReachable(): Boolean
 

@@ -139,7 +139,7 @@ class PlayerActivity : ThemedActivity() {
     private var doviWatchJob: Job? = null
 
     private val settings get() = LumyApp.instance.settings
-    private val policy get() = PlanPolicy(settings.allowTranscode, settings.allowSubtitleBurn, settings.displaySupportsHdr)
+    private val policy get() = PlanPolicy(settings.allowTranscode, settings.allowSubtitleBurn, settings.displaySupportsHdr, server.embedsSubtitles)
     /** 剧集的下一集，加载完详情后异步获取 */
     private var nextEpisode: MediaItem? = null
     /** 已自动跳过的标记，避免往回拖时被反复跳过 */
@@ -391,7 +391,9 @@ class PlayerActivity : ThemedActivity() {
                     )
                     .build()
             }
-            player.setMediaItems(media, source.startPart, if (source.isHls) 0 else source.startOffsetMs)
+            // 带内封字幕的转码流已从起播点开始，而且不能跳转
+            val embedded = (p.mode as? PlaybackMode.Transcode)?.embedSubtitleId != null
+            player.setMediaItems(media, source.startPart, if (source.isHls || embedded) 0 else source.startOffsetMs)
             player.setPlaybackSpeed(speed)
             player.prepare()
             player.playWhenReady = true
@@ -444,7 +446,9 @@ class PlayerActivity : ThemedActivity() {
         val reencoding = (plan?.mode as? PlaybackMode.Transcode)?.copyVideo == false
         val outsideTranscoded = part != player.currentMediaItemIndex || t > bufferedMs + 5_000 ||
             (part == startPart && local < timeBase)
-        if (transcoding && outsideTranscoded) {
+        // 带内封字幕的 MKV 转码流不能跳转（播放器会退回开头），总是重新起播
+        val embedded = (plan?.mode as? PlaybackMode.Transcode)?.embedSubtitleId != null
+        if (transcoding && (outsideTranscoded || embedded)) {
             start(t)
             return
         }
@@ -626,6 +630,11 @@ class PlayerActivity : ThemedActivity() {
         hlsAligned = true
         val start = version.localOffset(request?.startMs ?: return, startPart)
         if (start <= 0) return
+        if ((plan?.mode as? PlaybackMode.Transcode)?.embedSubtitleId != null) {
+            // MKV 转码流从起播点开始：Emby 实测保留原片时间戳，时间轴也可能从 0 开始，按就绪时的位置判断
+            if (abs(player.currentPosition - start) > 15_000) timeBase = start
+            return
+        }
         val hlsDuration = player.duration.takeIf { it != C.TIME_UNSET } ?: return
         val partDuration = version.parts[startPart].durationMs ?: item.durationMs ?: return
         if (abs(hlsDuration - (partDuration - start)) < 15_000) {
@@ -658,6 +667,9 @@ class PlayerActivity : ThemedActivity() {
             val textGroups = groups.filter { it.type == C.TRACK_TYPE_TEXT }
             val group = if (s.external) {
                 textGroups.firstOrNull { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX + s.id) == true }
+            } else if ((mode as? PlaybackMode.Transcode)?.embedSubtitleId == s.id) {
+                // 转码流里只带了这一条内封字幕，轨道号和原文件对不上
+                textGroups.firstOrNull { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX) != true }
             } else {
                 val embedded = textGroups.filter { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX) != true }
                 matchGroup(embedded, s.index, version.subtitles.filter { !it.external }.indexOf(s))
@@ -709,6 +721,7 @@ class PlayerActivity : ThemedActivity() {
             version.subtitles.map {
                 val note = when {
                     device.canRenderSubtitle(it, transcoding) -> null
+                    transcoding && planner.canEmbed(it, policy) -> null
                     policy.allowTranscode && (policy.allowSubtitleBurn || reencoding) -> getString(R.string.subtitle_burn_note)
                     else -> getString(R.string.subtitle_not_available_note)
                 }

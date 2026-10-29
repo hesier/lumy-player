@@ -154,6 +154,17 @@ class JellyfinTest {
         assertEquals("/Videos/m1/stream", d.encodedPath)
         assertEquals("tok", d.queryParameter("api_key"))
         assertEquals(1000L, direct.startOffsetMs)
+
+        // 带内封字幕时改用 MKV 渐进式转码，从起播点开始，字幕原样复制
+        val embed = server().playbackSource(req.copy(mode = PlaybackMode.Transcode(embedSubtitleId = "3")))
+        val e = embed.urls.single().toHttpUrl()
+        assertEquals(false, embed.isHls)
+        assertEquals("/Videos/m1/stream.mkv", e.encodedPath)
+        assertEquals("3", e.queryParameter("SubtitleStreamIndex"))
+        assertEquals("Embed", e.queryParameter("SubtitleMethod"))
+        assertEquals("copy", e.queryParameter("SubtitleCodec"))
+        assertEquals("10000000", e.queryParameter("StartTimeTicks"))
+        assertNull(e.queryParameter("SegmentContainer"))
     }
 
     @Test

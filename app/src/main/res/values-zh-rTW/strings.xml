@@ -281,7 +281,7 @@
     <string name="settings_display_hdr">電視支援 HDR</string>
     <string name="settings_display_hdr_detail">關閉後 HDR / 杜比視界片源由伺服器轉碼成 1080p SDR，避免在不支援 HDR 的電視上畫面發灰。需要允許伺服器轉碼，並在伺服器上開啟 HDR 色調對應</string>
     <string name="settings_allow_burn">允許伺服器燒入字幕</string>
-    <string name="settings_allow_burn_detail">為了顯示字幕而讓伺服器轉碼並燒入。預設關閉：字幕盡量在本機算繪（含 ASS 特效字幕）。影片已經在轉碼時，本機顯示不了的字幕一律燒入</string>
+    <string name="settings_allow_burn_detail">為了顯示字幕而讓伺服器轉碼並燒入。預設關閉：字幕盡量在本機算繪（含 ASS 特效字幕）。影片已經在轉碼時，Plex 上本機顯示不了的字幕一律燒入；Emby / Jellyfin 會把內嵌字幕隨轉碼一起傳給本機算繪，不必燒入</string>
     <string name="player_error">播放失敗：%1$s</string>
     <string name="player_back_again_exit">再按一次返回鍵結束播放</string>
     <string name="player_fallback">裝置無法直接播放，已切換到伺服器轉碼</string>
