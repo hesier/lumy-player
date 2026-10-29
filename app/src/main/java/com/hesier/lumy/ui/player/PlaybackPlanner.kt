@@ -122,6 +122,7 @@ class PlaybackPlanner(private val device: DeviceProfile) {
 
         val videoOk = !videoDecodeFailed && version.video?.let(device::videoProblem) == null
         val reencode = quality is Quality.Limited || !videoOk || toSdr
+        val audioOk = audio == null || device.audioProblem(audio.codec) == null
         // 转码输出里没有内封字幕：服务器能带上时由本机渲染，否则要么烧录，要么这条字幕不可用。
         // 视频反正要重新编码时，烧录几乎不增加服务器负担，不受开关限制（Plex 此时也会自己烧录服务器记住的字幕）
         val needsBurn = subtitle != null && !device.canRenderSubtitle(subtitle, transcoding = true)
@@ -130,6 +131,7 @@ class PlaybackPlanner(private val device: DeviceProfile) {
         val mode = when (quality) {
             is Quality.Limited -> PlaybackMode.Transcode(
                 quality.bitrateKbps, quality.height, burnSubtitleId = burnId, embedSubtitleId = embedId, copyVideo = false, sdr = toSdr,
+                copyAudio = audioOk,
             )
             // 本机解不了的视频要重新编码；超过 1080p 的降到 1080p，解不了 4K HEVC 的设备多半也解不了 4K H.264。
             // 转 SDR 也降到 1080p：4K 色调映射加重新编码对服务器负担很大，不少盒子也解不了 4K H.264
@@ -139,6 +141,7 @@ class PlaybackPlanner(private val device: DeviceProfile) {
                 embedSubtitleId = embedId,
                 copyVideo = !reencode && burnId == null,
                 sdr = toSdr,
+                copyAudio = audioOk,
             )
         }
         val reasons = mediaProblems + (if (toSdr) listOf(PlaybackIssue.HdrUnsupported) else emptyList()) + if (!directSubtitleOk && burnId != null) listOf(PlaybackIssue.SubtitleNeedsBurn(subtitle!!.codec)) else emptyList()

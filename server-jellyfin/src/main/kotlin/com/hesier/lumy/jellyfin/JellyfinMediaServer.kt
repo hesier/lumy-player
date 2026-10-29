@@ -295,13 +295,16 @@ class JellyfinMediaServer(
      */
     private fun transcodeUrl(request: PlaybackRequest, mode: PlaybackMode.Transcode): String {
         val embed = mode.embedSubtitleId
+        // MKV 放得下 TrueHD / DTS 等，本机能解码时把原音轨的格式也列上，服务端才会原样复制（实测不列就转成 AAC）
+        val sourceAudio = request.version.audio.firstOrNull { it.id == request.audioStreamId }?.codec?.lowercase()
+        val audioCodecs = AUDIO_CODECS + listOfNotNull(sourceAudio.takeIf { embed != null && mode.copyAudio && it !in AUDIO_CODECS })
         val b = url(if (embed != null) "Videos/${request.item.id}/stream.mkv" else "Videos/${request.item.id}/master.m3u8").addAll(
             "MediaSourceId" to request.version.id,
             "PlaySessionId" to request.sessionId,
             "DeviceId" to deviceId,
             // 只允许 H.264 时服务端会对 HDR 片源做色调映射（需在服务端开启）
             "VideoCodec" to if (mode.sdr) "h264" else "h264,hevc",
-            "AudioCodec" to "aac,ac3,eac3,mp3,opus,flac",
+            "AudioCodec" to audioCodecs.joinToString(","),
             "TranscodingMaxAudioChannels" to "8",
             "AllowVideoStreamCopy" to mode.copyVideo.toString(),
             "AllowAudioStreamCopy" to "true",
@@ -425,6 +428,7 @@ class JellyfinMediaServer(
         val EMPTY_BODY = ByteArray(0).toRequestBody()
         /** 复制视频流时的码率上限，足够高，避免服务端因“超码率”改为重新编码 */
         const val COPY_MAX_KBPS = 200_000
+        private val AUDIO_CODECS = listOf("aac", "ac3", "eac3", "mp3", "opus", "flac")
         /** 不限画质但本机解不了、必须重新编码时的目标码率（1080p 高画质） */
         const val REENCODE_KBPS = 20_000
         const val LIST_FIELDS = "Overview,ChildCount,RecursiveItemCount,ParentId"

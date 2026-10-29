@@ -28,6 +28,11 @@ sealed interface PlaybackMode {
          * 需要服务端开启色调映射，否则画面还是发灰。为 true 时 [copyVideo] 必须为 false
          */
         val sdr: Boolean = false,
+        /**
+         * 本机能解码选中的原音轨。输出容器放得下时让服务端原样复制：
+         * [embedSubtitleId] 的 MKV 能带 TrueHD / DTS，HLS 的 TS 分片不行
+         */
+        val copyAudio: Boolean = false,
     ) : PlaybackMode
 }
 
