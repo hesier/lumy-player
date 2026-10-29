@@ -93,6 +93,7 @@ class PlayerActivity : ThemedActivity() {
     private lateinit var server: MediaServer
     private lateinit var player: ExoPlayer
     private lateinit var ass: AssHandler
+    private lateinit var bitmapSubtitles: BitmapSubtitleOverlay
     private lateinit var codecs: LumyCodecSelector
     private lateinit var device: DeviceProfile
     private lateinit var planner: PlaybackPlanner
@@ -185,6 +186,8 @@ class PlayerActivity : ThemedActivity() {
             // libass 的特效字幕画在这一层上，和视频画面同尺寸
             addView(AssSubtitleView(this@PlayerActivity, ass))
         }
+        bitmapSubtitles = BitmapSubtitleOverlay(binding.playerView)
+        player.addListener(bitmapSubtitles)
         binding.controls.visibility = View.GONE
         binding.upNextFrame.clipToRoundedBackground()
         binding.upNextPlay.setOnClickListener { playNext() }
@@ -348,6 +351,7 @@ class PlayerActivity : ThemedActivity() {
 
     private fun start(positionMs: Long) {
         startJob?.cancel()
+        bitmapSubtitles.clear()
         // 换字幕 / 音轨 / 画质等重新起播时，旧会话要先报停止，否则服务端的“正在播放”里会一直留着它
         if (request != null) report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
@@ -735,7 +739,9 @@ class PlayerActivity : ThemedActivity() {
                 Option(it.title, listOfNotNull(it.codec.uppercase(), if (it.forced) getString(R.string.subtitle_forced) else null, note).joinToString(" · "), it == subtitle)
             }
         OptionsPanel(this, getString(R.string.player_subtitles), options) { i ->
-            subtitle = if (i == 0) null else version.subtitles[i - 1]
+            val selected = if (i == 0) null else version.subtitles[i - 1]
+            if (selected?.id != subtitle?.id) bitmapSubtitles.clear()
+            subtitle = selected
             saveSelection()
             rememberSubtitle()
             // 播放方式不变（例如直接播放切换内封字幕）就只切轨道，否则重新起播
