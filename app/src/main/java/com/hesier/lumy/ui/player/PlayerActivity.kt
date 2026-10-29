@@ -106,6 +106,7 @@ class PlayerActivity : ThemedActivity() {
     private var speed = 1f
 
     private var request: PlaybackRequest? = null
+    private var startJob: Job? = null
     private var plan: Plan? = null
     /** 直接播放失败后改用转码，同一版本内保持 */
     private var fellBack = false
@@ -281,6 +282,7 @@ class PlayerActivity : ThemedActivity() {
 
     /** 在同一个播放器里换成另一集（下一集 / 从剧集行选的） */
     private fun switchTo(next: MediaItem, startMs: Long) {
+        startJob?.cancel()
         report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
         request = null
@@ -345,6 +347,7 @@ class PlayerActivity : ThemedActivity() {
     // ---- 起播 ----
 
     private fun start(positionMs: Long) {
+        startJob?.cancel()
         // 换字幕 / 音轨 / 画质等重新起播时，旧会话要先报停止，否则服务端的“正在播放”里会一直留着它
         if (request != null) report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
@@ -368,11 +371,15 @@ class PlayerActivity : ThemedActivity() {
         binding.buffering.visibility = View.VISIBLE
         if (p.subtitleUnavailable) Toast.makeText(this, R.string.subtitle_unavailable, Toast.LENGTH_LONG).show()
 
-        lifecycleScope.launch {
+        startJob = lifecycleScope.launch {
             // 转码时服务端按记住的音轨/字幕输出，所以先保存选择
-            if (p.mode is PlaybackMode.Transcode) attempt { server.saveStreamSelection(version, audio?.id, subtitle?.id) }
+            if (p.mode is PlaybackMode.Transcode) attempt {
+                server.saveStreamSelection(req.version, req.audioStreamId, req.subtitleStreamId)
+            }
             if (request !== req) return@launch
             val source = server.playbackSource(req)
+            // A decision request may finish after another seek, track change or episode switch.
+            if (request !== req) return@launch
             // 多段文件放进播放列表，段与段之间无缝衔接；外挂字幕属于第一段
             val media = source.urls.mapIndexed { i, url ->
                 androidx.media3.common.MediaItem.Builder()
@@ -1461,6 +1468,7 @@ class PlayerActivity : ThemedActivity() {
 
     override fun onStop() {
         super.onStop()
+        startJob?.cancel()
         // TV 上离开播放页就结束播放：上报停止（服务端据此记录进度/标记已看）并释放转码
         if (::detail.isInitialized) report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
