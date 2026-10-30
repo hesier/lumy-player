@@ -14,7 +14,6 @@ import androidx.media3.extractor.SeekPoint
 import androidx.media3.extractor.mkv.MatroskaExtractor
 import com.hesier.lumy.util.DebugLog
 import io.github.peerless2012.ass.media.AssHandler
-import io.github.peerless2012.ass.media.extractor.AssMatroskaExtractor
 import androidx.media3.extractor.text.SubtitleParser
 
 /**
@@ -32,29 +31,6 @@ fun ExtractorsFactory.withSeekableAssMkv(
     }.toTypedArray()
 }
 
-/** 记下按簇查找要用的信息：时间单位和第一个簇的位置 */
-class ProbingMatroskaExtractor(parsers: SubtitleParser.Factory, ass: AssHandler) : AssMatroskaExtractor(parsers, ass, 0) {
-    var timecodeScaleNs = 1_000_000L
-        private set
-    var firstClusterContentPosition = C.INDEX_UNSET.toLong()
-        private set
-
-    override fun integerElement(id: Int, value: Long) {
-        if (id == ID_TIMECODE_SCALE) timecodeScaleNs = value
-        super.integerElement(id, value)
-    }
-
-    override fun startMasterElement(id: Int, contentPosition: Long, contentSize: Long) {
-        if (id == ID_CLUSTER && firstClusterContentPosition < 0) firstClusterContentPosition = contentPosition
-        super.startMasterElement(id, contentPosition, contentSize)
-    }
-
-    companion object {
-        const val ID_CLUSTER = 0x1F43B675
-        const val ID_TIMECODE_SCALE = 0x2AD7B1
-    }
-}
-
 /**
  * Media3 只靠 Cues 跳转，没有 Cues 的 MKV（不少演唱会、录制的片源）续播和快进都会回到开头。
  * VLC / Kodi 这类播放器是按比例估一个字节位置，再往后找簇（Cluster）的开头。这里也这么做：
@@ -67,19 +43,33 @@ class ClusterSeekingExtractor(private val inner: ProbingMatroskaExtractor) : Ext
     private var seekMap: EstimatedSeekMap? = null
     private var search: Search? = null
     private val scratch = ByteArray(SCAN_CHUNK)
+    private val indexProbe = MatroskaSeekHeadProbe()
+    private var deferredMap: SeekMap? = null
+    private var extractorOutput: ExtractorOutput? = null
 
     override fun sniff(input: ExtractorInput) = inner.sniff(input)
 
     override fun init(output: ExtractorOutput) {
+        extractorOutput = output
         inner.init(object : ExtractorOutput by output {
-            override fun seekMap(map: SeekMap) = output.seekMap(replaceUnseekable(map))
+            override fun seekMap(map: SeekMap) {
+                if (!map.isSeekable && inner.firstClusterContentPosition < 0) deferredMap = map
+                else output.seekMap(replaceUnseekable(map))
+            }
         })
     }
 
     override fun read(input: ExtractorInput, seekPosition: PositionHolder): Int {
         length = input.length
-        val s = search ?: return inner.read(input, seekPosition)
-        return s.step(input, seekPosition)
+        if (!indexProbe.read(input, seekPosition)) return Extractor.RESULT_SEEK
+        inner.chainedCuesPosition = indexProbe.cuesRelativePosition
+        val result = search?.step(input, seekPosition) ?: inner.read(input, seekPosition)
+        // An inline Cues element may contain no video points, before the first Cluster is known.
+        if (inner.firstClusterContentPosition >= 0 || result == Extractor.RESULT_END_OF_INPUT) {
+            deferredMap?.let { extractorOutput?.seekMap(replaceUnseekable(it)) }
+            deferredMap = null
+        }
+        return result
     }
 
     override fun seek(position: Long, timeUs: Long) {
