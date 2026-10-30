@@ -145,7 +145,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Pre-built APKs are available on the [Rel
 Lumy Player is built on these open-source projects:
 
 - [AndroidX Media3 / ExoPlayer](https://github.com/androidx/media) — playback engine (Apache-2.0)
-- [jellyfin-androidx-media](https://github.com/jellyfin/jellyfin-androidx-media) — prebuilt Media3 FFmpeg audio decoder extension (GPL-3.0), which bundles [FFmpeg](https://ffmpeg.org)
+- [jellyfin-androidx-media](https://github.com/jellyfin/jellyfin-androidx-media) — Media3 FFmpeg audio decoder extension (GPL-3.0), which bundles [FFmpeg](https://ffmpeg.org); Lumy uses a [patched ARM build](third_party/media3-ffmpeg/README.md) for TrueHD initialization
 - [libass-android / ass-media](https://github.com/peerless2012/libass-android) — ASS / SSA subtitle rendering for Media3 (MIT), built on [libass](https://github.com/libass/libass) (ISC)
 - [OkHttp](https://github.com/square/okhttp), [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization), [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) and [Coil](https://github.com/coil-kt/coil) (Apache-2.0)
 - [ZXing](https://github.com/zxing/zxing) — QR code generation (Apache-2.0)

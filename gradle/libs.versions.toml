@@ -14,7 +14,7 @@ recyclerview = "1.3.2"
 junit = "4.13.2"
 # 1.8.0 是最后一个支持 API 21 的 Media3；1.9 起要求 API 23
 media3 = "1.8.0"
-# Jellyfin 预编译的 FFmpeg 音频解码扩展，版本号与 Media3 对应
+# Upstream FFmpeg coordinate; app packages the JNI-patched ARM AAR in third_party/media3-ffmpeg.
 media3Ffmpeg = "1.8.0+1"
 # libass 渲染 ASS/SSA 特效字幕（Jellyfin Android TV 同款），依赖 Media3 1.8.0、minSdk 21
 assMedia = "0.5.1"

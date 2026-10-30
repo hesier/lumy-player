@@ -138,6 +138,7 @@ dependencies {
     implementation(libs.media3.hls)
     implementation(libs.media3.ui)
     implementation(libs.media3.okhttp)
-    implementation(libs.media3.ffmpeg)
+    // Same Media3 1.8.0 classes with a reproducible TrueHD JNI patch (see third_party).
+    implementation(files(rootProject.file("third_party/media3-ffmpeg/media3-ffmpeg-decoder-1.8.0+1-lumy1.aar")))
     implementation(libs.ass.media)
 }

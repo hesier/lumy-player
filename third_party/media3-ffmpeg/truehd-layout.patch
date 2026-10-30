@@ -1,0 +1,21 @@
+--- a/ffmpeg_jni.cc
++++ b/ffmpeg_jni.cc
+@@ -241,2 +241,5 @@
+         (jboolean)(context->request_sample_fmt == OUTPUT_FORMAT_PCM_FLOAT);
++    // Preserve container hints when TrueHD recreates its decoder after a seek.
++    const int sampleRate = context->sample_rate;
++    const int channelCount = context->ch_layout.nb_channels;
+     // Release and recreate the context if the codec is TrueHD.
+@@ -250,4 +253,3 @@
+     return (jlong)createContext(env, codec, extraData, outputFloat,
+-                                /* rawSampleRate= */ -1,
+-                                /* rawChannelCount= */ -1);
++                                sampleRate, channelCount);
+   }
+@@ -299,2 +301,6 @@
+     context->sample_rate = rawSampleRate;
++    av_channel_layout_default(&context->ch_layout, rawChannelCount);
++  }
++  // Single-substream TrueHD needs the container channel count to infer its layout.
++  if (context->codec_id == AV_CODEC_ID_TRUEHD && rawChannelCount > 0) {
+     av_channel_layout_default(&context->ch_layout, rawChannelCount);

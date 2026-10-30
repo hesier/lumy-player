@@ -4,8 +4,9 @@ import android.app.Activity
 import android.app.Instrumentation
 import android.os.Bundle
 import android.util.Log
+import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
-/** Runs Android bitmap tests using only the platform instrumentation APIs. */
+/** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
     private var benchmark = false
 
@@ -22,8 +23,9 @@ class PgsInstrumentation : Instrumentation() {
             PgsParserFactoryTest().runAll()
             SupExtractorTest().runAll()
             MatroskaIndexTest().runAll()
+            TrueHdDecoderTest().runAll(context)
             val performance = if (benchmark) PgsPerformanceProbe().run(targetContext.filesDir) else ""
-            result.putString("stream", "PGS, track filtering, SUP and Matroska index checks passed\n$performance")
+            result.putString("stream", "PGS, track filtering, SUP, Matroska index and TrueHD checks passed\n$performance")
             finish(Activity.RESULT_OK, result)
         } catch (error: Throwable) {
             result.putString("stream", Log.getStackTraceString(error))
