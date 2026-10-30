@@ -74,7 +74,17 @@ class LibraryFragment : Fragment(), ItemChangeListener {
             onMissing = { loadPage(it / PAGE_SIZE) },
         )
         val columns = spanCount()
-        binding.grid.layoutManager = GridLayoutManager(requireContext(), columns)
+        binding.grid.layoutManager = object : GridLayoutManager(requireContext(), columns) {
+            override fun onInterceptFocusSearch(focused: View, direction: Int): View? {
+                val position = binding.grid.findContainingViewHolder(focused)?.bindingAdapterPosition
+                    ?: RecyclerView.NO_POSITION
+                // The sidebar can be geometrically closer than the filters above the first row.
+                if (direction == View.FOCUS_UP && position in 0 until spanCount) {
+                    return binding.filters.getChildAt(0)
+                }
+                return super.onInterceptFocusSearch(focused, direction)
+            }
+        }
         // Keep whole rows available; the default pool holds fewer cards than one TV row.
         binding.grid.recycledViewPool.setMaxRecycledViews(HubStyle.POSTER.ordinal, columns * RECYCLED_ROWS)
         binding.grid.addItemDecoration(object : RecyclerView.ItemDecoration() {
