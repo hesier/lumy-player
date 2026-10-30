@@ -875,6 +875,9 @@ class PlayerActivity : ThemedActivity() {
         if (!controlsVisible) {
             // 控制栏和跳过按钮不同时出现；控制栏收起后由标记检查重新显示
             hideSkip()
+            binding.controlsHeader.visibility = View.VISIBLE
+            binding.controlsHeader.alpha = 0f
+            binding.controlsHeader.animate().alpha(1f).setDuration(150).start()
             binding.controls.visibility = View.VISIBLE
             binding.controls.alpha = 0f
             binding.controls.animate().alpha(1f).setDuration(150).start()
@@ -899,6 +902,7 @@ class PlayerActivity : ThemedActivity() {
 
     private fun hideControls() {
         controlsJob?.cancel()
+        binding.controlsHeader.visibility = View.GONE
         binding.controls.visibility = View.GONE
         binding.episodes.visibility = View.GONE
         binding.playerView.subtitleView?.setBottomPaddingFraction(subtitlePadding)
@@ -1472,6 +1476,7 @@ class PlayerActivity : ThemedActivity() {
 
     private fun showError(message: String, retryAt: Long? = null) {
         binding.buffering.visibility = View.GONE
+        binding.controlsHeader.visibility = View.GONE
         binding.controls.visibility = View.GONE
         binding.state.root.visibility = View.VISIBLE
         if (retryAt != null) {

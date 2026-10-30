@@ -54,6 +54,55 @@
         android:visibility="gone" />
 
     <LinearLayout
+        android:id="@+id/controls_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:background="@drawable/scrim_player_top"
+        android:gravity="top"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/screen_padding_h"
+        android:paddingTop="@dimen/screen_padding_v"
+        android:paddingEnd="@dimen/screen_padding_h"
+        android:paddingBottom="64dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="24dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/title"
+                style="@style/Text.Hero"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textSize="24sp" />
+
+            <TextView
+                android:id="@+id/subtitle"
+                style="@style/Text.Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:ellipsize="end"
+                android:maxLines="1" />
+        </LinearLayout>
+
+        <TextClock
+            android:id="@+id/current_time"
+            style="@style/Text.Hero"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="false"
+            android:textSize="24sp" />
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/controls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -65,20 +114,6 @@
         android:paddingTop="96dp"
         android:paddingEnd="@dimen/screen_padding_h"
         android:paddingBottom="28dp">
-
-        <TextView
-            android:id="@+id/title"
-            style="@style/Text.Hero"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="24sp" />
-
-        <TextView
-            android:id="@+id/subtitle"
-            style="@style/Text.Body"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" />
 
         <FrameLayout
             android:id="@+id/seek"
