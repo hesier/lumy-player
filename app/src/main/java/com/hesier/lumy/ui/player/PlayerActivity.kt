@@ -95,6 +95,7 @@ class PlayerActivity : ThemedActivity() {
     private lateinit var ass: AssHandler
     private lateinit var bitmapSubtitles: BitmapSubtitleOverlay
     private lateinit var codecs: LumyCodecSelector
+    private lateinit var pgsSelection: PgsTrackSelection
     private lateinit var device: DeviceProfile
     private lateinit var planner: PlaybackPlanner
 
@@ -172,6 +173,7 @@ class PlayerActivity : ThemedActivity() {
         player = bundle.player
         ass = bundle.ass
         codecs = bundle.codecs
+        pgsSelection = bundle.pgs
         quality = Quality.presets.getOrElse(settings.defaultQuality) { Quality.Original }
         player.addListener(playerListener)
         player.addAnalyticsListener(analyticsListener)
@@ -349,7 +351,7 @@ class PlayerActivity : ThemedActivity() {
 
     // ---- 起播 ----
 
-    private fun start(positionMs: Long) {
+    private fun start(positionMs: Long, playWhenReady: Boolean = true) {
         startJob?.cancel()
         bitmapSubtitles.clear()
         // 换字幕 / 音轨 / 画质等重新起播时，旧会话要先报停止，否则服务端的“正在播放”里会一直留着它
@@ -384,6 +386,11 @@ class PlayerActivity : ThemedActivity() {
             val source = server.playbackSource(req)
             // A decision request may finish after another seek, track change or episode switch.
             if (request !== req) return@launch
+            pgsSelection.configure(
+                req.version.subtitles.firstOrNull { it.id == req.subtitleStreamId },
+                filterTracks = req.mode is PlaybackMode.Direct && !source.isHls &&
+                    req.version.parts.size == 1 && source.urls.size == 1,
+            )
             // 多段文件放进播放列表，段与段之间无缝衔接；外挂字幕属于第一段
             val media = source.urls.mapIndexed { i, url ->
                 androidx.media3.common.MediaItem.Builder()
@@ -410,7 +417,7 @@ class PlayerActivity : ThemedActivity() {
             player.setMediaItems(media, source.startPart, if (source.isHls || embedded) 0 else source.startOffsetMs)
             player.setPlaybackSpeed(speed)
             player.prepare()
-            player.playWhenReady = true
+            player.playWhenReady = playWhenReady
         }
     }
 
@@ -750,15 +757,17 @@ class PlayerActivity : ThemedActivity() {
             }
         OptionsPanel(this, getString(R.string.player_subtitles), options) { i ->
             val selected = if (i == 0) null else version.subtitles[i - 1]
-            val oldSup = subtitle?.takeIf { it.external && it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
-            val newSup = selected?.takeIf { it.external && it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
+            val oldPgs = subtitle?.takeIf { it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
+            val newPgs = selected?.takeIf { it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
             if (selected?.id != subtitle?.id) bitmapSubtitles.clear()
             subtitle = selected
             saveSelection()
             rememberSubtitle()
-            // 播放方式不变（例如直接播放切换内封字幕）就只切轨道，否则重新起播
+            // Skipped PGS tracks have no decoded cues; rebuild their source when changing tracks.
             val newPlan = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed)
-            if (newPlan.mode == plan?.mode && oldSup == newSup) applyTrackSelection() else start(positionMs)
+            val sameMode = newPlan.mode == plan?.mode
+            if (sameMode && oldPgs == newPgs) applyTrackSelection()
+            else start(positionMs, playWhenReady = !sameMode || player.playWhenReady)
         }.show()
     }
 

@@ -29,7 +29,7 @@ import io.github.peerless2012.ass.media.type.AssRenderType
 import okhttp3.OkHttpClient
 
 /** 播放器和它的 ASS 字幕处理器（libass），两者一起创建、一起释放 */
-class PlayerBundle(val player: ExoPlayer, val ass: AssHandler, val codecs: LumyCodecSelector)
+class PlayerBundle(val player: ExoPlayer, val ass: AssHandler, val codecs: LumyCodecSelector, val pgs: PgsTrackSelection)
 
 /**
  * 杜比视界 Profile 7（UHD 蓝光的双层格式）很多盒子的杜比视界解码器声明支持、实际不出画面（极米上一直转圈），
@@ -63,8 +63,9 @@ object PlayerFactory {
         // ASS/SSA 交给 libass 渲染（保留字体、颜色、位置、动画），内封（MKV）和外挂都走这里；
         // 没有索引的 MKV 由 ClusterSeekingExtractor 按簇查找来跳转
         val ass = AssHandler(AssRenderType.OVERLAY_OPEN_GL, AssHandlerConfig())
+        val pgs = PgsTrackSelection()
         val assParsers = PgsParserFactory(AssSubtitleParserFactory(ass))
-        val extractors = DefaultExtractorsFactory().withSeekableAssMkv(assParsers, ass)
+        val extractors = DefaultExtractorsFactory().withSeekableAssMkv(AssSubtitleParserFactory(ass), ass, pgs)
         val dataSources = DefaultDataSource.Factory(context, upstream)
         val mediaSources = DefaultMediaSourceFactory(dataSources, extractors)
             .setSubtitleParserFactory(LegacySubripParserFactory(assParsers))
@@ -121,7 +122,7 @@ object PlayerFactory {
             .setSeekForwardIncrementMs(30_000)
             .build()
         ass.init(player)
-        return PlayerBundle(player, ass, codecs)
+        return PlayerBundle(player = player, ass = ass, codecs = codecs, pgs = pgs)
     }
 
     /**

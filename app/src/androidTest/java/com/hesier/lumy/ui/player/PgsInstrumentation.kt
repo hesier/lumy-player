@@ -19,9 +19,10 @@ class PgsInstrumentation : Instrumentation() {
         val result = Bundle()
         try {
             MultiObjectPgsParserTest().runAll()
+            PgsParserFactoryTest().runAll()
             SupExtractorTest().runAll()
             val performance = if (benchmark) PgsPerformanceProbe().run(targetContext.filesDir) else ""
-            result.putString("stream", "PGS parser: 10 tests and SUP extraction/seek/error checks passed\n$performance")
+            result.putString("stream", "PGS parser: 10 tests, track filtering and SUP extraction/seek/error checks passed\n$performance")
             finish(Activity.RESULT_OK, result)
         } catch (error: Throwable) {
             result.putString("stream", Log.getStackTraceString(error))

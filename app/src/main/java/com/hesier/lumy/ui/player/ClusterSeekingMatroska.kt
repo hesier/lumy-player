@@ -21,9 +21,14 @@ import androidx.media3.extractor.text.SubtitleParser
  * 代替 `withAssMkvSupport`：MKV 用 libass 的解析器，外面再包一层 [ClusterSeekingExtractor]，
  * 让没有索引（Cues）的 MKV 也能跳转。
  */
-fun ExtractorsFactory.withSeekableAssMkv(parsers: SubtitleParser.Factory, ass: AssHandler) = ExtractorsFactory {
+fun ExtractorsFactory.withSeekableAssMkv(
+    parsers: SubtitleParser.Factory,
+    ass: AssHandler,
+    pgs: PgsTrackSelection,
+) = ExtractorsFactory {
+    val selectedParsers = PgsParserFactory(parsers, pgs.snapshot)
     createExtractors().map {
-        if (it is MatroskaExtractor) ClusterSeekingExtractor(ProbingMatroskaExtractor(parsers, ass)) else it
+        if (it is MatroskaExtractor) ClusterSeekingExtractor(ProbingMatroskaExtractor(selectedParsers, ass)) else it
     }.toTypedArray()
 }
 
