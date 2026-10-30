@@ -14,7 +14,7 @@ import com.hesier.lumy.R
 import com.hesier.lumy.databinding.ItemOptionBinding
 import com.hesier.lumy.databinding.ViewOptionsPanelBinding
 
-data class Option(val label: String, val detail: String? = null, val selected: Boolean = false)
+data class Option(val label: String, val detail: String? = null, val selected: Boolean = false, val icon: Int? = null)
 
 /**
  * 从右侧滑出的选项面板。单选：选中后自动关闭；
@@ -57,6 +57,8 @@ class OptionsPanel(
             holder.b.label.text = o.label
             holder.b.detail.text = o.detail
             holder.b.detail.visibility = if (o.detail.isNullOrEmpty()) View.GONE else View.VISIBLE
+            holder.b.icon.setImageResource(o.icon ?: 0)
+            holder.b.icon.visibility = if (o.icon != null) View.VISIBLE else View.GONE
             holder.b.check.visibility = if (o.selected) View.VISIBLE else View.INVISIBLE
             holder.b.root.setOnClickListener {
                 val i = holder.bindingAdapterPosition

@@ -107,7 +107,7 @@ val ServerKind.icon: Int
         ServerKind.EMBY -> R.drawable.ic_kind_emby
     }
 
-/** 设置页 / 切换菜单里的副标题：类型 · 用户 · 地址 */
+/** Server subtitles show the user and address; the icon identifies the server kind. */
 fun SavedServer.detail(context: Context): String =
-    userName?.let { context.getString(R.string.server_detail_user, kind.label(context), it, session.baseUrl) }
-        ?: context.getString(R.string.server_detail, kind.label(context), session.baseUrl)
+    userName?.let { context.getString(R.string.server_detail_user, it, session.baseUrl) }
+        ?: context.getString(R.string.server_detail, session.baseUrl)

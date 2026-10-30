@@ -34,6 +34,7 @@ import com.hesier.lumy.ui.search.SearchFragment
 import com.hesier.lumy.ui.servers.AddServerActivity
 import com.hesier.lumy.ui.servers.ServersActivity
 import com.hesier.lumy.ui.detail
+import com.hesier.lumy.ui.icon
 import com.hesier.lumy.ui.widget.Option
 import com.hesier.lumy.ui.widget.OptionsPanel
 import com.hesier.lumy.ui.settings.SettingsActivity
@@ -186,7 +187,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
         val item = inflateSidebarItem(binding.sidebarHeader, R.drawable.ic_server, app.currentEntry?.displayName ?: server.session.name)
         (item.root.layoutParams as ViewGroup.MarginLayoutParams).bottomMargin = resources.getDimensionPixelSize(R.dimen.sidebar_group_gap)
         item.root.setOnClickListener {
-            val options = servers.map { Option(it.displayName, it.detail(this), selected = it.id == entryId) }
+            val options = servers.map { Option(it.displayName, it.detail(this), selected = it.id == entryId, icon = it.kind.icon) }
             OptionsPanel(this, getString(R.string.nav_switch_server), options) { i ->
                 val picked = servers[i]
                 if (picked.id == entryId) return@OptionsPanel
