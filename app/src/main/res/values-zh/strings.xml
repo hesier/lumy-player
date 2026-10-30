@@ -91,6 +91,8 @@
     <string name="subtitle_position_normal">标准</string>
     <string name="subtitle_position_high">偏高</string>
     <string name="subtitle_position_higher">更高</string>
+    <string name="settings_allow_software_video_decoding">允许视频软解</string>
+    <string name="settings_allow_software_video_decoding_detail">硬解不可用时，尝试软解 1080p 及以下的 H.264 / RV40 SDR 视频。能否流畅播放取决于设备、视频编码和帧率；不影响音频解码</string>
     <string name="settings_video_scale">默认画面比例</string>
     <string name="settings_video_scale_detail">播放时可以在“更多”里临时切换。裁剪会切掉画面边缘，拉伸会让画面变形</string>
     <string name="video_scale">画面比例</string>

@@ -36,9 +36,10 @@ class LumyCodecSelector(
     private val delegate: MediaCodecSelector = MediaCodecSelector.DEFAULT,
 ) : MediaCodecSelector {
     @Volatile var hevcOnly = false
+    @Volatile var softwareVideoMime: String? = null
 
     override fun getDecoderInfos(mimeType: String, requiresSecureDecoder: Boolean, requiresTunnelingDecoder: Boolean) =
-        delegate.getDecoderInfos(
+        if (mimeType == SoftwareVideoPolicy.COOK_MIME || mimeType == softwareVideoMime) emptyList() else delegate.getDecoderInfos(
             if (hevcOnly && mimeType == MimeTypes.VIDEO_DOLBY_VISION) MimeTypes.VIDEO_H265 else mimeType,
             requiresSecureDecoder,
             requiresTunnelingDecoder,
@@ -57,6 +58,7 @@ object PlayerFactory {
         headers: Map<String, String>,
         offsets: SyncOffsets,
         passthrough: Boolean = false,
+        allowSoftwareVideo: Boolean = false,
     ): PlayerBundle {
         val upstream = OkHttpDataSource.Factory(http).setDefaultRequestProperties(headers)
         // ASS/SSA 交给 libass 渲染（保留字体、颜色、位置、动画），内封（MKV）和外挂都走这里；
@@ -69,8 +71,11 @@ object PlayerFactory {
             DefaultExtractorsFactory().withSeekableAssMkv(AssSubtitleParserFactory(ass), ass, pgs),
         ) { codecs.hevcOnly }
         val dataSources = DefaultDataSource.Factory(context, upstream)
-        val mediaSources = DefaultMediaSourceFactory(dataSources, extractors)
-            .setSubtitleParserFactory(LegacySubripParserFactory(assParsers))
+        val subtitleParsers = LegacySubripParserFactory(assParsers)
+        val mediaSources = com.hesier.lumy.ui.player.legacy.LegacyRmMediaSourceFactory(
+            dataSources, extractors, subtitleParsers,
+            DefaultMediaSourceFactory(dataSources, extractors).setSubtitleParserFactory(subtitleParsers),
+        )
 
         val renderers = object : DefaultRenderersFactory(context) {
             /**
@@ -91,10 +96,7 @@ object PlayerFactory {
                 return DelayedAudioSink(builder.build(), offsets)
             }
 
-            /**
-             * 视频不用 FFmpeg 软解：硬解报“超出能力”时 ExoPlayer 会改选软解，
-             * 电视盒子软解 4K 必然卡成幻灯片。硬解不了的交给服务器转码。
-             */
+            // Keep hardware preferred; only explicitly enabled, bounded formats can use software.
             override fun buildVideoRenderers(
                 context: Context,
                 extensionRendererMode: Int,
@@ -104,10 +106,17 @@ object PlayerFactory {
                 eventListener: VideoRendererEventListener,
                 allowedVideoJoiningTimeMs: Long,
                 out: ArrayList<Renderer>,
-            ) = super.buildVideoRenderers(
-                context, EXTENSION_RENDERER_MODE_OFF, mediaCodecSelector, enableDecoderFallback,
-                eventHandler, eventListener, allowedVideoJoiningTimeMs, out,
-            )
+            ) {
+                super.buildVideoRenderers(
+                    context, EXTENSION_RENDERER_MODE_OFF, mediaCodecSelector, enableDecoderFallback,
+                    eventHandler, eventListener, allowedVideoJoiningTimeMs, out,
+                )
+                if (allowSoftwareVideo) out.add(
+                    com.hesier.lumy.ui.player.legacy.SoftwareVideoRenderer(
+                        allowedVideoJoiningTimeMs, eventHandler, eventListener,
+                    ),
+                )
+            }
         }
             // 先用系统（硬件）解码器，系统没有的格式（DTS、TrueHD 等）再交给 FFmpeg
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)

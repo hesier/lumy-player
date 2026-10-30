@@ -62,6 +62,10 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("allow_transcode", true)
         set(v) = prefs.edit().putBoolean("allow_transcode", v).apply()
 
+    var allowSoftwareVideoDecoding: Boolean
+        get() = prefs.getBoolean("allow_software_video_decoding", false)
+        set(v) = prefs.edit().putBoolean("allow_software_video_decoding", v).apply()
+
     /**
      * 电视是否支持 HDR。系统检测到的结果不可靠（不少盒子总是报支持或什么都不报），所以让用户自己选。
      * 关闭后 HDR 片源交给服务器转成 SDR，避免画面发灰

@@ -89,6 +89,8 @@
     <string name="settings_section_servers">Servers</string>
     <string name="settings_section_about">About</string>
     <string name="settings_default_quality">Default quality</string>
+    <string name="settings_allow_software_video_decoding">Allow software video decoding</string>
+    <string name="settings_allow_software_video_decoding_detail">Try software decoding for H.264 / RV40 SDR videos up to 1080p when hardware decoding is unavailable. Playback may stutter depending on the device, video codec and frame rate. Audio decoding is unaffected</string>
     <string name="settings_passthrough">Audio passthrough</string>
     <string name="settings_passthrough_detail">Turn on when using an AV receiver so it decodes Dolby/DTS audio. Speed can\'t be changed while a track is passed through</string>
     <string name="settings_auto_next">Autoplay next episode</string>

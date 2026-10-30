@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Rebuild the pinned FFmpeg AAR with Lumy's TrueHD initialization fix."""
+"""Rebuild the pinned FFmpeg AAR with local playback and TrueHD support."""
 import argparse
 import hashlib
+import io
 import os
 from pathlib import Path
 import shutil
@@ -18,7 +19,7 @@ MEDIA_COMMIT = 'b7bbc6e2bc3e45ff3ed99884c114c50f03bba5c9'
 FFMPEG_COMMIT = 'd388c347d41e4eb516dec05910551c5461e65615'
 AAR_NAME = 'media3-ffmpeg-decoder-1.8.0+1'
 DECODERS = ('flac', 'alac', 'pcm_mulaw', 'pcm_alaw', 'mp3', 'aac',
-            'ac3', 'eac3', 'dca', 'mlp', 'truehd')
+            'ac3', 'eac3', 'dca', 'mlp', 'truehd', 'cook', 'h264', 'rv40')
 ABIS = {
     'armeabi-v7a': ('arm', 'armv7-a', 'armv7a-linux-androideabi21',
                     '--extra-cflags=-march=armv7-a -mfloat-abi=softfp',
@@ -68,6 +69,7 @@ def sources():
     patched = WORK / 'ffmpeg_jni.cc'
     shutil.copyfile(original, patched)
     run(['patch', '-F0', patched, HERE / 'truehd-layout.patch'])
+    run(['patch', '-F0', patched, HERE / 'cook-native.patch'])
     return source, patched
 
 
@@ -78,8 +80,9 @@ def build_abi(abi, settings, *, toolchain, source, jni, jobs):
     tools = toolchain / 'bin'
     options = [source / 'configure', '--target-os=android', '--enable-cross-compile',
                '--enable-static', '--disable-shared', '--disable-doc', '--disable-programs',
-               '--disable-everything', '--disable-avdevice', '--disable-avformat',
-               '--disable-swscale', '--disable-postproc', '--disable-avfilter',
+               '--disable-everything', '--disable-avdevice', '--enable-avformat',
+               '--enable-demuxer=rm', '--enable-parser=cook', '--disable-network',
+               '--enable-swscale', '--disable-postproc', '--disable-avfilter',
                '--disable-symver', '--enable-swresample', '--extra-ldexeflags=-pie',
                '--disable-v4l2-m2m', '--disable-vulkan', f'--arch={arch}', f'--cpu={cpu}',
                f'--cc={tools / (target + "-clang")}',
@@ -94,13 +97,76 @@ def build_abi(abi, settings, *, toolchain, source, jni, jobs):
          '-fPIC', '-ffunction-sections', '-fdata-sections', '-static-libstdc++',
          '-Wl,--gc-sections', '-Wl,-z,max-page-size=16384', '-Wl,-soname,libffmpegJNI.so',
          '-Wl,-Bsymbolic', '-I', build, '-I', source, jni,
+         HERE / 'legacy_rm.cc', HERE / 'legacy_video.cc',
+         build / 'libavformat/libavformat.a', build / 'libswscale/libswscale.a',
          build / 'libswresample/libswresample.a', build / 'libavcodec/libavcodec.a',
-         build / 'libavutil/libavutil.a', '-landroid', '-llog', '-lm', '-lz', '-o', output])
+         build / 'libavutil/libavutil.a', '-landroid', '-lEGL', '-lGLESv2', '-llog', '-lm', '-lz', '-o', output])
     run([tools / 'llvm-strip', '--strip-unneeded', output])
     return output
 
 
-def package(libraries):
+JAVA_SOURCES = {
+    'FfmpegLibrary.java': 'd7d00601c1864f742c3e0d73f7e9b77d9946f2a9dbe5a6e8e255272bc54d2356',
+    'FfmpegAudioDecoder.java': '3e29133f941d3f94af40496d05fb18b96754e0066c23a95951baee276524e1e5',
+}
+JAVA_INPUTS = (
+    ('media3-common-1.8.0.aar', 'https://dl.google.com/dl/android/maven2/androidx/media3/media3-common/1.8.0/media3-common-1.8.0.aar',
+     '001efb6ce0d21965a32c17b9c5be317c07c8722fb680601b19906f64064536b2'),
+    ('media3-decoder-1.8.0.aar', 'https://dl.google.com/dl/android/maven2/androidx/media3/media3-decoder/1.8.0/media3-decoder-1.8.0.aar',
+     'ffa96597c2418de39d6b24975c788d3aa4bdab00fb89e6b5b22aef2a49a919e8'),
+    ('annotation-jvm-1.9.1.jar', 'https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-jvm/1.9.1/annotation-jvm-1.9.1.jar',
+     '1e343917ebf27ba96fe4dc52b1cad7fd32b738fbc6355bb6cd5b3b305d7212d0'),
+    ('checker-qual-3.33.0.jar', 'https://repo.maven.apache.org/maven2/org/checkerframework/checker-qual/3.33.0/checker-qual-3.33.0.jar',
+     'e316255bbfcd9fe50d165314b85abb2b33cb2a66a93c491db648e498a82c2de1'),
+)
+
+
+def patched_classes(sdk):
+    upstream = download(AAR_NAME + '.aar',
+                        'https://repo.maven.apache.org/maven2/org/jellyfin/media3/'
+                        f'media3-ffmpeg-decoder/1.8.0+1/{AAR_NAME}.aar',
+                        '75404bcf0143c31c88c8904d2384652940af97a0178efd399d7682494615fbff')
+    with zipfile.ZipFile(upstream) as archive:
+        original = archive.read('classes.jar')
+    classpath = [sdk / 'platforms/android-35/android.jar']
+    original_jar = WORK / 'original-classes.jar'
+    original_jar.write_bytes(original)
+    classpath.append(original_jar)
+    for name, url, digest in JAVA_INPUTS:
+        path = download(name, url, digest)
+        if name.endswith('.aar'):
+            with zipfile.ZipFile(path) as archive:
+                jar = path.with_suffix('.jar')
+                jar.write_bytes(archive.read('classes.jar'))
+            path = jar
+        classpath.append(path)
+    java = WORK / 'java'
+    java.mkdir(exist_ok=True)
+    for name, digest in JAVA_SOURCES.items():
+        original_source = download(name + '.original',
+            f'https://raw.githubusercontent.com/androidx/media/{MEDIA_COMMIT}/'
+            f'libraries/decoder_ffmpeg/src/main/java/androidx/media3/decoder/ffmpeg/{name}', digest)
+        shutil.copyfile(original_source, java / name)
+    run(['patch', '-F0', '-p1', '-i', HERE / 'cook-java.patch'], java)
+    classes = WORK / 'patched-classes'
+    classes.mkdir(exist_ok=True)
+    java_home = os.environ.get('JAVA_HOME')
+    javac = Path(java_home) / 'bin/javac' if java_home else 'javac'
+    run([javac, '-source', '8', '-target', '8', '-classpath', os.pathsep.join(map(str, classpath)),
+         '-d', classes, *(java / name for name in JAVA_SOURCES)])
+    replacements = {str(p.relative_to(classes)): p.read_bytes() for p in classes.rglob('*.class')}
+    output = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(original)) as jar, zipfile.ZipFile(output, 'w') as patched:
+        entries = {name: jar.read(name) for name in jar.namelist() if not name.endswith('/')}
+        entries.update(replacements)
+        for name, data in sorted(entries.items()):
+            entry = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            patched.writestr(entry, data)
+    return output.getvalue()
+
+
+def package(libraries, classes):
     upstream = download(AAR_NAME + '.aar',
                         'https://repo.maven.apache.org/maven2/org/jellyfin/media3/'
                         f'media3-ffmpeg-decoder/1.8.0+1/{AAR_NAME}.aar',
@@ -110,6 +176,7 @@ def package(libraries):
     with zipfile.ZipFile(upstream) as original, zipfile.ZipFile(temporary, 'w') as patched:
         entries = {n: original.read(n) for n in original.namelist()
                    if not n.startswith('jni/') and not n.endswith('/')}
+        entries['classes.jar'] = classes
         entries.update({f'jni/{abi}/libffmpegJNI.so': path.read_bytes()
                         for abi, path in libraries.items()})
         for name, data in sorted(entries.items()):
@@ -126,7 +193,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--ndk', type=Path, default=os.environ.get('ANDROID_NDK_HOME'))
     parser.add_argument('--jobs', type=int, default=min(os.cpu_count() or 4, 8))
+    parser.add_argument('--sdk', type=Path, default=os.environ.get('ANDROID_HOME') or
+                        os.environ.get('ANDROID_SDK_ROOT'))
     args = parser.parse_args()
+    if args.sdk is None:
+        parser.error('Pass --sdk or set ANDROID_HOME (Android SDK 35)')
     if args.ndk is None:
         parser.error(f'Pass --ndk or set ANDROID_NDK_HOME to NDK {NDK_VERSION}')
     ndk = args.ndk.resolve()
@@ -140,7 +211,7 @@ def main():
     libraries = {abi: build_abi(abi, settings, toolchain=hosts[0], source=source,
                                 jni=jni, jobs=args.jobs)
                  for abi, settings in ABIS.items()}
-    package(libraries)
+    package(libraries, patched_classes(args.sdk))
 
 
 if __name__ == '__main__':

@@ -18,7 +18,7 @@ import com.hesier.lumy.core.VideoStream
 /**
  * 查询本机解码能力，决定能否直接播放。结果按 mime 缓存，MediaCodecList 查询在低端设备上不便宜。
  */
-class DeviceProfile(context: Context) {
+class DeviceProfile(context: Context, private val allowSoftwareVideo: Boolean = false) {
 
     private val decoderCache = HashMap<String, List<MediaCodecInfo>>()
 
@@ -31,9 +31,12 @@ class DeviceProfile(context: Context) {
         } == true
     }
 
-    /** @return null 表示可以硬解；否则是不能直接播放的原因 */
+    /** Return null when local hardware or the enabled software path can handle this stream. */
     fun videoProblem(v: VideoStream): PlaybackIssue? {
         val mime = videoMime(v.codec) ?: return PlaybackIssue.UnknownVideoCodec(v.codec)
+        if (allowSoftwareVideo && SoftwareVideoPolicy.supports(v) &&
+            com.hesier.lumy.ui.player.legacy.NativeVideoDecoder.isAvailable()
+        ) return null
         val candidates = decoders(mime)
         if (candidates.isEmpty()) return PlaybackIssue.NoVideoDecoder(v.codec)
         val tenBit = (v.bitDepth ?: 8) > 8
@@ -50,7 +53,7 @@ class DeviceProfile(context: Context) {
     /** 优先硬件解码，其次 FFmpeg 扩展（DTS、TrueHD 等） */
     fun audioProblem(codec: String): PlaybackIssue? {
         val mime = audioMime(codec) ?: return PlaybackIssue.UnknownAudioCodec(codec)
-        if (decoders(mime).isNotEmpty()) return null
+        if (mime != SoftwareVideoPolicy.COOK_MIME && decoders(mime).isNotEmpty()) return null
         if (FfmpegLibrary.isAvailable() && FfmpegLibrary.supportsFormat(mime)) return null
         return PlaybackIssue.NoAudioDecoder(codec)
     }
@@ -103,7 +106,7 @@ class DeviceProfile(context: Context) {
 
     companion object {
         private val SUPPORTED_CONTAINERS = setOf(
-            "mkv", "matroska", "mp4", "m4v", "mov", "webm", "ts", "mpegts", "flv", "avi", "ogg", "3gp", "mp3", "aac", "flac", "m4a",
+            "mkv", "matroska", "mp4", "m4v", "mov", "webm", "ts", "mpegts", "flv", "avi", "ogg", "3gp", "mp3", "aac", "flac", "m4a", "rm", "rmvb",
         )
         private val EXTERNAL_TEXT_SUBTITLES = setOf("srt", "subrip", "ass", "ssa", "vtt", "webvtt")
         private val EMBEDDED_SUBTITLES = EXTERNAL_TEXT_SUBTITLES + setOf(
@@ -119,6 +122,7 @@ class DeviceProfile(context: Context) {
             "mpeg2video", "mpeg2" -> MimeTypes.VIDEO_MPEG2
             "mpeg4" -> MimeTypes.VIDEO_MP4V
             "vc1" -> "video/wvc1"
+            "rv40" -> SoftwareVideoPolicy.RV40_MIME
             else -> null
         }
 
@@ -135,6 +139,7 @@ class DeviceProfile(context: Context) {
             "opus" -> MimeTypes.AUDIO_OPUS
             "vorbis" -> MimeTypes.AUDIO_VORBIS
             "alac" -> MimeTypes.AUDIO_ALAC
+            "cook" -> SoftwareVideoPolicy.COOK_MIME
             else -> if (codec.startsWith("pcm")) MimeTypes.AUDIO_RAW else null
         }
     }

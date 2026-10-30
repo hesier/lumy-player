@@ -8,7 +8,8 @@ This page explains when Lumy Player uses Direct Play and when it asks the server
 
 Lumy Player uses Direct Play whenever possible. Direct Play keeps the original quality, puts no extra load on the server, and handles subtitles and audio tracks on the device. The server transcodes to HLS only when the device really can't handle a file.
 
-- **Video is decoded in hardware only.** Lumy Player doesn't use FFmpeg to decode video, because software-decoded 4K plays like a slideshow on TV boxes. If the hardware decoder can't play a video, the server transcodes it.
+- **Video uses hardware decoding first.** Settings › Playback › **Allow software video decoding** is off by default. When enabled, H.264 (including High10) and RV40 SDR video can fall back to local software decoding if hardware support is absent or fails. The longest edge must be at most 1920 and the shortest at most 1080; unknown dimensions, HDR and larger videos are excluded. This is a safety ceiling, not a promise of smooth playback: CPU speed, codec and frame rate still matter. Software decoding keeps the original stream and does not use server transcoding.
+- **RM/RMVB files** are demuxed locally. RV40 uses the device decoder when available and can use the optional software path otherwise; Cook audio uses FFmpeg independently of the video setting.
 - **Audio uses the system decoders first.** Formats the system doesn't support (DTS, DTS-HD, TrueHD and others) are decoded by the bundled FFmpeg extension, so audio rarely needs transcoding.
 
 ## When the server transcodes
@@ -20,11 +21,11 @@ Transcoding requires **Allow server transcoding** to be on (the default). When i
 | Reason | What the server does |
 |---|---|
 | A bitrate-limited quality is selected (1080p 20/12 Mbps, 720p, 480p) | Re-encodes the video |
-| Unsupported container (MKV, MP4, MOV, WebM, TS, FLV, AVI, OGG and others are supported) | Remuxes only; the video is copied with little server load |
-| Unknown video codec (H.264, HEVC, VP9, VP8, AV1, MPEG-2, MPEG-4 and VC-1 are supported) | Re-encodes |
-| The device has no hardware decoder for the codec | Re-encodes |
+| Unsupported container (MKV, MP4, MOV, WebM, TS, FLV, AVI, OGG, RM/RMVB and others are supported) | Remuxes only; the video is copied with little server load |
+| Unknown video codec (H.264, HEVC, VP9, VP8, AV1, MPEG-2, MPEG-4, VC-1 and RV40 are supported) | Re-encodes |
+| Neither hardware nor the enabled, eligible software path can decode the codec | Re-encodes |
 | Resolution or frame rate beyond the hardware decoder's limits | Re-encodes and scales anything above 1080p down to 1080p |
-| 10-bit video the decoder can't handle (H.264 Hi10P is always treated as unsupported) | Re-encodes and scales anything above 1080p down to 1080p |
+| 10-bit video with no usable local decoder (eligible H.264 Hi10P can use the software setting) | Re-encodes and scales anything above 1080p down to 1080p |
 | Dolby Vision Profile 5 on a device without a Dolby Vision decoder | Re-encodes |
 | Audio codec that neither the device nor FFmpeg can decode | Converts the audio only |
 | HDR source while **TV supports HDR** is off | Converts to SDR at up to 1080p |

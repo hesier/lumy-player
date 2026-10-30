@@ -1,0 +1,41 @@
+--- a/ffmpeg_jni.cc
++++ b/ffmpeg_jni.cc
+@@ -286,6 +286,22 @@
+       outputFloat ? OUTPUT_FORMAT_PCM_FLOAT : OUTPUT_FORMAT_PCM_16BIT;
+   if (extraData) {
+     jsize size = env->GetArrayLength(extraData);
++    const int offset = context->codec_id == AV_CODEC_ID_COOK ? 4 : 0;
++    if (size < offset + (offset ? 8 : 0)) {
++      avcodec_free_context(&context);
++      return NULL;
++    }
++    if (offset) {
++      jbyte header[4];
++      env->GetByteArrayRegion(extraData, 0, 4, header);
++      context->block_align = ((header[0] & 255) << 24) | ((header[1] & 255) << 16)
++          | ((header[2] & 255) << 8) | (header[3] & 255);
++      if (context->block_align <= 0 || context->block_align > 1048576) {
++        avcodec_free_context(&context);
++        return NULL;
++      }
++      size -= offset;
++    }
+     context->extradata_size = size;
+     context->extradata =
+         (uint8_t *)av_malloc(size + AV_INPUT_BUFFER_PADDING_SIZE);
+@@ -294,10 +310,14 @@
+       releaseContext(context);
+       return NULL;
+     }
+-    env->GetByteArrayRegion(extraData, 0, size, (jbyte *)context->extradata);
++    env->GetByteArrayRegion(extraData, offset, size, (jbyte *)context->extradata);
+   }
+   if (context->codec_id == AV_CODEC_ID_PCM_MULAW ||
+       context->codec_id == AV_CODEC_ID_PCM_ALAW) {
++    context->sample_rate = rawSampleRate;
++    av_channel_layout_default(&context->ch_layout, rawChannelCount);
++  }
++  if (context->codec_id == AV_CODEC_ID_COOK) {
+     context->sample_rate = rawSampleRate;
+     av_channel_layout_default(&context->ch_layout, rawChannelCount);
+   }

@@ -165,11 +165,14 @@ class PlayerActivity : ThemedActivity() {
         setContentView(binding.root)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        device = DeviceProfile(this)
+        device = DeviceProfile(this, settings.allowSoftwareVideoDecoding)
         planner = PlaybackPlanner(device)
         offsets.audioDelayMs = settings.audioDelayMs
         refreshRate = RefreshRateMatcher(this)
-        val bundle = PlayerFactory.create(this, app.plex.http, server.playbackHeaders(), offsets, passthrough = settings.passthrough)
+        val bundle = PlayerFactory.create(
+            this, app.plex.http, server.playbackHeaders(), offsets,
+            passthrough = settings.passthrough, allowSoftwareVideo = settings.allowSoftwareVideoDecoding,
+        )
         player = bundle.player
         ass = bundle.ass
         codecs = bundle.codecs
@@ -325,6 +328,7 @@ class PlayerActivity : ThemedActivity() {
         fellBack = false
         videoDecodeFailed = false
         doviHevcFallback = false
+        codecs.softwareVideoMime = null
         audio = v.audio.firstOrNull { it.selected } ?: v.audio.firstOrNull()
         subtitle = v.subtitles.firstOrNull { it.selected }
         val memory = LumyApp.instance.trackMemory
@@ -402,7 +406,12 @@ class PlayerActivity : ThemedActivity() {
                 androidx.media3.common.MediaItem.Builder()
                     .setUri(url)
                     .setMediaId("${item.id}#$i")
-                    .apply { if (source.isHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
+                    .apply {
+                        if (source.isHls) setMimeType(MimeTypes.APPLICATION_M3U8)
+                        else if (req.mode is PlaybackMode.Direct &&
+                            req.version.container?.lowercase() in setOf("rm", "rmvb")
+                        ) setMimeType("application/vnd.rn-realmedia")
+                    }
                     .setSubtitleConfigurations(
                         if (i != 0) emptyList() else source.externalSubtitles.filter {
                             // A missing unselected SUP must not prevent the video from starting.
@@ -558,6 +567,16 @@ class PlayerActivity : ThemedActivity() {
                 dolbyVisionProfile(failedFormat?.codecs) == 5 && error.isVideoDecodeError()
             ) {
                 retryDolbyVisionWithHevc(5)
+                return
+            }
+            if (plan?.mode is PlaybackMode.Direct && settings.allowSoftwareVideoDecoding &&
+                codecs.softwareVideoMime == null && failedFormat != null &&
+                SoftwareVideoPolicy.supports(failedFormat) && error.isVideoDecodeError() &&
+                videoDecoder?.startsWith("LumyFFmpeg") != true
+            ) {
+                codecs.softwareVideoMime = failedFormat.sampleMimeType
+                DebugLog.i(TAG, "retry software video ${failedFormat.sampleMimeType} at $current")
+                start(current)
                 return
             }
             val network = error.isNetworkError()

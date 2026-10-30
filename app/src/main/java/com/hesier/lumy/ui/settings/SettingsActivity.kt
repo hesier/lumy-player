@@ -197,6 +197,10 @@ class SettingsActivity : ThemedActivity() {
                 settings.allowTranscode = !settings.allowTranscode
                 render()
             },
+            Row(getString(R.string.settings_allow_software_video_decoding), onOff(settings.allowSoftwareVideoDecoding), getString(R.string.settings_allow_software_video_decoding_detail)) {
+                settings.allowSoftwareVideoDecoding = !settings.allowSoftwareVideoDecoding
+                render()
+            },
             Row(getString(R.string.settings_display_hdr), onOff(settings.displaySupportsHdr), getString(R.string.settings_display_hdr_detail)) {
                 settings.displaySupportsHdr = !settings.displaySupportsHdr
                 render()

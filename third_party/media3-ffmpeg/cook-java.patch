@@ -1,0 +1,28 @@
+--- a/FfmpegLibrary.java
++++ b/FfmpegLibrary.java
+@@ -117,6 +117,8 @@
+   @Nullable
+   /* package */ static String getCodecName(String mimeType) {
+     switch (mimeType) {
++      case "audio/cook":
++        return "cook";
+       case MimeTypes.AUDIO_AAC:
+         return "aac";
+       case MimeTypes.AUDIO_MPEG:
+--- a/FfmpegAudioDecoder.java
++++ b/FfmpegAudioDecoder.java
+@@ -183,6 +183,14 @@
+   @Nullable
+   private static byte[] getExtraData(String mimeType, List<byte[]> initializationData) {
+     switch (mimeType) {
++      case "audio/cook":
++        if (initializationData.size() != 2 || initializationData.get(1).length != 4) {
++          throw new IllegalArgumentException("Cook requires CSD and block alignment");
++        }
++        byte[] cookData = new byte[4 + initializationData.get(0).length];
++        System.arraycopy(initializationData.get(1), 0, cookData, 0, 4);
++        System.arraycopy(initializationData.get(0), 0, cookData, 4, cookData.length - 4);
++        return cookData;
+       case MimeTypes.AUDIO_AAC:
+       case MimeTypes.AUDIO_OPUS:
+         return initializationData.get(0);
