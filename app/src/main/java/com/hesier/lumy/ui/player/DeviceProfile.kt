@@ -67,7 +67,7 @@ class DeviceProfile(context: Context) {
     fun canRenderSubtitle(s: SubtitleStream, transcoding: Boolean): Boolean {
         val codec = s.codec.lowercase()
         return if (s.external) {
-            codec in EXTERNAL_TEXT_SUBTITLES
+            codec in EXTERNAL_TEXT_SUBTITLES || codec in SupMediaSourceFactory.CODECS
         } else {
             // 转码输出的 HLS 不带内封字幕，只能烧录
             !transcoding && codec in EMBEDDED_SUBTITLES

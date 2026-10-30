@@ -391,7 +391,10 @@ class PlayerActivity : ThemedActivity() {
                     .setMediaId("${item.id}#$i")
                     .apply { if (source.isHls) setMimeType(MimeTypes.APPLICATION_M3U8) }
                     .setSubtitleConfigurations(
-                        if (i != 0) emptyList() else source.externalSubtitles.map {
+                        if (i != 0) emptyList() else source.externalSubtitles.filter {
+                            // A missing unselected SUP must not prevent the video from starting.
+                            it.codec.lowercase() !in SupMediaSourceFactory.CODECS || it.streamId == req.subtitleStreamId
+                        }.map {
                             SubtitleConfiguration.Builder(Uri.parse(it.url))
                                 .setId(EXTERNAL_PREFIX + it.streamId)
                                 .setMimeType(subtitleMime(it.codec))
@@ -422,6 +425,7 @@ class PlayerActivity : ThemedActivity() {
     }
 
     private fun subtitleMime(codec: String) = when (codec.lowercase()) {
+        "sup", "pgs", "hdmv_pgs_subtitle" -> MimeTypes.APPLICATION_PGS
         "ass", "ssa" -> MimeTypes.TEXT_SSA
         "vtt", "webvtt" -> MimeTypes.TEXT_VTT
         else -> MimeTypes.APPLICATION_SUBRIP
@@ -746,13 +750,15 @@ class PlayerActivity : ThemedActivity() {
             }
         OptionsPanel(this, getString(R.string.player_subtitles), options) { i ->
             val selected = if (i == 0) null else version.subtitles[i - 1]
+            val oldSup = subtitle?.takeIf { it.external && it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
+            val newSup = selected?.takeIf { it.external && it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
             if (selected?.id != subtitle?.id) bitmapSubtitles.clear()
             subtitle = selected
             saveSelection()
             rememberSubtitle()
             // 播放方式不变（例如直接播放切换内封字幕）就只切轨道，否则重新起播
             val newPlan = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed)
-            if (newPlan.mode == plan?.mode) applyTrackSelection() else start(positionMs)
+            if (newPlan.mode == plan?.mode && oldSup == newSup) applyTrackSelection() else start(positionMs)
         }.show()
     }
 

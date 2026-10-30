@@ -65,7 +65,8 @@ object PlayerFactory {
         val ass = AssHandler(AssRenderType.OVERLAY_OPEN_GL, AssHandlerConfig())
         val assParsers = PgsParserFactory(AssSubtitleParserFactory(ass))
         val extractors = DefaultExtractorsFactory().withSeekableAssMkv(assParsers, ass)
-        val mediaSources = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, upstream), extractors)
+        val dataSources = DefaultDataSource.Factory(context, upstream)
+        val mediaSources = DefaultMediaSourceFactory(dataSources, extractors)
             .setSubtitleParserFactory(LegacySubripParserFactory(assParsers))
 
         val codecs = LumyCodecSelector()
@@ -114,7 +115,7 @@ object PlayerFactory {
 
         val delayedRenderers = DelayedSubtitleRenderersFactory(AssRenderersFactory(ass, renderers), offsets, ass)
         val player = ExoPlayer.Builder(context, delayedRenderers)
-            .setMediaSourceFactory(mediaSources)
+            .setMediaSourceFactory(SupMediaSourceFactory(mediaSources, dataSources))
             .setLoadControl(loadControl())
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(30_000)
