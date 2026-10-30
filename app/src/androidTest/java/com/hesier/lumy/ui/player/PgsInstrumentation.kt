@@ -24,8 +24,9 @@ class PgsInstrumentation : Instrumentation() {
             SupExtractorTest().runAll()
             MatroskaIndexTest().runAll()
             TrueHdDecoderTest().runAll(context)
+            DolbyVisionCompatibilityTest().runAll(targetContext)
             val performance = if (benchmark) PgsPerformanceProbe().run(targetContext.filesDir) else ""
-            result.putString("stream", "PGS, track filtering, SUP, Matroska index and TrueHD checks passed\n$performance")
+            result.putString("stream", "PGS, track filtering, SUP, Matroska index, TrueHD and Dolby Vision checks passed\n$performance")
             finish(Activity.RESULT_OK, result)
         } catch (error: Throwable) {
             result.putString("stream", Log.getStackTraceString(error))

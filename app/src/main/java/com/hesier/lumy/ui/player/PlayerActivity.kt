@@ -136,8 +136,8 @@ class PlayerActivity : ThemedActivity() {
     /** 当前音轨直通时的码流编码（C.ENCODING_*），解码成 PCM 输出时为 null */
     private var passthroughEncoding: Int? = null
     private var droppedFrames = 0
-    /** 杜比视界解码器解不出画面，这个版本改用 HEVC 解码器播放基础层 */
-    private var doviBaseLayer = false
+    /** Retry failed Dolby Vision decoding through ordinary HEVC (P5 may have incorrect colors). */
+    private var doviHevcFallback = false
     private var firstFrameRendered = false
     private var doviWatchJob: Job? = null
 
@@ -253,6 +253,8 @@ class PlayerActivity : ThemedActivity() {
             val v = detail.versions.getOrNull(intent.getIntExtra(EXTRA_VERSION, 0)) ?: detail.versions.firstOrNull()
                 ?: return@launch showError(getString(R.string.no_playable_file))
             selectVersion(v)
+            doviHevcFallback = intent.getBooleanExtra(EXTRA_DOVI_HEVC, false)
+            intent.removeExtra(EXTRA_DOVI_HEVC)
             setupControls()
             start(intent.getLongExtra(EXTRA_START, 0))
             if (progressJob == null) startProgressReporting()
@@ -322,7 +324,7 @@ class PlayerActivity : ThemedActivity() {
         version = v
         fellBack = false
         videoDecodeFailed = false
-        doviBaseLayer = false
+        doviHevcFallback = false
         audio = v.audio.firstOrNull { it.selected } ?: v.audio.firstOrNull()
         subtitle = v.subtitles.firstOrNull { it.selected }
         val memory = LumyApp.instance.trackMemory
@@ -363,10 +365,14 @@ class PlayerActivity : ThemedActivity() {
         request = req
         plan = p
         doviWatchJob?.cancel()
+        firstFrameRendered = false
         val doviProfile = version.video?.doviProfile
-        // 没有杜比视界解码器时 Media3 只会把 P8 等退回 HEVC，P7 会直接初始化失败再去转码，这里提前改播基础层
-        codecs.baseLayerOnly = doviBaseLayer || doviProfile in settings.brokenDolbyVisionProfiles ||
-            (doviProfile == 7 && !device.hasDolbyVisionDecoder())
+        // Native Dolby Vision stays preferred until it is unavailable or has actually failed.
+        codecs.hevcOnly = doviHevcFallback || doviProfile in settings.brokenDolbyVisionProfiles ||
+            ((doviProfile == 5 || doviProfile == 7) && !device.hasDolbyVisionDecoder())
+        if (doviProfile == 5 && codecs.hevcOnly) {
+            Toast.makeText(this, R.string.player_dovi_compatibility, Toast.LENGTH_LONG).show()
+        }
         tracksApplied = false
         timeBase = 0
         // 新的播放源准备好之前，播放器里还是旧的，位置以起播目标为准
@@ -543,8 +549,17 @@ class PlayerActivity : ThemedActivity() {
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            // A wedged codec may report release errors after the compatibility page has opened.
+            if (isFinishing || isDestroyed) return
             val current = positionMs
             DebugLog.i(TAG, "error ${error.errorCodeName} at $current mode=${plan?.mode} retries=$networkRetries: ${error.cause?.message}")
+            val failedFormat = (error as? ExoPlaybackException)?.rendererFormat ?: player.videoFormat
+            if (plan?.mode is PlaybackMode.Direct && !codecs.hevcOnly &&
+                dolbyVisionProfile(failedFormat?.codecs) == 5 && error.isVideoDecodeError()
+            ) {
+                retryDolbyVisionWithHevc(5)
+                return
+            }
             val network = error.isNetworkError()
             if (network && networkRetries < MAX_NETWORK_RETRIES) {
                 // 断网、地址变化、转码会话失效：重连后从当前位置重新起播，不改用转码
@@ -580,7 +595,7 @@ class PlayerActivity : ThemedActivity() {
 
         // 解码器初始化事件早于 player.videoFormat 更新，格式要从这里拿
         override fun onVideoInputFormatChanged(eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?) {
-            if (format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION && !codecs.baseLayerOnly && !firstFrameRendered) watchDolbyVision(format.codecs)
+            if (format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION && !codecs.hevcOnly && !firstFrameRendered) watchDolbyVision(format.codecs)
         }
 
         override fun onAudioDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
@@ -603,11 +618,7 @@ class PlayerActivity : ThemedActivity() {
         }
     }
 
-    /**
-     * 杜比视界解码器声明支持、实际可能一直不出画面（极米解 P7 时一直转圈，最后闪退）。
-     * 数据已经缓冲够了还没有第一帧，就认为解码器卡住，改用 HEVC 解码器播放基础层，并记住这台设备的这个 profile。
-     * 只在网络慢、数据没到时多等一会儿；P5 没有可用的基础层，不处理。
-     */
+    /** Retry a stalled native decoder after buffered media rules out a slow start. */
     private fun watchDolbyVision(codecsString: String?) {
         doviWatchJob?.cancel()
         doviWatchJob = lifecycleScope.launch {
@@ -619,34 +630,38 @@ class PlayerActivity : ThemedActivity() {
                 if (waited >= DOVI_FIRST_FRAME_TIMEOUT_MS && player.bufferedPosition - player.currentPosition >= 5_000) break
             }
             if (firstFrameRendered) return@launch
-            val profile = codecsString?.let { DOVI_PROFILE.find(it)?.groupValues?.get(1)?.toIntOrNull() }
-                ?: version.video?.doviProfile
-            if (profile == 5) {
-                DebugLog.i(TAG, "dolby vision profile 5 decoder produced no frame after ${waited}ms; no compatible base layer")
-                player.stop()
-                showError(getString(R.string.issue_dovi_profile5))
-                return@launch
-            }
-            DebugLog.i(TAG, "dolby vision decoder stuck (profile=$profile, waited ${waited}ms), retry with base layer")
-            profile?.let { settings.brokenDolbyVisionProfiles = settings.brokenDolbyVisionProfiles + it }
-            if (profile == null) {
-                doviBaseLayer = true
-                start(positionMs)
-                return@launch
-            }
-            // 卡住的解码器释放不掉，在同一个播放器里换源会一直卡着。重开播放页换一个新的播放器
-            // （release 有超时，不会被旧的卡住），新页面读到上面记下的 profile，直接用基础层
-            // 只带 extras：原 intent 的 NEW_TASK 等标志会让系统把正在结束的任务调到前台，而不是新建页面
-            startActivity(
-                Intent(this@PlayerActivity, PlayerActivity::class.java)
-                    .putExtras(intent)
-                    .putExtra(EXTRA_START, positionMs)
-                    .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION),
-            )
-            finish()
-            @Suppress("DEPRECATION")
-            overridePendingTransition(0, 0)
+            val profile = dolbyVisionProfile(codecsString)
+            DebugLog.i(TAG, "dolby vision decoder stuck (profile=$profile, waited ${waited}ms)")
+            retryDolbyVisionWithHevc(profile)
         }
+    }
+
+    private fun dolbyVisionProfile(codecsString: String?): Int? =
+        codecsString?.let { DOVI_PROFILE.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+            ?: version.video?.doviProfile
+
+    private fun retryDolbyVisionWithHevc(profile: Int?) {
+        doviWatchJob?.cancel()
+        DebugLog.i(TAG, "retry Dolby Vision profile=$profile with HEVC compatibility decoding")
+        profile?.let { settings.brokenDolbyVisionProfiles = settings.brokenDolbyVisionProfiles + it }
+        if (profile == null) {
+            doviHevcFallback = true
+            start(positionMs)
+            return
+        }
+        // A stalled vendor codec can stay wedged when the source changes in the same player.
+        // Recreate the page; its initial selection reads the locally remembered failed profile.
+        startActivity(
+            Intent(this, PlayerActivity::class.java)
+                .putExtras(intent)
+                .putExtra(EXTRA_VERSION, detail.versions.indexOf(version).coerceAtLeast(0))
+                .putExtra(EXTRA_START, positionMs)
+                .putExtra(EXTRA_DOVI_HEVC, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION),
+        )
+        finish()
+        @Suppress("DEPRECATION")
+        overridePendingTransition(0, 0)
     }
 
     /**
@@ -1516,6 +1531,7 @@ class PlayerActivity : ThemedActivity() {
         private const val EXTRA_VERSION = "version"
         private const val EXTRA_START = "start"
         private const val EXTRA_PLAYLIST = "playlist"
+        private const val EXTRA_DOVI_HEVC = "dovi_hevc_compatibility"
         private const val EXTERNAL_PREFIX = "ext:"
         private const val TAG = "LumyPlayer"
         private const val UP_NEXT_SECONDS = 10

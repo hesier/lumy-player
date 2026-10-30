@@ -12,7 +12,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
-import com.hesier.lumy.core.HdrType
 import com.hesier.lumy.core.SubtitleStream
 import com.hesier.lumy.core.VideoStream
 
@@ -35,10 +34,6 @@ class DeviceProfile(context: Context) {
     /** @return null 表示可以硬解；否则是不能直接播放的原因 */
     fun videoProblem(v: VideoStream): PlaybackIssue? {
         val mime = videoMime(v.codec) ?: return PlaybackIssue.UnknownVideoCodec(v.codec)
-        // 杜比视界 P5 没有 HDR10 兼容层，没有杜比视界解码器时颜色会完全错误
-        if (v.hdr == HdrType.DOLBY_VISION && v.doviProfile == 5 && !hasDolbyVisionDecoder()) {
-            return PlaybackIssue.DolbyVisionProfile5
-        }
         val candidates = decoders(mime)
         if (candidates.isEmpty()) return PlaybackIssue.NoVideoDecoder(v.codec)
         val tenBit = (v.bitDepth ?: 8) > 8

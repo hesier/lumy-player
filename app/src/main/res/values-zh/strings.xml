@@ -146,7 +146,7 @@
     <string name="device_info_unsupported">不支持</string>
     <string name="device_info_ten_bit">%1$s，支持 10-bit</string>
     <string name="device_info_dolby_vision">杜比视界</string>
-    <string name="device_info_dovi_base_layer">杜比视界改播 HDR10 基础层：%1$s</string>
+    <string name="device_info_dovi_base_layer">杜比视界使用 HEVC 兼容播放：%1$s</string>
     <string name="device_info_audio_note">取决于当前连接的电视或功放</string>
     <string name="device_info_separator">、</string>
     <string name="on">开</string>
@@ -294,7 +294,7 @@
     <string name="issue_direct_play_failed">直接播放失败</string>
     <string name="issue_container">不支持 %1$s 封装</string>
     <string name="issue_unknown_video_codec">不支持的视频编码 %1$s</string>
-    <string name="issue_dovi_profile5">设备不支持杜比视界 Profile 5</string>
+    <string name="player_dovi_compatibility">正在兼容播放杜比视界视频，色彩可能不准确</string>
     <string name="issue_no_video_decoder">设备没有 %1$s 解码器</string>
     <string name="issue_video_too_demanding">设备无法硬解 %1$s %2$s</string>
     <string name="issue_video_too_demanding_10bit">设备无法硬解 %1$s 10bit %2$s</string>

@@ -35,7 +35,6 @@ sealed interface PlaybackIssue {
     data object DirectPlayFailed : PlaybackIssue
     data class Container(val container: String) : PlaybackIssue
     data class UnknownVideoCodec(val codec: String) : PlaybackIssue
-    data object DolbyVisionProfile5 : PlaybackIssue
     data class NoVideoDecoder(val codec: String) : PlaybackIssue
     data class VideoTooDemanding(val resolution: String, val tenBit: Boolean, val codec: String) : PlaybackIssue
     data class UnknownAudioCodec(val codec: String) : PlaybackIssue
@@ -49,7 +48,6 @@ fun PlaybackIssue.text(context: Context): String = when (this) {
     PlaybackIssue.DirectPlayFailed -> context.getString(R.string.issue_direct_play_failed)
     is PlaybackIssue.Container -> context.getString(R.string.issue_container, container.uppercase())
     is PlaybackIssue.UnknownVideoCodec -> context.getString(R.string.issue_unknown_video_codec, codec.uppercase())
-    PlaybackIssue.DolbyVisionProfile5 -> context.getString(R.string.issue_dovi_profile5)
     is PlaybackIssue.NoVideoDecoder -> context.getString(R.string.issue_no_video_decoder, codec.uppercase())
     is PlaybackIssue.VideoTooDemanding -> context.getString(
         if (tenBit) R.string.issue_video_too_demanding_10bit else R.string.issue_video_too_demanding,

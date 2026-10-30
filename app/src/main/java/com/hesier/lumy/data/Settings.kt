@@ -142,8 +142,8 @@ class Settings(context: Context) {
         set(v) = prefs.edit().putBoolean("match_frame_rate", v).apply()
 
     /**
-     * 本机杜比视界解码器实际解不出画面的 profile（自动检测后记下），这些片源以后直接用 HEVC 解码器播放 HDR10 基础层。
-     * 记的是设备能力，和服务器无关。
+     * Locally failed Dolby Vision profiles use HEVC compatibility decoding on later attempts.
+     * P5 colors may be incorrect; this device capability cache is independent of the server.
      */
     var brokenDolbyVisionProfiles: Set<Int>
         get() = prefs.getStringSet("broken_dovi_profiles", emptySet())!!.mapNotNull { it.toIntOrNull() }.toSet()

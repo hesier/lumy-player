@@ -31,16 +31,15 @@ import okhttp3.OkHttpClient
 /** 播放器和它的 ASS 字幕处理器（libass），两者一起创建、一起释放 */
 class PlayerBundle(val player: ExoPlayer, val ass: AssHandler, val codecs: LumyCodecSelector, val pgs: PgsTrackSelection)
 
-/**
- * 杜比视界 Profile 7（UHD 蓝光的双层格式）很多盒子的杜比视界解码器声明支持、实际不出画面（极米上一直转圈），
- * Media3 对 P7 又没有退回 HEVC 的逻辑。[baseLayerOnly] 时改用 HEVC 解码器只解 HDR10 基础层，由播放页起播前设置。
- */
-class LumyCodecSelector : MediaCodecSelector {
-    @Volatile var baseLayerOnly = false
+/** Route failed/unavailable Dolby Vision to HEVC; P5 retains its original, uncorrected colors. */
+class LumyCodecSelector(
+    private val delegate: MediaCodecSelector = MediaCodecSelector.DEFAULT,
+) : MediaCodecSelector {
+    @Volatile var hevcOnly = false
 
     override fun getDecoderInfos(mimeType: String, requiresSecureDecoder: Boolean, requiresTunnelingDecoder: Boolean) =
-        MediaCodecSelector.DEFAULT.getDecoderInfos(
-            if (baseLayerOnly && mimeType == MimeTypes.VIDEO_DOLBY_VISION) MimeTypes.VIDEO_H265 else mimeType,
+        delegate.getDecoderInfos(
+            if (hevcOnly && mimeType == MimeTypes.VIDEO_DOLBY_VISION) MimeTypes.VIDEO_H265 else mimeType,
             requiresSecureDecoder,
             requiresTunnelingDecoder,
         )
@@ -64,13 +63,15 @@ object PlayerFactory {
         // 没有索引的 MKV 由 ClusterSeekingExtractor 按簇查找来跳转
         val ass = AssHandler(AssRenderType.OVERLAY_OPEN_GL, AssHandlerConfig())
         val pgs = PgsTrackSelection()
+        val codecs = LumyCodecSelector()
         val assParsers = PgsParserFactory(AssSubtitleParserFactory(ass))
-        val extractors = DefaultExtractorsFactory().withSeekableAssMkv(AssSubtitleParserFactory(ass), ass, pgs)
+        val extractors = DolbyVisionHevcExtractorsFactory(
+            DefaultExtractorsFactory().withSeekableAssMkv(AssSubtitleParserFactory(ass), ass, pgs),
+        ) { codecs.hevcOnly }
         val dataSources = DefaultDataSource.Factory(context, upstream)
         val mediaSources = DefaultMediaSourceFactory(dataSources, extractors)
             .setSubtitleParserFactory(LegacySubripParserFactory(assParsers))
 
-        val codecs = LumyCodecSelector()
         val renderers = object : DefaultRenderersFactory(context) {
             /**
              * 默认关闭音频直通：解码成 PCM 才能支持倍速，也适合投影仪/电视自带喇叭。

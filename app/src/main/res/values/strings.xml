@@ -159,7 +159,7 @@
     <string name="device_info_unsupported">Not supported</string>
     <string name="device_info_ten_bit">%1$s, 10-bit</string>
     <string name="device_info_dolby_vision">Dolby Vision</string>
-    <string name="device_info_dovi_base_layer">Dolby Vision played as HDR10 base layer: %1$s</string>
+    <string name="device_info_dovi_base_layer">Dolby Vision using HEVC compatibility playback: %1$s</string>
     <string name="device_info_audio_note">Depends on the connected TV or AV receiver</string>
     <string name="device_info_separator">", "</string>
     <string name="on">On</string>
@@ -307,7 +307,7 @@
     <string name="issue_direct_play_failed">Direct Play failed</string>
     <string name="issue_container">%1$s container not supported</string>
     <string name="issue_unknown_video_codec">Unsupported video codec %1$s</string>
-    <string name="issue_dovi_profile5">Dolby Vision Profile 5 not supported</string>
+    <string name="player_dovi_compatibility">Playing without Dolby Vision. Colors may be incorrect</string>
     <string name="issue_no_video_decoder">No %1$s decoder on this device</string>
     <string name="issue_video_too_demanding">Can\'t hardware-decode %1$s %2$s</string>
     <string name="issue_video_too_demanding_10bit">Can\'t hardware-decode %1$s 10-bit %2$s</string>
