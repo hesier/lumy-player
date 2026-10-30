@@ -4,6 +4,8 @@ English | [简体中文](playback.zh-CN.md)
 
 This page explains when Lumy Player uses Direct Play and when it asks the server to transcode. It also covers HDR, Dolby Vision and audio support.
 
+For format matrices, anonymized device measurements and validation limits, see the [compatibility and performance reference](playback-compatibility-performance.md).
+
 ## Principles
 
 Lumy Player uses Direct Play whenever possible. Direct Play keeps the original quality, puts no extra load on the server, and handles subtitles and audio tracks on the device. The server transcodes to HLS only when the device really can't handle a file.
@@ -26,7 +28,6 @@ Transcoding requires **Allow server transcoding** to be on (the default). When i
 | Neither hardware nor the enabled, eligible software path can decode the codec | Re-encodes |
 | Resolution or frame rate beyond the hardware decoder's limits | Re-encodes and scales anything above 1080p down to 1080p |
 | 10-bit video with no usable local decoder (eligible H.264 Hi10P can use the software setting) | Re-encodes and scales anything above 1080p down to 1080p |
-| Dolby Vision Profile 5 on a device without a Dolby Vision decoder | Re-encodes |
 | Audio codec that neither the device nor FFmpeg can decode | Converts the audio only |
 | HDR source while **TV supports HDR** is off | Converts to SDR at up to 1080p |
 | A subtitle the device can't show, with **Allow server subtitle burn-in** on (off by default) | Re-encodes and burns in the subtitle |
@@ -65,18 +66,15 @@ Network errors never trigger transcoding. The player reconnects and retries inst
 
 | Profile | Device has a Dolby Vision decoder | Device has no Dolby Vision decoder |
 |---|---|---|
-| **5** (no HDR10 base layer) | Direct Play | Transcoded before playback starts; otherwise the colors are completely wrong |
-| **8** (8.1 / 8.4) | Direct Play | The HDR10 / HLG base layer plays on the HEVC decoder |
-| **7** (UHD Blu-ray dual layer) | Direct Play; switches to the base layer if the decoder stalls (see below) | The HDR10 base layer plays on the HEVC decoder |
+| **5** (no HDR10 base layer) | Native playback preferred; tries HEVC compatibility playback on failure | Tries HEVC compatibility playback, with potentially incorrect colors |
+| **8** (8.1 / 8.4) | Uses an available decoder | Plays the compatible HDR10 / HLG base layer with HEVC, depending on the variant |
+| **7** (UHD Blu-ray dual layer) | Native playback preferred; tries the HEVC base layer if the decoder stalls | Plays the HDR10 base layer with HEVC |
 
-**If the Dolby Vision decoder stalls**: many boxes claim Profile 7 support but never show a picture (XGIMI projectors keep spinning, for example). If enough data is buffered and there's still no first frame after 8 seconds, the player treats the decoder as stuck. It then:
+**If the Dolby Vision decoder stalls**: some devices report support without producing a picture. After at least 8 seconds without a first frame and with 5 seconds buffered, the player tries HEVC compatibility playback. Without enough buffered media, it waits up to 30 seconds. It remembers failed profiles locally for subsequent playback. P5 video initialization or decoding errors can also trigger this fallback.
 
-1. Remembers that this device can't play this profile.
-2. Reopens the player and plays only the HDR10 base layer on the HEVC decoder.
+P7 / P8 base-layer playback does not prove native Dolby Vision output or full enhancement-layer reconstruction. **P5 has no HDR10-compatible base layer.** Its HEVC compatibility path only produces a picture; it does not correct colors or perform tone mapping, so green or pink tinting may remain. Correct native Dolby Vision requires the decoder, box, display and output chain to support the relevant profile.
 
-Later files with the same profile use the base layer right away.
-
-When only the base layer plays, the picture is HDR10 without Dolby Vision's dynamic metadata. How that base layer looks still depends on the HDR setting described above.
+The table does not override the HDR setting: when **TV supports HDR** is off and server transcoding is allowed, conversion to SDR still applies.
 
 ## Audio
 
@@ -88,6 +86,7 @@ When only the base layer plays, the picture is HDR10 without Dolby Vision's dyna
 - During Direct Play:
   - SRT, ASS / SSA, WebVTT, PGS, VobSub and DVB subtitles are all rendered on the device.
   - ASS / SSA subtitles are rendered with libass, which keeps fonts, positioning and effects.
+  - External SUP / PGS uses a dedicated local parser and seek-state warm-up path. Embedded MKV PGS uses compressed snapshots and asynchronous rendering to avoid PNG encoding and decoding on the video loading thread.
 - For transcoded streams, see "Transcode output" above.
 
 ## Troubleshooting

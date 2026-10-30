@@ -64,7 +64,7 @@ APKs you build yourself are signed with a different key, so they cannot be insta
 - Only movie and TV show libraries are shown; music, photo and other library types are not supported yet
 - No Live TV / DVR and no offline downloads
 - Plex Home user switching and Jellyfin Quick Connect are not supported; sign in with the account you want to use
-- Dolby Vision Profile 5 needs a device with a Dolby Vision decoder; otherwise the server has to transcode it (details in [Playback and Decoding](docs/playback.md#dolby-vision))
+- Dolby Vision Profile 5 prefers native playback and can try HEVC compatibility playback if unavailable or failing, but colors may be incorrect. Correct output still requires a compatible Dolby Vision chain (details in [Playback and Decoding](docs/playback.md#dolby-vision))
 - ARM devices only (`armeabi-v7a` / `arm64-v8a`)
 - Phone input needs the phone and TV on the same LAN. If the page does not open, turn off the phone's VPN and check guest Wi-Fi / AP isolation; on a TV with several network connections, disconnect the unused ones
 
