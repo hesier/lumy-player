@@ -12,7 +12,11 @@ import io.github.peerless2012.ass.media.extractor.AssMatroskaExtractor
 import java.io.ByteArrayInputStream
 
 /** Keeps Media3's Cues reader, but gives it only the selected video track's synchronization points. */
-class ProbingMatroskaExtractor(parsers: SubtitleParser.Factory, ass: AssHandler) : AssMatroskaExtractor(parsers, ass, 0) {
+class ProbingMatroskaExtractor internal constructor(
+    parsers: SubtitleParser.Factory,
+    ass: AssHandler,
+    internal val pgsSelection: PgsSelection = PgsSelection.All,
+) : AssMatroskaExtractor(PgsSnapshotParserFactory(parsers), ass, 0) {
     var timecodeScaleNs = 1_000_000L
         private set
     var firstClusterContentPosition = C.INDEX_UNSET.toLong()

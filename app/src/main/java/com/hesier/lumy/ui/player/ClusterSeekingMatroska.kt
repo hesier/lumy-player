@@ -25,9 +25,10 @@ fun ExtractorsFactory.withSeekableAssMkv(
     ass: AssHandler,
     pgs: PgsTrackSelection,
 ) = ExtractorsFactory {
-    val selectedParsers = PgsParserFactory(parsers, pgs.snapshot)
+    val selection = pgs.snapshot
+    val selectedParsers = PgsParserFactory(parsers, selection)
     createExtractors().map {
-        if (it is MatroskaExtractor) ClusterSeekingExtractor(ProbingMatroskaExtractor(selectedParsers, ass)) else it
+        if (it is MatroskaExtractor) ClusterSeekingExtractor(ProbingMatroskaExtractor(selectedParsers, ass, selection)) else it
     }.toTypedArray()
 }
 
@@ -46,12 +47,15 @@ class ClusterSeekingExtractor(private val inner: ProbingMatroskaExtractor) : Ext
     private val indexProbe = MatroskaSeekHeadProbe()
     private var deferredMap: SeekMap? = null
     private var extractorOutput: ExtractorOutput? = null
+    private var snapshotOutput: PgsSnapshotExtractorOutput? = null
 
     override fun sniff(input: ExtractorInput) = inner.sniff(input)
 
     override fun init(output: ExtractorOutput) {
         extractorOutput = output
-        inner.init(object : ExtractorOutput by output {
+        val snapshots = PgsSnapshotExtractorOutput(output, inner.pgsSelection)
+        snapshotOutput = snapshots
+        inner.init(object : ExtractorOutput by snapshots {
             override fun seekMap(map: SeekMap) {
                 if (!map.isSeekable && inner.firstClusterContentPosition < 0) deferredMap = map
                 else output.seekMap(replaceUnseekable(map))
@@ -73,6 +77,7 @@ class ClusterSeekingExtractor(private val inner: ProbingMatroskaExtractor) : Ext
     }
 
     override fun seek(position: Long, timeUs: Long) {
+        snapshotOutput?.reset()
         inner.seek(position, timeUs)
         val map = seekMap
         search = if (map != null && position >= map.start) Search(map, timeUs) else null

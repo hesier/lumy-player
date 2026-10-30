@@ -14,6 +14,7 @@ internal class PgsBitmapObjects {
     )
 
     data class Pixels(val width: Int, val height: Int, val colors: IntArray)
+    data class Encoded(val id: Int, val width: Int, val height: Int, val bytes: ByteArray)
 
     private val objects = LinkedHashMap<Int, ObjectData>()
     private var allocated = 0
@@ -21,6 +22,32 @@ internal class PgsBitmapObjects {
     fun clear() {
         objects.clear()
         allocated = 0
+    }
+
+    fun exportEncoded(ids: List<Int>): List<Encoded>? {
+        val result = ArrayList<Encoded>()
+        for (id in ids.distinct()) {
+            val value = objects[id]?.takeIf { it.complete } ?: return null
+            result.add(Encoded(id, value.width, value.height, value.bytes))
+        }
+        return result
+    }
+
+    fun importEncoded(values: List<Encoded>): Boolean {
+        if (values.size > MAX_OBJECTS || values.map { it.id }.distinct().size != values.size) return false
+        var bytes = 0L
+        for (value in values) {
+            if (value.id !in 0..65535 || value.width !in 1..65535 || value.height !in 1..65535) return false
+            if (value.width.toLong() * value.height > MAX_PIXELS || value.bytes.size !in 1..MAX_OBJECT_BYTES) return false
+            bytes += value.bytes.size
+        }
+        if (bytes > MAX_CACHE_BYTES) return false
+        clear()
+        for (value in values) {
+            objects[value.id] = ObjectData(0, value.width, value.height, value.bytes, value.bytes.size, true)
+        }
+        allocated = bytes.toInt()
+        return true
     }
 
     fun read(segment: PgsBytes) {
@@ -95,9 +122,9 @@ internal class PgsBitmapObjects {
     }
 
     companion object {
-        private const val MAX_OBJECT_BYTES = 8 * 1024 * 1024
-        private const val MAX_CACHE_BYTES = 16 * 1024 * 1024
-        private const val MAX_OBJECTS = 256
+        const val MAX_OBJECT_BYTES = 8 * 1024 * 1024
+        const val MAX_CACHE_BYTES = 16 * 1024 * 1024
+        const val MAX_OBJECTS = 256
         const val MAX_PIXELS = 4096 * 2160
     }
 }

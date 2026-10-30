@@ -26,6 +26,10 @@ class PgsInstrumentation : Instrumentation() {
         val result = Bundle()
         try {
             MultiObjectPgsParserTest().runAll()
+            PgsSnapshotCodecTest().runAll()
+            PgsSnapshotTrackOutputTest().runAll()
+            PgsSnapshotDecoderTest().runAll()
+            PgsSnapshotRendererTest().runAll()
             PgsParserFactoryTest().runAll()
             SupExtractorTest().runAll()
             MatroskaIndexTest().runAll()

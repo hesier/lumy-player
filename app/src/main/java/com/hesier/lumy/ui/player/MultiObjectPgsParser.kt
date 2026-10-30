@@ -16,8 +16,8 @@ import java.util.zip.Inflater
 
 /** PGS composition state is separate from object data: a display set may reuse either. */
 internal class MultiObjectPgsParser : SubtitleParser {
-    private data class Placement(val id: Int, val window: Int, val x: Int, val y: Int, val crop: Rect?)
-    private data class Composition(val width: Int, val height: Int, val palette: Int, val objects: List<Placement>)
+    internal data class Placement(val id: Int, val window: Int, val x: Int, val y: Int, val crop: Rect?)
+    internal data class Composition(val width: Int, val height: Int, val palette: Int, val objects: List<Placement>)
 
     private val palettes = HashMap<Int, IntArray>()
     private val objects = PgsBitmapObjects()
@@ -52,7 +52,32 @@ internal class MultiObjectPgsParser : SubtitleParser {
         offset: Int,
         length: Int,
         output: Consumer<CuesWithTiming>?,
-    ) {
+    ) = consumeDisplaySets(data, offset, length) {
+        if (output != null) output.accept(CuesWithTiming(currentCues(), C.TIME_UNSET, C.TIME_UNSET))
+    }
+
+    internal fun consumeSnapshots(data: ByteArray, offset: Int, length: Int, output: Consumer<ByteArray>) =
+        consumeDisplaySets(data, offset, length) { output.accept(PgsSnapshotCodec.encode(snapshotState())) }
+
+    internal fun restoreSnapshot(state: PgsSnapshotCodec.State): List<Cue> {
+        reset()
+        if (!objects.importEncoded(state.objects)) return emptyList()
+        composition = state.composition
+        palettes[state.composition.palette] = state.palette
+        windows.putAll(state.windows)
+        return currentCues()
+    }
+
+    private fun snapshotState(): PgsSnapshotCodec.State? {
+        if (invalid) return null
+        val frame = composition?.takeIf { it.objects.isNotEmpty() } ?: return null
+        val palette = palettes[frame.palette] ?: return null
+        val encoded = objects.exportEncoded(frame.objects.map { it.id }) ?: return null
+        val referencedWindows = windows.filterKeys { id -> frame.objects.any { it.window == id } }
+        return PgsSnapshotCodec.State(frame, palette, referencedWindows, encoded)
+    }
+
+    private fun consumeDisplaySets(data: ByteArray, offset: Int, length: Int, onEnd: () -> Unit) {
         if (offset < 0 || length < 0 || offset > data.size - length) return
         val input = if (length > 0 && data[offset].toInt() and 0xff == 0x78) {
             val inflated = inflate(data, offset, length) ?: run { invalid = true; return }
@@ -70,7 +95,7 @@ internal class MultiObjectPgsParser : SubtitleParser {
                 0x17 -> readWindows(section)
                 0x80 -> {
                     if (pending) {
-                        if (output != null) output.accept(CuesWithTiming(currentCues(), C.TIME_UNSET, C.TIME_UNSET))
+                        onEnd()
                         pending = false
                     }
                 }

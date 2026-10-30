@@ -96,6 +96,17 @@ object PlayerFactory {
                 return DelayedAudioSink(builder.build(), offsets)
             }
 
+            override fun buildTextRenderers(
+                context: Context,
+                output: androidx.media3.exoplayer.text.TextOutput,
+                outputLooper: android.os.Looper,
+                extensionRendererMode: Int,
+                out: ArrayList<Renderer>,
+            ) {
+                super.buildTextRenderers(context, output, outputLooper, extensionRendererMode, out)
+                out.add(PgsSnapshotRenderer(output, outputLooper))
+            }
+
             // Keep hardware preferred; only explicitly enabled, bounded formats can use software.
             override fun buildVideoRenderers(
                 context: Context,
