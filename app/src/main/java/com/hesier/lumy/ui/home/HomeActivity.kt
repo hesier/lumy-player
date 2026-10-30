@@ -129,6 +129,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
     private class NavItem(val target: NavTarget, val binding: ItemSidebarBinding)
 
     private fun setupSidebar() {
+        binding.sidebar.alpha = SIDEBAR_INACTIVE_ALPHA
         setupServerSwitch()
         addNavItem(NavTarget.Search, R.drawable.ic_search, getString(R.string.nav_search))
         addNavItem(NavTarget.Home, R.drawable.ic_home, getString(R.string.nav_home))
@@ -267,6 +268,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
         val from = binding.sidebar.layoutParams.width
         val to = res.getDimensionPixelSize(if (expanded) R.dimen.sidebar_expanded else R.dimen.sidebar_collapsed)
         binding.sidebar.background = if (expanded) ContextCompat.getDrawable(this, R.drawable.sidebar_bg) else null
+        binding.sidebar.animate().alpha(if (expanded) 1f else SIDEBAR_INACTIVE_ALPHA).setDuration(160).start()
         sidebarAnimator?.cancel()
         sidebarAnimator = ValueAnimator.ofInt(from, to).apply {
             duration = 160
@@ -456,6 +458,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
 
     companion object {
         private const val EXIT_WINDOW_MS = 2_000L
+        private const val SIDEBAR_INACTIVE_ALPHA = 0.70f
 
         /** 换了服务器（或刚添加）后重新打开首页，清掉之前的页面 */
         fun restart(context: Context) {
