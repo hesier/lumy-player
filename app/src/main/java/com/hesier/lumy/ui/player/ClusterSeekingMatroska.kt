@@ -15,20 +15,20 @@ import androidx.media3.extractor.mkv.MatroskaExtractor
 import com.hesier.lumy.util.DebugLog
 import io.github.peerless2012.ass.media.AssHandler
 import io.github.peerless2012.ass.media.extractor.AssMatroskaExtractor
-import io.github.peerless2012.ass.media.parser.AssSubtitleParserFactory
+import androidx.media3.extractor.text.SubtitleParser
 
 /**
  * 代替 `withAssMkvSupport`：MKV 用 libass 的解析器，外面再包一层 [ClusterSeekingExtractor]，
  * 让没有索引（Cues）的 MKV 也能跳转。
  */
-fun ExtractorsFactory.withSeekableAssMkv(parsers: AssSubtitleParserFactory, ass: AssHandler) = ExtractorsFactory {
+fun ExtractorsFactory.withSeekableAssMkv(parsers: SubtitleParser.Factory, ass: AssHandler) = ExtractorsFactory {
     createExtractors().map {
         if (it is MatroskaExtractor) ClusterSeekingExtractor(ProbingMatroskaExtractor(parsers, ass)) else it
     }.toTypedArray()
 }
 
 /** 记下按簇查找要用的信息：时间单位和第一个簇的位置 */
-class ProbingMatroskaExtractor(parsers: AssSubtitleParserFactory, ass: AssHandler) : AssMatroskaExtractor(parsers, ass, 0) {
+class ProbingMatroskaExtractor(parsers: SubtitleParser.Factory, ass: AssHandler) : AssMatroskaExtractor(parsers, ass, 0) {
     var timecodeScaleNs = 1_000_000L
         private set
     var firstClusterContentPosition = C.INDEX_UNSET.toLong()

@@ -63,7 +63,7 @@ object PlayerFactory {
         // ASS/SSA 交给 libass 渲染（保留字体、颜色、位置、动画），内封（MKV）和外挂都走这里；
         // 没有索引的 MKV 由 ClusterSeekingExtractor 按簇查找来跳转
         val ass = AssHandler(AssRenderType.OVERLAY_OPEN_GL, AssHandlerConfig())
-        val assParsers = AssSubtitleParserFactory(ass)
+        val assParsers = PgsParserFactory(AssSubtitleParserFactory(ass))
         val extractors = DefaultExtractorsFactory().withSeekableAssMkv(assParsers, ass)
         val mediaSources = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, upstream), extractors)
             .setSubtitleParserFactory(LegacySubripParserFactory(assParsers))
