@@ -266,7 +266,7 @@ class SettingsActivity : ThemedActivity() {
             },
             Row(
                 getString(R.string.settings_subtitle_background), onOff(settings.subtitleBackground),
-                getString(R.string.settings_subtitle_background_detail) + "\n" + getString(R.string.settings_subtitle_style_note),
+                getString(R.string.settings_subtitle_background_detail),
             ) {
                 settings.subtitleBackground = !settings.subtitleBackground
                 render()

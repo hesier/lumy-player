@@ -96,7 +96,7 @@
     <string name="settings_section_about">About</string>
     <string name="settings_default_quality">Default quality</string>
     <string name="settings_allow_software_video_decoding">Allow software video decoding</string>
-    <string name="settings_allow_software_video_decoding_detail">Try software decoding for H.264 / RV40 SDR videos up to 1080p when hardware decoding is unavailable. Playback may stutter depending on the device, video codec and frame rate. Audio decoding is unaffected</string>
+    <string name="settings_allow_software_video_decoding_detail">Software decode ≤1080p H.264 / RV40 SDR if hardware is unavailable; smoothness varies by device.</string>
     <string name="settings_passthrough">Audio passthrough</string>
     <string name="settings_passthrough_detail">Turn on when using an AV receiver so it decodes Dolby/DTS audio. Speed can\'t be changed while a track is passed through</string>
     <string name="settings_auto_next">Autoplay next episode</string>
@@ -106,8 +106,7 @@
     <string name="settings_subtitle_position">Subtitle position</string>
     <string name="settings_subtitle_position_detail">For widescreen films, choose Low to show subtitles in the black bar below the picture</string>
     <string name="settings_subtitle_background">Subtitle background</string>
-    <string name="settings_subtitle_background_detail">Adds a translucent black box behind subtitles so they\'re easier to read on bright scenes</string>
-    <string name="settings_subtitle_style_note">Position and background only apply to text subtitles such as SRT. ASS and image subtitles are shown as authored</string>
+    <string name="settings_subtitle_background_detail">Dark text subtitle background; position/background do not affect ASS or image subtitles.</string>
     <string name="subtitle_position_low">Low</string>
     <string name="subtitle_position_normal">Normal</string>
     <string name="subtitle_position_high">High</string>
@@ -252,7 +251,7 @@
     <string name="info_show">Show playback info</string>
     <string name="info_hide">Hide playback info</string>
     <string name="settings_frame_rate">Match refresh rate</string>
-    <string name="settings_frame_rate_detail">Switches the TV to the video\'s frame rate (e.g. 24p → 24Hz) for smoother motion. Needs a TV that supports it; the screen may go black for a second</string>
+    <string name="settings_frame_rate_detail">Match video frame rate; requires display support. Switching may briefly blank the screen.</string>
     <string name="settings_audio_delay">Audio delay</string>
     <string name="settings_audio_delay_detail">Adjust when a Bluetooth speaker or AV receiver lags. Applies to all videos</string>
     <string name="cancel">Cancel</string>
@@ -299,9 +298,9 @@
     <string name="settings_allow_transcode">Allow server transcoding</string>
     <string name="settings_allow_transcode_detail">When off, only Direct Play is used. Videos this device can\'t play show an error instead of loading the server</string>
     <string name="settings_display_hdr">TV supports HDR</string>
-    <string name="settings_display_hdr_detail">When off, the server converts HDR and Dolby Vision to 1080p SDR to avoid a washed-out picture. Needs transcoding allowed and HDR tone mapping on the server</string>
+    <string name="settings_display_hdr_detail">When off, convert to 1080p SDR. Requires transcoding and server tone mapping.</string>
     <string name="settings_allow_burn">Allow server subtitle burn-in</string>
-    <string name="settings_allow_burn_detail">Off by default: subtitles are rendered on this device when possible, including ASS. On Plex, ones it can\'t show are always burned in when the video is re-encoded anyway; Emby and Jellyfin send embedded subtitles along with the transcode for this device to render</string>
+    <string name="settings_allow_burn_detail">Allow subtitle burn-in; Plex also burns unsupported subtitles during video transcoding.</string>
     <string name="player_error">Playback failed: %1$s</string>
     <string name="player_back_again_exit">Press Back again to exit</string>
     <string name="player_fallback">This device can\'t play the file directly. Switched to server transcoding</string>
@@ -404,7 +403,7 @@
     <string name="settings_remember_audio">Remember manual audio choices</string>
     <string name="settings_remember_audio_detail">Remember tracks for each file and languages for each show. Turning this off keeps existing memories but stops using and updating them.</string>
     <string name="settings_remember_subtitles">Remember manual subtitle choices</string>
-    <string name="settings_remember_subtitles_detail">Remember primary subtitles for each file and show, including Off. Turning this off keeps existing memories but stops using and updating them.</string>
+    <string name="settings_remember_subtitles_detail">Remember primary subtitles per file/show, including Off. Disabling keeps saved choices.</string>
     <string name="settings_clear_audio_memory">Clear audio memories</string>
     <string name="settings_clear_audio_memory_detail">Forget audio choices for all files and shows on this device. Subtitle memories and the memory switch stay unchanged.</string>
     <string name="settings_clear_subtitle_memory">Clear subtitle memories</string>

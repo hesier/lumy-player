@@ -91,14 +91,13 @@
     <string name="settings_subtitle_position">字幕位置</string>
     <string name="settings_subtitle_position_detail">看宽银幕电影时选“靠下”，字幕显示在下方黑边里，不挡画面</string>
     <string name="settings_subtitle_background">字幕背景</string>
-    <string name="settings_subtitle_background_detail">字幕下面加半透明黑底，亮的画面上更容易看清</string>
-    <string name="settings_subtitle_style_note">位置和背景只对 SRT 等文本字幕生效，ASS 特效字幕和图片字幕按原样显示</string>
+    <string name="settings_subtitle_background_detail">文本字幕加半透明黑底；位置和背景不影响 ASS、图片字幕。</string>
     <string name="subtitle_position_low">靠下</string>
     <string name="subtitle_position_normal">标准</string>
     <string name="subtitle_position_high">偏高</string>
     <string name="subtitle_position_higher">更高</string>
     <string name="settings_allow_software_video_decoding">允许视频软解</string>
-    <string name="settings_allow_software_video_decoding_detail">硬解不可用时，尝试软解 1080p 及以下的 H.264 / RV40 SDR 视频。能否流畅播放取决于设备、视频编码和帧率；不影响音频解码</string>
+    <string name="settings_allow_software_video_decoding_detail">硬解不可用时软解 ≤1080p H.264 / RV40 SDR，流畅度视设备而定。</string>
     <string name="settings_video_scale">默认画面比例</string>
     <string name="settings_video_scale_detail">播放时可以在“更多”里临时切换。裁剪会切掉画面边缘，拉伸会让画面变形</string>
     <string name="video_scale">画面比例</string>
@@ -239,7 +238,7 @@
     <string name="info_show">显示播放信息</string>
     <string name="info_hide">隐藏播放信息</string>
     <string name="settings_frame_rate">自动切换刷新率</string>
-    <string name="settings_frame_rate_detail">按片源帧率切换输出刷新率（如 24p → 24Hz），画面更平滑。需要电视/投影仪支持多种刷新率，切换时可能黑屏一两秒</string>
+    <string name="settings_frame_rate_detail">匹配片源帧率，需设备支持；切换时可能短暂黑屏。</string>
     <string name="settings_audio_delay">音频延迟</string>
     <string name="settings_audio_delay_detail">蓝牙音箱或功放有延迟时调整，所有视频生效</string>
     <string name="cancel">取消</string>
@@ -286,9 +285,9 @@
     <string name="settings_allow_transcode">允许服务器转码</string>
     <string name="settings_allow_transcode_detail">关闭后只直接播放；设备不支持的视频会报错，不会占用服务器</string>
     <string name="settings_display_hdr">电视支持 HDR</string>
-    <string name="settings_display_hdr_detail">关闭后 HDR / 杜比视界片源由服务器转码成 1080p SDR，避免在不支持 HDR 的电视上画面发灰。需要允许服务器转码，并在服务器上开启 HDR 色调映射</string>
+    <string name="settings_display_hdr_detail">关闭后转为 1080p SDR；需允许转码并开启服务器色调映射。</string>
     <string name="settings_allow_burn">允许服务器烧录字幕</string>
-    <string name="settings_allow_burn_detail">为了显示字幕而让服务器转码并烧录。默认关闭：字幕尽量在本机渲染（含 ASS 特效字幕）。视频已经在转码时，Plex 上本机显示不了的字幕总会烧录；Emby / Jellyfin 会把内封字幕随转码一起传给本机渲染，不用烧录</string>
+    <string name="settings_allow_burn_detail">允许为字幕转码烧录；Plex 转码时，不支持的字幕仍会烧录。</string>
     <string name="player_error">播放失败：%1$s</string>
     <string name="player_back_again_exit">再按一次返回键退出播放</string>
     <string name="player_fallback">设备无法直接播放，已切换到服务器转码</string>
@@ -388,7 +387,7 @@
     <string name="settings_remember_audio">记住手动音轨选择</string>
     <string name="settings_remember_audio_detail">记住各文件的音轨及各部剧的语言。关闭后不读取、不更新记忆，已有记录保留。</string>
     <string name="settings_remember_subtitles">记住手动字幕选择</string>
-    <string name="settings_remember_subtitles_detail">记住各文件、各部剧的主字幕选择（含关闭字幕）。关闭后不读取、不更新记忆，已有记录保留。</string>
+    <string name="settings_remember_subtitles_detail">记住各文件、各部剧的主字幕选择（含关闭）；停用保留记录。</string>
     <string name="settings_clear_audio_memory">清除音轨记忆</string>
     <string name="settings_clear_audio_memory_detail">清除本机所有文件和剧集的音轨记忆，保留字幕记忆和记忆开关状态。</string>
     <string name="settings_clear_subtitle_memory">清除字幕记忆</string>
