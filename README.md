@@ -32,6 +32,8 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
 - **Settings**: default quality, allow / disallow transcoding, subtitle size, sidebar items and order (saved per server), server management and more
 - **Languages**: English, Simplified Chinese and Traditional Chinese, following the system language or chosen in Settings
 
+See the [server support matrix](docs/server-support.md) for differences between integrations.
+
 ## Screenshots
 
 <table>

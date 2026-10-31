@@ -4,11 +4,11 @@ English | [简体中文](playback.zh-CN.md)
 
 This page explains when Lumy Player uses Direct Play and when it asks the server to transcode. It also covers HDR, Dolby Vision and audio support.
 
-For format matrices, anonymized device measurements and validation limits, see the [compatibility and performance reference](playback-compatibility-performance.md).
+For differences between integrations and their output paths, see the [server support matrix](server-support.md). For format matrices, anonymized device measurements and validation limits, see the [compatibility and performance reference](playback-compatibility-performance.md).
 
 ## Principles
 
-Lumy Player uses Direct Play whenever possible. Direct Play keeps the original quality, puts no extra load on the server, and handles subtitles and audio tracks on the device. The server transcodes to HLS only when the device really can't handle a file.
+Lumy Player uses Direct Play whenever possible. Direct Play keeps the original quality, puts no extra load on the server, and handles subtitles and audio tracks on the device. The server transcodes when the device cannot handle a file or a quality limit is selected.
 
 - **Video uses hardware decoding first.** Settings › Compatibility › **Allow software video decoding** is off by default. When enabled, H.264 (including High10) and RV40 SDR video can fall back to local software decoding if hardware support is absent or fails. The longest edge must be at most 1920 and the shortest at most 1080; unknown dimensions, HDR and larger videos are excluded. This is a safety ceiling, not a promise of smooth playback: CPU speed, codec and frame rate still matter. Software decoding keeps the original stream and does not use server transcoding.
 - **RM/RMVB files** are demuxed locally. RV40 uses the device decoder when available and can use the optional software path otherwise; Cook audio uses FFmpeg independently of the video setting.
@@ -19,6 +19,8 @@ Lumy Player uses Direct Play whenever possible. Direct Play keeps the original q
 Transcoding requires **Allow server transcoding** to be on (the default). When it's off, Lumy Player always uses Direct Play. If the device can't play a file, an error explains why.
 
 ### Decided before playback starts
+
+“Remuxes only” and “converts the audio only” require an integration that permits video stream copy. fnOS currently re-encodes the video instead.
 
 | Reason | What the server does |
 |---|---|
@@ -38,25 +40,27 @@ In these cases, Lumy Player switches to transcoding and continues from the curre
 
 - **Direct Play fails.**
   - If video decoding fails (the device claimed support but couldn't decode), the video is re-encoded.
-  - If the failure comes from the container or parsing, the file is remuxed only.
+  - Container or parsing failures use remuxing where video stream copy is supported; fnOS still re-encodes the video.
 - **The file can't seek** (for example an MKV without an index). When you resume or skip, the server starts the stream at the target position.
 
 Network errors never trigger transcoding. The player reconnects and retries instead.
 
 ### Transcode output
 
-- The server sends HLS with TS segments, using H.264 or HEVC video. Conversion to SDR uses H.264 only.
-- **Plex**: EAC3 (up to 7.1), AC3 (5.1) and DTS are kept as is. TrueHD can't go in TS, so the server converts it to EAC3.
-- **Jellyfin / Emby**: AAC, AC3, EAC3, MP3, Opus and FLAC are kept as is. The server converts DTS.
-- A transcoded stream has no embedded subtitles.
-  - External text subtitles (SRT, ASS, VTT) are still shown on the device.
-  - Image-based subtitles such as PGS, and other embedded subtitles, can only be burned in by the server. When the video is being re-encoded anyway, they're burned in even if the burn-in setting is off.
+- **Plex** uses HLS + TS and advertises H.264 / HEVC video with AAC / AC3 / EAC3 / MP3 audio; SDR conversion advertises H.264 only. Requested limits are 5.1 for AC3 and 7.1 for EAC3, while the server determines actual output. The current HLS profile does not advertise DTS / TrueHD / FLAC / Opus, so sources using these formats may require audio conversion.
+- **Jellyfin / Emby** normally use HLS + TS. Retaining the selected embedded subtitle switches to progressive MKV generated from the requested start position; the subtitle is copied for local rendering, and seeking rebuilds the stream. HLS requests allow AAC / AC3 / EAC3 / MP3 / Opus / FLAC; the MKV path can additionally advertise the source audio codec when locally decodable. Allowing copy does not guarantee the server will copy, or establish playback validation for every server/container combination.
+- **fnOS Media** uses native H.264 HLS transcoding. AAC / AC3 / EAC3 can be kept when locally decodable; other audio falls back to AAC. Output currently targets stereo or 5.1. Video stream copy and 7.1 output are not integrated.
+- **Subtitle handling depends on the output path**:
+  - Embedded tracks omitted from HLS cannot be rendered locally. Plex needs external subtitles or burn-in; Jellyfin/Emby can retain the selected embedded track through the MKV path above.
+  - Native fnOS HLS can carry the selected text subtitle, or the playback plan may choose burn-in. Bitmap subtitles use burn-in; there is no general MKV subtitle-retention path.
+  - External subtitles are rendered locally when the playback source supplies the corresponding tracks. Required burn-in needs permission or an existing reason to re-encode the video.
 
 ## HDR
 
 - **Detecting HDR in the source**:
   - Plex: HDR10, HLG and Dolby Vision. HDR10+ is reported as HDR10.
   - Jellyfin / Emby: HDR10, HDR10+, HLG and Dolby Vision.
+  - fnOS Media: native stream metadata identifies HDR10, HDR10+, HLG and Dolby Vision; see the server matrix for validation limits.
 - **The *TV supports HDR* setting decides whether HDR is sent to the TV.** It's on by default. Lumy Player doesn't rely on the system's own HDR detection, because many boxes always report support or report nothing. The detected value is only shown in Playback info.
 - **When the setting is on**, HDR sources use Direct Play, and the box and TV handle the HDR signal.
 - **When the setting is off**, every HDR source, including HLG and Dolby Vision, is converted by the server to 1080p SDR H.264. This avoids a washed-out picture on TVs without HDR. HDR tone mapping must be enabled on the server, or the colors will still be wrong.
