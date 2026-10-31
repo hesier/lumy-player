@@ -69,7 +69,12 @@ class PgsInstrumentation : Instrumentation() {
                 finish(Activity.RESULT_OK, result)
                 return
             }
-            runOnMainSync { com.hesier.lumy.ui.CardRefreshTest().runAll() }
+            runOnMainSync {
+                com.hesier.lumy.ui.CardRefreshTest().apply {
+                    runAll()
+                    checkPlaybackPosition(targetContext)
+                }
+            }
             if (cardRefreshOnly) {
                 result.putString("stream", "Card and hub refresh checks passed\n")
                 finish(Activity.RESULT_OK, result)

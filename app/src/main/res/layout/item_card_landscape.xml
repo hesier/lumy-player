@@ -22,6 +22,23 @@
             android:scaleType="centerCrop" />
 
         <include layout="@layout/view_card_overlays" />
+
+        <TextView
+            android:id="@+id/playback_position"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="6dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/hint_bg"
+            android:fontFamily="sans-serif-medium"
+            android:paddingStart="6dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="6dp"
+            android:paddingBottom="2dp"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:visibility="gone" />
     </FrameLayout>
 
     <TextView

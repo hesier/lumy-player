@@ -1,5 +1,10 @@
 package com.hesier.lumy.ui
 
+import android.content.Context
+import android.view.View
+import android.widget.FrameLayout
+import android.widget.TextView
+import com.hesier.lumy.R
 import androidx.recyclerview.widget.RecyclerView
 import com.hesier.lumy.core.Hub
 import com.hesier.lumy.core.HubStyle
@@ -15,6 +20,32 @@ class CardRefreshTest {
     fun runAll() {
         checkCardUpdates()
         checkRowUpdates()
+    }
+
+    fun checkPlaybackPosition(context: Context) {
+        val parent = FrameLayout(context)
+        val adapter = CardAdapter(server(), HubStyle.LANDSCAPE, {}, {})
+        val holder = adapter.createViewHolder(parent, HubStyle.LANDSCAPE.ordinal)
+        val label = holder.itemView.findViewById<TextView>(R.id.playback_position)
+        val item = MediaItem("progress", MediaType.MOVIE, "Movie", viewOffsetMs = 1_494_000)
+        holder.bind(item)
+        check(View.VISIBLE == label.visibility && "24:54" == label.text.toString())
+        holder.bind(item.copy(type = MediaType.EPISODE, viewOffsetMs = 5_094_000))
+        check(View.VISIBLE == label.visibility && "1:24:54" == label.text.toString())
+        for (position in listOf(null, 0L, -1L)) {
+            holder.bind(item.copy(viewOffsetMs = position))
+            check(View.GONE == label.visibility && label.text.isEmpty())
+        }
+        holder.bind(item)
+        holder.bind(null)
+        check(View.GONE == label.visibility && label.text.isEmpty())
+        holder.bind(item.copy(type = MediaType.SHOW))
+        check(View.GONE == label.visibility)
+        for (style in listOf(HubStyle.POSTER, HubStyle.PERSON)) {
+            val other = CardAdapter(server(), style, {}, {}).createViewHolder(parent, style.ordinal)
+            other.bind(item)
+            check(null == other.itemView.findViewById<TextView>(R.id.playback_position))
+        }
     }
 
     private fun server(): MediaServer = Proxy.newProxyInstance(
