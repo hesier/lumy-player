@@ -14,6 +14,7 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import androidx.media3.exoplayer.metadata.MetadataOutput
 import androidx.media3.exoplayer.text.TextOutput
+import androidx.media3.exoplayer.text.TextRenderer
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import com.hesier.lumy.R
 import io.github.peerless2012.ass.media.AssHandler
@@ -36,6 +37,8 @@ internal class DelayedSubtitleRenderersFactory(
     private val factory: RenderersFactory,
     private val offsets: SyncOffsets,
     private val ass: AssHandler,
+    private val secondaryOutput: TextOutput,
+    private val secondaryAss: AssHandler,
 ) : RenderersFactory by factory {
     override fun createRenderers(
         eventHandler: Handler,
@@ -43,18 +46,24 @@ internal class DelayedSubtitleRenderersFactory(
         audioRendererEventListener: AudioRendererEventListener,
         textRendererOutput: TextOutput,
         metadataRendererOutput: MetadataOutput,
-    ): Array<Renderer> = factory.createRenderers(
-        eventHandler, videoRendererEventListener, audioRendererEventListener, textRendererOutput, metadataRendererOutput,
-    ).map { renderer ->
-        when {
-            renderer is AssRenderer -> DelayedTextRenderer(renderer, offsets) {
-                // Paused playback may never reach libass's throttled frame callback.
-                ass.videoTimeCallback?.invoke(ass.videoTime)
+    ): Array<Renderer> {
+        val secondaryRenderer = AssRenderer(secondaryAss)
+        val renderers = factory.createRenderers(
+            eventHandler, videoRendererEventListener, audioRendererEventListener, textRendererOutput, metadataRendererOutput,
+        ).toList() + listOf(secondaryRenderer, PgsSnapshotRenderer(secondaryOutput, eventHandler.looper),
+            TextRenderer(secondaryOutput, eventHandler.looper))
+        return renderers.map { renderer ->
+            when {
+                renderer is AssRenderer -> DelayedTextRenderer(renderer, offsets) {
+                    // Paused playback may never reach libass's throttled frame callback.
+                    val handler = if (renderer === secondaryRenderer) secondaryAss else ass
+                    handler.videoTimeCallback?.invoke(handler.videoTime)
+                }
+                renderer.trackType == C.TRACK_TYPE_TEXT -> DelayedTextRenderer(renderer, offsets)
+                else -> renderer
             }
-            renderer.trackType == C.TRACK_TYPE_TEXT -> DelayedTextRenderer(renderer, offsets)
-            else -> renderer
-        }
-    }.toTypedArray()
+        }.toTypedArray()
+    }
 }
 
 /** 字幕渲染器拿到的时间减去延迟：字幕按“更早的时间”显示，即整体推迟 */

@@ -83,6 +83,8 @@ The table does not override the HDR setting: when **TV supports HDR** is off and
 
 ## Subtitles
 
+- Choose **More → Secondary subtitles** to display a second track. Ordinary text is shown below the primary text, defaulting to 85% of its size. With an SRT / WebVTT secondary track selected, **More → Secondary subtitle style** adjusts its size, text color and background immediately and saves those preferences. ASS / SSA and bitmap subtitles retain their original styling and positions, so authored layouts may overlap; no style controls are provided for them. Both tracks share the subtitle delay setting. Secondary selection applies to the current video/version and resets when switching to another one.
+- Secondary subtitles must be available in the current playback source. During transcoding, embedded tracks omitted from the output cannot be selected as secondary subtitles.
 - During Direct Play:
   - SRT, ASS / SSA, WebVTT, PGS, VobSub and DVB subtitles are all rendered on the device.
   - ASS / SSA subtitles are rendered with libass, which keeps fonts, positioning and effects.

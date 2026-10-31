@@ -24,12 +24,11 @@ import androidx.media3.extractor.DefaultExtractorsFactory
 import io.github.peerless2012.ass.media.AssHandler
 import io.github.peerless2012.ass.media.AssHandlerConfig
 import io.github.peerless2012.ass.media.factory.AssRenderersFactory
-import io.github.peerless2012.ass.media.parser.AssSubtitleParserFactory
 import io.github.peerless2012.ass.media.type.AssRenderType
 import okhttp3.OkHttpClient
 
 /** 播放器和它的 ASS 字幕处理器（libass），两者一起创建、一起释放 */
-class PlayerBundle(val player: ExoPlayer, val ass: AssHandler, val codecs: LumyCodecSelector, val pgs: PgsTrackSelection)
+class PlayerBundle(val player: ExoPlayer, val ass: AssHandler, val codecs: LumyCodecSelector, val pgs: PgsTrackSelection, val subtitles: DualSubtitleTrackSelector, val secondaryAss: AssHandler)
 
 /** Route failed/unavailable Dolby Vision to HEVC; P5 retains its original, uncorrected colors. */
 class LumyCodecSelector(
@@ -64,11 +63,14 @@ object PlayerFactory {
         // ASS/SSA 交给 libass 渲染（保留字体、颜色、位置、动画），内封（MKV）和外挂都走这里；
         // 没有索引的 MKV 由 ClusterSeekingExtractor 按簇查找来跳转
         val ass = AssHandler(AssRenderType.OVERLAY_OPEN_GL, AssHandlerConfig())
+        val secondaryAss = AssHandler(AssRenderType.OVERLAY_OPEN_GL, AssHandlerConfig())
         val pgs = PgsTrackSelection()
         val codecs = LumyCodecSelector()
-        val assParsers = PgsParserFactory(AssSubtitleParserFactory(ass))
+        val subtitles = DualSubtitleTrackSelector(context)
+        val dualAssParsers = DualAssParserFactory(ass, secondaryAss) { subtitles.secondaryAssEnabled }
+        val assParsers = PgsParserFactory(dualAssParsers)
         val extractors = DolbyVisionHevcExtractorsFactory(
-            DefaultExtractorsFactory().withSeekableAssMkv(AssSubtitleParserFactory(ass), ass, pgs),
+            DefaultExtractorsFactory().withSeekableAssMkv(dualAssParsers, ass, pgs, secondaryAss),
         ) { codecs.hevcOnly }
         val dataSources = DefaultDataSource.Factory(context, upstream)
         val subtitleParsers = LegacySubripParserFactory(assParsers)
@@ -135,15 +137,16 @@ object PlayerFactory {
             .setEnableDecoderFallback(true)
             .setMediaCodecSelector(codecs)
 
-        val delayedRenderers = DelayedSubtitleRenderersFactory(AssRenderersFactory(ass, renderers), offsets, ass)
+        val delayedRenderers = DelayedSubtitleRenderersFactory(AssRenderersFactory(ass, renderers), offsets, ass, subtitles.output, secondaryAss)
         val player = ExoPlayer.Builder(context, delayedRenderers)
+            .setTrackSelector(subtitles)
             .setMediaSourceFactory(SupMediaSourceFactory(mediaSources, dataSources))
             .setLoadControl(loadControl())
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(30_000)
             .build()
-        ass.init(player)
-        return PlayerBundle(player = player, ass = ass, codecs = codecs, pgs = pgs)
+        subtitles.attachAss(player, ass, secondaryAss)
+        return PlayerBundle(player = player, ass = ass, codecs = codecs, pgs = pgs, subtitles = subtitles, secondaryAss = secondaryAss)
     }
 
     /**

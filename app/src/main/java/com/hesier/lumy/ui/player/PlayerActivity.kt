@@ -94,6 +94,9 @@ class PlayerActivity : ThemedActivity() {
     private lateinit var player: ExoPlayer
     private lateinit var ass: AssHandler
     private lateinit var bitmapSubtitles: BitmapSubtitleOverlay
+    private lateinit var dualSubtitles: DualSubtitleOverlay
+    private lateinit var subtitleSelector: DualSubtitleTrackSelector
+    private lateinit var secondaryAss: AssHandler
     private lateinit var codecs: LumyCodecSelector
     private lateinit var pgsSelection: PgsTrackSelection
     private lateinit var device: DeviceProfile
@@ -104,6 +107,7 @@ class PlayerActivity : ThemedActivity() {
     private lateinit var version: MediaVersion
     private var audio: AudioStream? = null
     private var subtitle: SubtitleStream? = null
+    private var secondarySubtitle: SubtitleStream? = null
     private var quality: Quality = Quality.Original
     private var speed = 1f
 
@@ -175,6 +179,8 @@ class PlayerActivity : ThemedActivity() {
         )
         player = bundle.player
         ass = bundle.ass
+        secondaryAss = bundle.secondaryAss
+        subtitleSelector = bundle.subtitles
         codecs = bundle.codecs
         pgsSelection = bundle.pgs
         quality = Quality.presets.getOrElse(settings.defaultQuality) { Quality.Original }
@@ -193,6 +199,9 @@ class PlayerActivity : ThemedActivity() {
         }
         bitmapSubtitles = BitmapSubtitleOverlay(binding.playerView)
         player.addListener(bitmapSubtitles)
+        dualSubtitles = DualSubtitleOverlay(binding.playerView, settings, secondaryAss)
+        subtitleSelector.onCues = dualSubtitles::onSecondaryCues
+        player.addListener(dualSubtitles)
         binding.controls.visibility = View.GONE
         binding.upNextFrame.clipToRoundedBackground()
         binding.upNextPlay.setOnClickListener { playNext() }
@@ -324,6 +333,9 @@ class PlayerActivity : ThemedActivity() {
      * 某一级没有符合的轨道时交给下一级。
      */
     private fun selectVersion(v: MediaVersion) {
+        secondarySubtitle = null
+        subtitleSelector.selectSecondary(null)
+        dualSubtitles.clear()
         version = v
         fellBack = false
         videoDecodeFailed = false
@@ -360,6 +372,9 @@ class PlayerActivity : ThemedActivity() {
     private fun start(positionMs: Long, playWhenReady: Boolean = true) {
         startJob?.cancel()
         bitmapSubtitles.clear()
+        dualSubtitles.clear()
+        subtitleSelector.selectSecondary(null)
+        subtitleSelector.secondaryAssEnabled = secondarySubtitle?.codec?.lowercase() in setOf("ass", "ssa")
         // 换字幕 / 音轨 / 画质等重新起播时，旧会话要先报停止，否则服务端的“正在播放”里会一直留着它
         if (request != null) report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
@@ -400,6 +415,7 @@ class PlayerActivity : ThemedActivity() {
                 req.version.subtitles.firstOrNull { it.id == req.subtitleStreamId },
                 filterTracks = req.mode is PlaybackMode.Direct && !source.isHls &&
                     req.version.parts.size == 1 && source.urls.size == 1,
+                secondary = secondarySubtitle,
             )
             // 多段文件放进播放列表，段与段之间无缝衔接；外挂字幕属于第一段
             val media = source.urls.mapIndexed { i, url ->
@@ -415,7 +431,8 @@ class PlayerActivity : ThemedActivity() {
                     .setSubtitleConfigurations(
                         if (i != 0) emptyList() else source.externalSubtitles.filter {
                             // A missing unselected SUP must not prevent the video from starting.
-                            it.codec.lowercase() !in SupMediaSourceFactory.CODECS || it.streamId == req.subtitleStreamId
+                            it.codec.lowercase() !in SupMediaSourceFactory.CODECS ||
+                                it.streamId == req.subtitleStreamId || it.streamId == secondarySubtitle?.id
                         }.map {
                             SubtitleConfiguration.Builder(Uri.parse(it.url))
                                 .setId(EXTERNAL_PREFIX + it.streamId)
@@ -749,6 +766,49 @@ class PlayerActivity : ThemedActivity() {
             }
         }
         player.trackSelectionParameters = params.build()
+        if (secondarySubtitle?.id == subtitle?.id) secondarySubtitle = null
+        subtitleSelector.selectSecondary(secondarySubtitle?.let(::findSubtitleGroup)?.mediaTrackGroup)
+    }
+
+    private fun findSubtitleGroup(stream: SubtitleStream): Tracks.Group? {
+        val groups = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+        if (stream.external) return groups.firstOrNull {
+            it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX + stream.id) == true
+        }
+        val embedded = groups.filter { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX) != true }
+        val mode = plan?.mode
+        if (mode is PlaybackMode.Transcode) {
+            return embedded.firstOrNull().takeIf { mode.embedSubtitleId == stream.id }
+        }
+        return matchGroup(embedded, stream.index, version.subtitles.filter { !it.external }.indexOf(stream))
+    }
+
+    private fun pickSecondarySubtitle() {
+        val streams = version.subtitles.filter { it.id != subtitle?.id }
+        val options = listOf(Option(getString(R.string.subtitles_off), selected = secondarySubtitle == null)) +
+            streams.map { stream ->
+                val available = findSubtitleGroup(stream)?.isSupported == true ||
+                    (stream.external && stream.codec.lowercase() in SupMediaSourceFactory.CODECS &&
+                        (plan?.mode as? PlaybackMode.Transcode)?.burnSubtitleId == null)
+                Option(stream.title, listOfNotNull(stream.codec.uppercase(),
+                    getString(R.string.subtitle_not_available_note).takeUnless { available }).joinToString(" · "),
+                    stream.id == secondarySubtitle?.id)
+            }
+        OptionsPanel(this, getString(R.string.player_secondary_subtitles), options) { index ->
+            val selected = streams.getOrNull(index - 1)
+            if (selected?.id == secondarySubtitle?.id) return@OptionsPanel
+            val pgs = selected?.codec?.lowercase() in SupMediaSourceFactory.CODECS
+            if (selected != null && findSubtitleGroup(selected)?.isSupported != true &&
+                !(pgs && selected.external && (plan?.mode as? PlaybackMode.Transcode)?.burnSubtitleId == null)) {
+                Toast.makeText(this, R.string.subtitle_unavailable, Toast.LENGTH_LONG).show()
+                return@OptionsPanel
+            }
+            val rebuildCodecs = SupMediaSourceFactory.CODECS + setOf("ass", "ssa")
+            val rebuild = selected?.codec?.lowercase() in rebuildCodecs || secondarySubtitle?.codec?.lowercase() in rebuildCodecs
+            secondarySubtitle = selected
+            dualSubtitles.onSecondaryCues(androidx.media3.common.text.CueGroup(emptyList(), 0))
+            if (rebuild) start(positionMs, player.playWhenReady) else applyTrackSelection()
+        }.show()
     }
 
     /**
@@ -795,6 +855,7 @@ class PlayerActivity : ThemedActivity() {
             val newPgs = selected?.takeIf { it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
             if (selected?.id != subtitle?.id) bitmapSubtitles.clear()
             subtitle = selected
+            if (secondarySubtitle?.id == selected?.id) secondarySubtitle = null
             saveSelection()
             rememberSubtitle()
             // Skipped PGS tracks have no decoded cues; rebuild their source when changing tracks.
@@ -926,6 +987,7 @@ class PlayerActivity : ThemedActivity() {
             binding.controls.animate().alpha(1f).setDuration(150).start()
             // 控制栏出现时把字幕抬到它上方，避免重叠
             binding.playerView.subtitleView?.setBottomPaddingFraction(maxOf(subtitlePadding, SUBTITLE_PADDING_WITH_CONTROLS))
+            dualSubtitles.setBottomPaddingFraction(maxOf(subtitlePadding, SUBTITLE_PADDING_WITH_CONTROLS))
             when (target) {
                 ControlsFocus.SEEK -> binding.seek.requestFocus()
                 // 默认落在播放/暂停按钮上
@@ -949,6 +1011,7 @@ class PlayerActivity : ThemedActivity() {
         binding.controls.visibility = View.GONE
         binding.episodes.visibility = View.GONE
         binding.playerView.subtitleView?.setBottomPaddingFraction(subtitlePadding)
+        dualSubtitles.setBottomPaddingFraction(subtitlePadding)
         commitScrub()
     }
 
@@ -1311,6 +1374,13 @@ class PlayerActivity : ThemedActivity() {
         val actions = buildList<Pair<Option, () -> Unit>> {
             if (detail.versions.size > 1) add(Option(getString(R.string.action_version), version.summary) to ::pickVersion)
             add(Option(getString(R.string.video_scale), videoScaleLabel(this@PlayerActivity, videoScale)) to ::pickVideoScale)
+            if (version.subtitles.isNotEmpty()) add(Option(getString(R.string.player_secondary_subtitles),
+                secondarySubtitle?.title ?: getString(R.string.subtitles_off)) to ::pickSecondarySubtitle)
+            if (secondarySubtitle?.codec?.lowercase() in setOf("srt", "subrip", "vtt", "webvtt")) {
+                add(Option(getString(R.string.player_secondary_subtitle_style)) to {
+                    SecondarySubtitleStylePanel(this@PlayerActivity, settings, dualSubtitles::refreshStyle).show()
+                })
+            }
             add(Option(getString(R.string.subtitle_delay), formatDelay(this@PlayerActivity, offsets.subtitleDelayMs)) to ::adjustSubtitleDelay)
             add(Option(getString(R.string.audio_delay), formatDelay(this@PlayerActivity, offsets.audioDelayMs)) to ::adjustAudioDelay)
             val infoLabel = if (binding.info.visibility == View.VISIBLE) R.string.info_hide else R.string.info_show
@@ -1540,7 +1610,9 @@ class PlayerActivity : ThemedActivity() {
         request?.let { stopSession(it) }
         request = null
         player.release()
+        subtitleSelector.onCues = null
         ass.release()
+        secondaryAss.release()
         refreshRate.restore()
         finish()
     }

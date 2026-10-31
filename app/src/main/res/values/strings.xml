@@ -390,4 +390,11 @@
     <string name="update_checksum_failed">The downloaded file is incomplete or damaged. Try again, or use a different download mirror.</string>
     <string name="update_allow_install">Allow Lumy to install apps in the settings that just opened, then come back and select Install.</string>
     <string name="update_install_unavailable">This device cannot install updates from inside the app. Download the new version from %1$s and install it manually.</string>
+    <string name="player_secondary_subtitles">Secondary subtitles</string>
+    <string name="player_secondary_subtitle_style">Secondary subtitle style</string>
+    <string name="subtitle_text_color">Text color</string>
+    <string name="subtitle_color_white">White</string>
+    <string name="subtitle_color_yellow">Yellow</string>
+    <string name="subtitle_color_gray">Light gray</string>
+    <string name="secondary_subtitle_size_percent">%1$d%% of primary subtitle size</string>
 </resources>

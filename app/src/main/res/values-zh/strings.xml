@@ -374,4 +374,11 @@
     <string name="update_checksum_failed">下载的文件不完整或已损坏，请重试，或换一个下载镜像。</string>
     <string name="update_allow_install">请在刚打开的设置里允许 Lumy 安装应用，返回后再选择“安装”。</string>
     <string name="update_install_unavailable">这台设备不支持从应用内安装更新。请从 %1$s 下载新版本后手动安装。</string>
+    <string name="player_secondary_subtitles">副字幕</string>
+    <string name="player_secondary_subtitle_style">副字幕样式</string>
+    <string name="subtitle_text_color">文字颜色</string>
+    <string name="subtitle_color_white">白色</string>
+    <string name="subtitle_color_yellow">黄色</string>
+    <string name="subtitle_color_gray">浅灰色</string>
+    <string name="secondary_subtitle_size_percent">主字幕字号的 %1$d%%</string>
 </resources>

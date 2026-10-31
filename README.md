@@ -24,6 +24,7 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
   - Direct play or server-side HLS transcoding based on the device's decoder capabilities, with optional quality / bitrate limits; HDR, Dolby Vision and passthrough support (see [Playback and Decoding](docs/playback.md))
   - FFmpeg audio decoder extension and audio passthrough (AC3 / DTS to your receiver)
   - Local rendering of styled ASS / SSA subtitles (libass), avoiding server-side burn-in where possible
+  - Dual subtitles via More → Secondary subtitles; smaller secondary text below the primary, with original ASS / bitmap layouts preserved
   - Multi-part files, chapters, intro skipping, auto-play next episode
   - Audio / subtitle delay adjustment, refresh-rate matching
   - Remembers audio and subtitle choices, reports progress to the server

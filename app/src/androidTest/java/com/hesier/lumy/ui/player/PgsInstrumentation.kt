@@ -10,6 +10,7 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 class PgsInstrumentation : Instrumentation() {
     private var cardRefreshOnly = false
     private var benchmark = false
+    private var dualSubtitlesOnly = false
     private var rmFixture: String? = null
     private var softwareFixture: String? = null
     private var rmAudioMime = "audio/cook"
@@ -18,6 +19,7 @@ class PgsInstrumentation : Instrumentation() {
         super.onCreate(arguments)
         cardRefreshOnly = arguments?.getString("card_refresh_only") == "true"
         benchmark = arguments?.getString("benchmark_sup") == "true"
+        dualSubtitlesOnly = arguments?.getString("dual_subtitles_only") == "true"
         rmFixture = arguments?.getString("rm_fixture")
         softwareFixture = arguments?.getString("software_fixture")
         rmAudioMime = arguments?.getString("rm_audio_mime") ?: "audio/cook"
@@ -27,6 +29,15 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (dualSubtitlesOnly) {
+                runOnMainSync { DualSubtitleTrackSelectorTest().runAll(targetContext) }
+                runOnMainSync { SecondarySubtitleStyleTest().runAll(targetContext) }
+                PgsSnapshotTrackOutputTest().runAll()
+                DualSubtitlePlaybackTest(this).runAll()
+                result.putString("stream", "Dual subtitle selection, SRT/ASS/PGS playback, seek and delay checks passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             runOnMainSync { com.hesier.lumy.ui.CardRefreshTest().runAll() }
             if (cardRefreshOnly) {
                 result.putString("stream", "Card and hub refresh checks passed\n")
@@ -39,6 +50,7 @@ class PgsInstrumentation : Instrumentation() {
             PgsSnapshotDecoderTest().runAll()
             PgsSnapshotRendererTest().runAll()
             PgsParserFactoryTest().runAll()
+            runOnMainSync { DualSubtitleTrackSelectorTest().runAll(targetContext) }
             SupExtractorTest().runAll()
             MatroskaIndexTest().runAll()
             TrueHdDecoderTest().runAll(context)

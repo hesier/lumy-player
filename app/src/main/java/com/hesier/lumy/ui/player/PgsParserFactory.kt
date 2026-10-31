@@ -34,7 +34,7 @@ internal class PgsParserFactory(
                 val render = when (selection) {
                     PgsSelection.All -> true
                     PgsSelection.Off -> false
-                    is PgsSelection.Track -> selection.id !in trackIds || selection.id == format.id
+                    is PgsSelection.Track -> selection.renders(format.id, trackIds)
                 }
                 if (lastRender != render) {
                     lastRender = render

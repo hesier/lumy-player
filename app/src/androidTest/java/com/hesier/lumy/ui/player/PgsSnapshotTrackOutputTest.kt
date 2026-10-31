@@ -42,6 +42,9 @@ class PgsSnapshotTrackOutputTest {
         checkSelection(PgsSelection.Off, hashSetOf(), "4", false)
         checkSelection(PgsSelection.Track("4"), hashSetOf("4"), "5", false)
         checkSelection(PgsSelection.Track("4"), hashSetOf(), "10", true)
+        checkSelection(PgsSelection.Track("4", "5"), hashSetOf("4", "5", "6"), "4", true)
+        checkSelection(PgsSelection.Track("4", "5"), hashSetOf("4", "5", "6"), "5", true)
+        checkSelection(PgsSelection.Track("4", "5"), hashSetOf("4", "5", "6"), "6", false)
         checkDelegation()
     }
 

@@ -14,8 +14,10 @@ import kotlin.math.roundToInt
 
 /** Bitmap subtitles retain their authored canvas even when the video has cropped letterboxing. */
 @androidx.annotation.OptIn(markerClass = [UnstableApi::class])
-internal class BitmapSubtitleOverlay(private val playerView: PlayerView) : Player.Listener {
-    private val normal = playerView.subtitleView
+internal class BitmapSubtitleOverlay(
+    private val playerView: PlayerView,
+    private val normal: SubtitleView? = playerView.subtitleView,
+) : Player.Listener {
     private val overlay = SubtitleView(playerView.context).apply { visibility = View.GONE }
     private var aspectRatio: Float? = null
 

@@ -83,7 +83,7 @@ internal class PgsSnapshotTrackOutput(
         val render = when (selection) {
             PgsSelection.All -> true
             PgsSelection.Off -> false
-            is PgsSelection.Track -> selection.id !in ids || selection.id == source?.id
+            is PgsSelection.Track -> selection.renders(source?.id, ids)
         }
         if (lastRender != render) {
             lastRender = render

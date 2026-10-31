@@ -57,6 +57,18 @@ class Settings(context: Context) {
         get() = prefs.getFloat("subtitle_scale", 1f)
         set(v) = prefs.edit().putFloat("subtitle_scale", v).apply()
 
+    var secondarySubtitleScale: Float
+        get() = prefs.getFloat("secondary_subtitle_scale", 0.85f)
+        set(v) = prefs.edit().putFloat("secondary_subtitle_scale", v).apply()
+
+    var secondarySubtitleColor: Int
+        get() = prefs.getInt("secondary_subtitle_color", -1)
+        set(v) = prefs.edit().putInt("secondary_subtitle_color", v).apply()
+
+    var secondarySubtitleBackground: Boolean
+        get() = prefs.getBoolean("secondary_subtitle_background", subtitleBackground)
+        set(v) = prefs.edit().putBoolean("secondary_subtitle_background", v).apply()
+
     /** 关闭后只直接播放，设备不支持的格式会报错而不是交给服务器转码 */
     var allowTranscode: Boolean
         get() = prefs.getBoolean("allow_transcode", true)

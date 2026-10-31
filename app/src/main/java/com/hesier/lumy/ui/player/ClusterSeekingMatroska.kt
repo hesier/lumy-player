@@ -24,11 +24,12 @@ fun ExtractorsFactory.withSeekableAssMkv(
     parsers: SubtitleParser.Factory,
     ass: AssHandler,
     pgs: PgsTrackSelection,
+    secondaryAss: AssHandler,
 ) = ExtractorsFactory {
     val selection = pgs.snapshot
     val selectedParsers = PgsParserFactory(parsers, selection)
     createExtractors().map {
-        if (it is MatroskaExtractor) ClusterSeekingExtractor(ProbingMatroskaExtractor(selectedParsers, ass, selection)) else it
+        if (it is MatroskaExtractor) ClusterSeekingExtractor(ProbingMatroskaExtractor(selectedParsers, ass, selection, secondaryAss)) else it
     }.toTypedArray()
 }
 
