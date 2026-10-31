@@ -135,10 +135,12 @@ class SettingsActivity : ThemedActivity() {
     }
 
     private fun render() {
-        val subtitleLabels = listOf(R.string.subtitle_size_small, R.string.subtitle_size_normal, R.string.subtitle_size_large, R.string.subtitle_size_xlarge)
+        val subtitleLabels = listOf(R.string.subtitle_size_xsmall, R.string.subtitle_size_small, R.string.subtitle_size_normal,
+            R.string.subtitle_size_large, R.string.subtitle_size_xlarge)
             .map(::getString)
-        // 找不到（旧版本存的值）时显示“标准”；不能用 coerceAtLeast(1)，那样“小”（下标 0）也会变成“标准”
-        val scaleIndex = Settings.SUBTITLE_SCALES.indexOf(settings.subtitleScale).takeIf { it >= 0 } ?: 1
+        // Fall back by scale value so adding presets never changes the default label.
+        val scaleIndex = Settings.SUBTITLE_SCALES.indexOf(settings.subtitleScale).takeIf { it >= 0 }
+            ?: Settings.SUBTITLE_SCALES.indexOf(1f)
         val positionLabels = listOf(R.string.subtitle_position_low, R.string.subtitle_position_normal, R.string.subtitle_position_high, R.string.subtitle_position_higher)
             .map(::getString)
         sections = listOf(

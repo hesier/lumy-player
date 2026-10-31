@@ -169,6 +169,7 @@
     <string name="skip_off">Off</string>
     <string name="skip_button">Show skip button</string>
     <string name="skip_auto">Skip automatically</string>
+    <string name="subtitle_size_xsmall">Extra small</string>
     <string name="subtitle_size_small">Small</string>
     <string name="subtitle_size_normal">Normal</string>
     <string name="subtitle_size_large">Large</string>

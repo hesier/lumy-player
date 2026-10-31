@@ -156,6 +156,7 @@
     <string name="skip_off">關閉</string>
     <string name="skip_button">顯示跳過按鈕</string>
     <string name="skip_auto">自動跳過</string>
+    <string name="subtitle_size_xsmall">更小</string>
     <string name="subtitle_size_small">小</string>
     <string name="subtitle_size_normal">標準</string>
     <string name="subtitle_size_large">大</string>

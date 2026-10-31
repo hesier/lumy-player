@@ -233,7 +233,7 @@ class Settings(context: Context) {
         const val PLAYLISTS_ID = "__playlists"
         /** GitHub 下载代理：原地址拼在它后面 */
         const val DEFAULT_UPDATE_MIRROR = "https://ghfast.top/"
-        val SUBTITLE_SCALES = listOf(0.8f, 1f, 1.25f, 1.5f)
+        val SUBTITLE_SCALES = listOf(0.6f, 0.8f, 1f, 1.25f, 1.5f)
         val UI_SCALES = listOf(0.8f, 0.9f, 1f, 1.1f, 1.2f)
         /** 字幕离底部的距离（占画面高度的比例）：靠下、标准、偏高、更高 */
         val SUBTITLE_POSITIONS = listOf(0.02f, 0.06f, 0.12f, 0.2f)
