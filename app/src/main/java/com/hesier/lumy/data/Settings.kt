@@ -186,6 +186,14 @@ class Settings(context: Context) {
         get() = prefs.getString("audio_language", null)
         set(v) = prefs.edit().putString("audio_language", v).apply()
 
+    var rememberAudioSelection: Boolean
+        get() = prefs.getBoolean("remember_audio_selection", true)
+        set(v) = prefs.edit().putBoolean("remember_audio_selection", v).apply()
+
+    var rememberSubtitleSelection: Boolean
+        get() = prefs.getBoolean("remember_subtitle_selection", true)
+        set(v) = prefs.edit().putBoolean("remember_subtitle_selection", v).apply()
+
     var subtitleMode: SubtitleMode
         get() = prefs.getString("subtitle_mode", null)
             ?.let { runCatching { SubtitleMode.valueOf(it) }.getOrNull() } ?: SubtitleMode.SERVER

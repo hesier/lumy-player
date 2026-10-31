@@ -3,9 +3,6 @@ package com.hesier.lumy.data
 import android.content.Context
 import com.hesier.lumy.core.SubtitleRule
 
-/** 某个文件手动选的轨道；[subtitleId] 为 null 表示关闭字幕 */
-data class ManualTracks(val audioId: String?, val subtitleId: String?)
-
 /**
  * 手动选过的音轨 / 字幕，按服务器（[SavedServer.id]）分开记，不同服务器的 id 可能重复。
  * - 文件：记下具体选的轨道 id。不依赖服务端保存，Jellyfin / Emby 不会记住选择
@@ -14,10 +11,24 @@ data class ManualTracks(val audioId: String?, val subtitleId: String?)
 class TrackMemory(context: Context) {
     private val prefs = context.getSharedPreferences("track_memory", Context.MODE_PRIVATE)
 
-    fun file(serverId: String, partId: String): ManualTracks? {
-        val value = prefs.getString("$serverId|part:$partId", null) ?: return null
-        val (audio, subtitle) = value.split('|', limit = 2).let { it[0] to it.getOrElse(1) { "" } }
-        return ManualTracks(audio.ifEmpty { null }, subtitle.ifEmpty { null })
+    init { migrateLegacyFiles() }
+
+    fun fileAudio(serverId: String, partId: String): String? = prefs.getString("$serverId|part:$partId:audio", null)
+
+    /** Null means no memory; an empty value remembers subtitles being turned off. */
+    fun fileSubtitle(serverId: String, partId: String): String? = prefs.getString("$serverId|part:$partId:sub", null)
+
+    private fun migrateLegacyFiles() {
+        val legacy = prefs.all.filterKeys { "|part:" in it && !it.endsWith(":audio") && !it.endsWith(":sub") }
+        if (legacy.isEmpty()) return
+        val edit = prefs.edit()
+        legacy.forEach { (key, value) ->
+            val parts = (value as? String ?: return@forEach).split('|', limit = 2)
+            if (!prefs.contains("$key:audio") && parts[0].isNotEmpty()) edit.putString("$key:audio", parts[0])
+            if (!prefs.contains("$key:sub")) edit.putString("$key:sub", parts.getOrElse(1) { "" })
+            edit.remove(key)
+        }
+        edit.apply()
     }
 
     fun showAudio(serverId: String, showId: String): String? = prefs.getString("$serverId|show:$showId:audio", null)
@@ -25,9 +36,11 @@ class TrackMemory(context: Context) {
     fun showSubtitle(serverId: String, showId: String): SubtitleRule? =
         decodeSubtitleRule(prefs.getString("$serverId|show:$showId:sub", null))
 
-    fun rememberFile(serverId: String, partId: String, tracks: ManualTracks) {
-        prefs.edit().putString("$serverId|part:$partId", "${tracks.audioId.orEmpty()}|${tracks.subtitleId.orEmpty()}").apply()
-    }
+    fun rememberFileAudio(serverId: String, partId: String, audioId: String) =
+        prefs.edit().putString("$serverId|part:$partId:audio", audioId).apply()
+
+    fun rememberFileSubtitle(serverId: String, partId: String, subtitleId: String?) =
+        prefs.edit().putString("$serverId|part:$partId:sub", subtitleId.orEmpty()).apply()
 
     fun rememberShowAudio(serverId: String, showId: String, lang: String) {
         prefs.edit().putString("$serverId|show:$showId:audio", lang).apply()
@@ -44,7 +57,15 @@ class TrackMemory(context: Context) {
         edit.apply()
     }
 
-    fun clear() = prefs.edit().clear().apply()
+    fun clearAudio() = clearType(":audio")
+
+    fun clearSubtitles() = clearType(":sub")
+
+    private fun clearType(suffix: String) {
+        val edit = prefs.edit()
+        prefs.all.keys.filter { it.endsWith(suffix) }.forEach(edit::remove)
+        edit.apply()
+    }
 }
 
 internal fun encodeSubtitleRule(rule: SubtitleRule): String = when (rule) {

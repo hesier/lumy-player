@@ -115,13 +115,11 @@
     <string name="video_scale_zoom">Zoom</string>
     <string name="video_scale_fill">Stretch</string>
     <string name="settings_audio_language">Preferred audio language</string>
-    <string name="settings_audio_language_detail">Tracks in this language are preferred. Files and shows where you picked a track manually keep your choice</string>
+    <string name="settings_audio_language_detail">Prefer this language. Manual choices take priority when audio memory is enabled.</string>
     <string name="settings_subtitle_mode">Default subtitles</string>
-    <string name="settings_subtitle_mode_detail">Files and shows where you picked subtitles manually keep your choice</string>
+    <string name="settings_subtitle_mode_detail">Manual primary subtitle choices take priority when subtitle memory is enabled.</string>
     <string name="settings_subtitle_language">Preferred subtitle language</string>
     <string name="settings_subtitle_language_detail">Used when Default subtitles is Preferred language or Forced only. Simplified and Traditional Chinese are told apart by the subtitle title</string>
-    <string name="settings_clear_track_memory">Clear remembered tracks</string>
-    <string name="settings_clear_track_memory_detail">Forget the audio and subtitle tracks picked manually for each file and show, and use the settings above instead</string>
     <string name="track_memory_cleared">Cleared</string>
     <string name="follow_server">Server default</string>
     <string name="subtitle_mode_language">Preferred language</string>
@@ -399,4 +397,12 @@
     <string name="subtitle_color_yellow">Yellow</string>
     <string name="subtitle_color_gray">Light gray</string>
     <string name="secondary_subtitle_size_percent">%1$d%% of primary subtitle size</string>
+    <string name="settings_remember_audio">Remember manual audio choices</string>
+    <string name="settings_remember_audio_detail">Remember tracks for each file and languages for each show. Turning this off keeps existing memories but stops using and updating them.</string>
+    <string name="settings_remember_subtitles">Remember manual subtitle choices</string>
+    <string name="settings_remember_subtitles_detail">Remember primary subtitles for each file and show, including Off. Turning this off keeps existing memories but stops using and updating them.</string>
+    <string name="settings_clear_audio_memory">Clear audio memories</string>
+    <string name="settings_clear_audio_memory_detail">Forget audio choices for all files and shows on this device. Subtitle memories and the memory switch stay unchanged.</string>
+    <string name="settings_clear_subtitle_memory">Clear subtitle memories</string>
+    <string name="settings_clear_subtitle_memory_detail">Forget primary subtitle choices for all files and shows on this device. Audio memories and the memory switch stay unchanged.</string>
 </resources>

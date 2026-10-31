@@ -102,13 +102,11 @@
     <string name="video_scale_zoom">裁切填滿</string>
     <string name="video_scale_fill">拉伸全螢幕</string>
     <string name="settings_audio_language">偏好音軌語言</string>
-    <string name="settings_audio_language_detail">優先選擇這種語言的音軌；手動切換過的檔案和影集依手動的選擇</string>
+    <string name="settings_audio_language_detail">優先選擇這種語言的音軌；啟用音軌記憶時，手動選擇優先。</string>
     <string name="settings_subtitle_mode">預設字幕</string>
-    <string name="settings_subtitle_mode_detail">手動切換過的檔案和影集依手動的選擇</string>
+    <string name="settings_subtitle_mode_detail">啟用字幕記憶時，手動選擇的主字幕優先。</string>
     <string name="settings_subtitle_language">偏好字幕語言</string>
     <string name="settings_subtitle_language_detail">預設字幕為「偏好語言」或「僅強制字幕」時使用，簡繁依字幕標題區分</string>
-    <string name="settings_clear_track_memory">清除記住的音軌和字幕</string>
-    <string name="settings_clear_track_memory_detail">忘掉各個檔案、各部影集手動選過的音軌和字幕，之後依上面的設定選擇</string>
     <string name="track_memory_cleared">已清除</string>
     <string name="follow_server">跟隨伺服器</string>
     <string name="subtitle_mode_language">偏好語言</string>
@@ -383,4 +381,12 @@
     <string name="subtitle_color_yellow">黃色</string>
     <string name="subtitle_color_gray">淺灰色</string>
     <string name="secondary_subtitle_size_percent">主字幕字級的 %1$d%%</string>
+    <string name="settings_remember_audio">記住手動音軌選擇</string>
+    <string name="settings_remember_audio_detail">記住各檔案的音軌及各部影集的語言。關閉後不讀取、不更新記憶，既有紀錄保留。</string>
+    <string name="settings_remember_subtitles">記住手動字幕選擇</string>
+    <string name="settings_remember_subtitles_detail">記住各檔案、各部影集的主字幕選擇（含關閉字幕）。關閉後不讀取、不更新記憶，既有紀錄保留。</string>
+    <string name="settings_clear_audio_memory">清除音軌記憶</string>
+    <string name="settings_clear_audio_memory_detail">清除本機所有檔案和影集的音軌記憶，保留字幕記憶與記憶開關狀態。</string>
+    <string name="settings_clear_subtitle_memory">清除字幕記憶</string>
+    <string name="settings_clear_subtitle_memory_detail">清除本機所有檔案和影集的主字幕記憶，保留音軌記憶與記憶開關狀態。</string>
 </resources>

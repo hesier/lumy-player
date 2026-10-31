@@ -48,14 +48,11 @@ import com.hesier.lumy.core.MediaVersion
 import com.hesier.lumy.core.PlaybackMode
 import com.hesier.lumy.core.PlaybackRequest
 import com.hesier.lumy.core.PlaybackState
-import com.hesier.lumy.core.SubtitleRule
 import com.hesier.lumy.core.SubtitleStream
-import com.hesier.lumy.core.TrackLanguage
-import com.hesier.lumy.core.TrackPicker
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
-import com.hesier.lumy.data.ManualTracks
 import com.hesier.lumy.data.Settings
+import com.hesier.lumy.data.TrackPreferences
 import com.hesier.lumy.data.VideoScale
 import com.hesier.lumy.data.SkipMode
 import com.hesier.lumy.databinding.ActivityPlayerBinding
@@ -327,6 +324,7 @@ class PlayerActivity : ThemedActivity() {
 
     /** 手动选择按服务器分开记 */
     private val memoryServerId: String get() = LumyApp.instance.currentEntry?.id.orEmpty()
+    private val trackPreferences get() = TrackPreferences(settings, LumyApp.instance.trackMemory, memoryServerId)
 
     /**
      * 选默认音轨和字幕，优先级：这个文件手动选过 > 这部剧记住的语言 > 设置里的语言偏好 > 服务器的选择。
@@ -341,29 +339,8 @@ class PlayerActivity : ThemedActivity() {
         videoDecodeFailed = false
         doviHevcFallback = false
         codecs.softwareVideoMime = null
-        audio = v.audio.firstOrNull { it.selected } ?: v.audio.firstOrNull()
-        subtitle = v.subtitles.firstOrNull { it.selected }
-        val memory = LumyApp.instance.trackMemory
-        val serverId = memoryServerId
-        memory.file(serverId, v.part.id)?.let { m ->
-            val a = m.audioId?.let { id -> v.audio.firstOrNull { it.id == id } }
-            val s = m.subtitleId?.let { id -> v.subtitles.firstOrNull { it.id == id } }
-            // 轨道 id 对不上（文件被替换、重新扫描过）时当作没选过
-            if ((m.audioId == null || a != null) && (m.subtitleId == null || s != null)) {
-                a?.let { audio = it }
-                subtitle = s
-                DebugLog.i(TAG, "tracks (manual) audio=${audio?.title} subtitle=${subtitle?.title}")
-                return
-            }
-        }
-        val show = showId
-        listOfNotNull(show?.let { memory.showAudio(serverId, it) }, settings.audioLanguage)
-            .firstNotNullOfOrNull { TrackPicker.audio(v.audio, it) }
-            ?.let { audio = it }
-        val heard = audio?.let { TrackLanguage.of(it.language, it.title) }
-        listOfNotNull(show?.let { memory.showSubtitle(serverId, it) }, settings.subtitleRule)
-            .firstNotNullOfOrNull { TrackPicker.subtitle(v.subtitles, it, heard) }
-            ?.let { subtitle = it.stream }
+        audio = trackPreferences.audio(v, showId)
+        subtitle = trackPreferences.subtitle(v, showId, audio)
         DebugLog.i(TAG, "tracks audio=${audio?.title} subtitle=${subtitle?.title}")
     }
 
@@ -866,31 +843,9 @@ class PlayerActivity : ThemedActivity() {
         }.show()
     }
 
-    /** 记住这个文件选的轨道，以及这部剧的音轨语言（认不出语言时只记文件） */
-    private fun rememberAudio() {
-        rememberFile()
-        val show = showId ?: return
-        val lang = audio?.let { TrackLanguage.of(it.language, it.title) } ?: return
-        LumyApp.instance.trackMemory.rememberShowAudio(memoryServerId, show, lang)
-    }
+    private fun rememberAudio() = trackPreferences.rememberAudio(version, showId, audio)
 
-    /** 记住这个文件选的轨道，以及这部剧的字幕：关闭 / 强制字幕 / 某种语言 */
-    private fun rememberSubtitle() {
-        rememberFile()
-        val show = showId ?: return
-        val s = subtitle
-        val rule = if (s == null) {
-            SubtitleRule.Off
-        } else {
-            val lang = TrackLanguage.of(s.language, s.title) ?: return
-            if (s.forced) SubtitleRule.ForcedOnly(lang) else SubtitleRule.Language(lang)
-        }
-        LumyApp.instance.trackMemory.rememberShowSubtitle(memoryServerId, show, rule)
-    }
-
-    private fun rememberFile() {
-        LumyApp.instance.trackMemory.rememberFile(memoryServerId, version.part.id, ManualTracks(audio?.id, subtitle?.id))
-    }
+    private fun rememberSubtitle() = trackPreferences.rememberSubtitle(version, showId, subtitle)
 
     private fun saveSelection() {
         val v = version

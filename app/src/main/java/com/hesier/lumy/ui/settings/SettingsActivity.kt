@@ -227,6 +227,14 @@ class SettingsActivity : ThemedActivity() {
                     settings.audioLanguage = codes[it]
                 }
             },
+            Row(getString(R.string.settings_remember_audio), onOff(settings.rememberAudioSelection), getString(R.string.settings_remember_audio_detail)) {
+                settings.rememberAudioSelection = !settings.rememberAudioSelection
+                render()
+            },
+            Row(getString(R.string.settings_clear_audio_memory), "", getString(R.string.settings_clear_audio_memory_detail)) {
+                app.trackMemory.clearAudio()
+                Toast.makeText(this, R.string.track_memory_cleared, Toast.LENGTH_SHORT).show()
+            },
             ),
             listOf(
             Row(getString(R.string.settings_subtitle_size), subtitleLabels[scaleIndex]) {
@@ -256,8 +264,12 @@ class SettingsActivity : ThemedActivity() {
                 settings.allowSubtitleBurn = !settings.allowSubtitleBurn
                 render()
             },
-            Row(getString(R.string.settings_clear_track_memory), "", getString(R.string.settings_clear_track_memory_detail)) {
-                app.trackMemory.clear()
+            Row(getString(R.string.settings_remember_subtitles), onOff(settings.rememberSubtitleSelection), getString(R.string.settings_remember_subtitles_detail)) {
+                settings.rememberSubtitleSelection = !settings.rememberSubtitleSelection
+                render()
+            },
+            Row(getString(R.string.settings_clear_subtitle_memory), "", getString(R.string.settings_clear_subtitle_memory_detail)) {
+                app.trackMemory.clearSubtitles()
                 Toast.makeText(this, R.string.track_memory_cleared, Toast.LENGTH_SHORT).show()
             },
             ),
