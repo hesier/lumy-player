@@ -398,4 +398,8 @@
     <string name="settings_progress_time">進度條右側時間</string>
     <string name="progress_time_total">影片總時長</string>
     <string name="progress_time_remaining">剩餘時長</string>
+    <string name="settings_hold_speed">長按倍速</string>
+    <string name="settings_hold_speed_detail">控制列隱藏時長按確認鍵倍速，放開恢復原速。音軌直通時無法使用。</string>
+    <string name="playback_speed_value">%1$s×</string>
+    <string name="player_hold_speed">%1$s× · 放開確認鍵恢復原速</string>
 </resources>

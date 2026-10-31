@@ -108,6 +108,15 @@ class PlayerActivity : ThemedActivity() {
     private var secondarySubtitle: SubtitleStream? = null
     private var quality: Quality = Quality.Original
     private var speed = 1f
+    private var holdSpeedActive = false
+    private val holdSpeedGesture by lazy {
+        HoldSpeedGesture(
+            scope = lifecycleScope,
+            onTap = { togglePlay() },
+            onHold = { beginHoldSpeed() },
+            onRelease = { endHoldSpeed() },
+        )
+    }
 
     private var request: PlaybackRequest? = null
     private var startJob: Job? = null
@@ -354,6 +363,7 @@ class PlayerActivity : ThemedActivity() {
     // ---- 起播 ----
 
     private fun start(positionMs: Long, playWhenReady: Boolean = true) {
+        holdSpeedGesture.cancel()
         startJob?.cancel()
         bitmapSubtitles.clear()
         dualSubtitles.clear()
@@ -535,7 +545,7 @@ class PlayerActivity : ThemedActivity() {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             playPauseIcon?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
             if (player.playbackState == Player.STATE_READY) report(if (isPlaying) PlaybackState.PLAYING else PlaybackState.PAUSED)
-            if (isPlaying) scheduleHideControls()
+            if (isPlaying) scheduleHideControls() else holdSpeedGesture.cancel()
         }
 
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
@@ -632,6 +642,7 @@ class PlayerActivity : ThemedActivity() {
 
         override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, config: AudioSink.AudioTrackConfig) {
             passthroughEncoding = config.encoding.takeUnless { Util.isEncodingLinearPcm(it) }
+            if (passthroughEncoding != null) holdSpeedGesture.cancel()
             DebugLog.i(TAG, "audio track encoding=${config.encoding} ${config.sampleRate}Hz channelConfig=${config.channelConfig} passthrough=${passthroughEncoding != null}")
             // 直通的音轨无法变速，播放器会按 1x 播放，这里同步一下避免界面显示的倍速不对
             if (passthroughEncoding != null && speed != 1f) {
@@ -949,6 +960,7 @@ class PlayerActivity : ThemedActivity() {
         showControls(if (focusSeek) ControlsFocus.SEEK else ControlsFocus.NONE)
 
     private fun showControls(target: ControlsFocus) {
+        holdSpeedGesture.cancel()
         autoHiddenAt = 0L
         if (!controlsVisible) {
             // 控制栏和跳过按钮不同时出现；控制栏收起后由标记检查重新显示
@@ -1089,7 +1101,35 @@ class PlayerActivity : ThemedActivity() {
         }
     }
 
+    private fun beginHoldSpeed() {
+        if (!player.isPlaying || controlsVisible || overlayFocused) return
+        if (passthroughEncoding != null) {
+            Toast.makeText(this, R.string.speed_unavailable_passthrough, Toast.LENGTH_LONG).show()
+            return
+        }
+        holdSpeedActive = true
+        player.setPlaybackSpeed(settings.holdSpeed)
+        hintJob?.cancel()
+        skipTotalMs = 0L
+        binding.hint.text = getString(R.string.player_hold_speed, settings.holdSpeed.toString())
+        binding.hint.visibility = View.VISIBLE
+    }
+
+    private fun endHoldSpeed() {
+        if (!holdSpeedActive) return
+        holdSpeedActive = false
+        player.setPlaybackSpeed(speed)
+        binding.hint.visibility = View.GONE
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) holdSpeedGesture.cancel()
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (holdSpeedGesture.handle(event, enabled = ::detail.isInitialized &&
+                binding.state.root.visibility != View.VISIBLE && !controlsVisible && !overlayFocused)) return true
         if (binding.state.root.visibility == View.VISIBLE || !::detail.isInitialized) return super.dispatchKeyEvent(event)
         val down = event.action == KeyEvent.ACTION_DOWN
         when (event.keyCode) {
@@ -1203,7 +1243,7 @@ class PlayerActivity : ThemedActivity() {
             add(R.string.info_audio_decoder to (passthroughEncoding?.let { getString(R.string.info_passthrough, encodingName(it)) } ?: audioDecoder ?: "-"))
             add(R.string.info_dropped_frames to droppedFrames.toString())
             add(R.string.info_buffer to getString(R.string.info_seconds, (player.bufferedPosition - player.currentPosition) / 1000f))
-            add(R.string.info_speed to "${speed}x")
+            add(R.string.info_speed to "${player.playbackParameters.speed}x")
             add(R.string.info_hdr to getString(R.string.info_hdr_value, yesNo(device.displaySupportsHdr), yesNo(settings.displaySupportsHdr)))
         }.map { (label, value) -> getString(label) to value }
         // 等宽字体下中文占两列，按显示宽度补空格让值对齐
@@ -1567,6 +1607,7 @@ class PlayerActivity : ThemedActivity() {
     }
 
     private fun showError(message: String, retryAt: Long? = null) {
+        holdSpeedGesture.cancel()
         binding.buffering.visibility = View.GONE
         binding.controlsHeader.visibility = View.GONE
         binding.controls.visibility = View.GONE
@@ -1583,6 +1624,7 @@ class PlayerActivity : ThemedActivity() {
 
     override fun onStop() {
         super.onStop()
+        holdSpeedGesture.cancel()
         startJob?.cancel()
         // TV 上离开播放页就结束播放：上报停止（服务端据此记录进度/标记已看）并释放转码
         if (::detail.isInitialized) report(PlaybackState.STOPPED)

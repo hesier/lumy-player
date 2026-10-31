@@ -51,6 +51,10 @@ class Settings(context: Context) {
         get() = prefs.getInt("seek_back_seconds", 10).takeIf { it in SEEK_INTERVALS } ?: 10
         set(v) = prefs.edit().putInt("seek_back_seconds", v).apply()
 
+    var holdSpeed: Float
+        get() = prefs.getFloat("hold_speed", 2f).takeIf { it in HOLD_SPEEDS } ?: 2f
+        set(v) = prefs.edit().putFloat("hold_speed", v).apply()
+
     var showRemainingTime: Boolean
         get() = prefs.getBoolean("show_remaining_time", true)
         set(v) = prefs.edit().putBoolean("show_remaining_time", v).apply()
@@ -269,6 +273,7 @@ class Settings(context: Context) {
         /** GitHub 下载代理：原地址拼在它后面 */
         const val DEFAULT_UPDATE_MIRROR = "https://ghfast.top/"
         val SUBTITLE_SCALES = listOf(0.6f, 0.8f, 1f, 1.25f, 1.5f)
+        val HOLD_SPEEDS = listOf(1.25f, 1.5f, 2f, 2.5f, 3f)
         val SEEK_INTERVALS = listOf(5, 10, 15, 30, 60, 120)
         val UI_SCALES = listOf(0.8f, 0.9f, 1f, 1.1f, 1.2f)
         /** 字幕离底部的距离（占画面高度的比例）：靠下、标准、偏高、更高 */

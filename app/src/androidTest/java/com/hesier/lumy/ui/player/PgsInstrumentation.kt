@@ -13,6 +13,8 @@ class PgsInstrumentation : Instrumentation() {
     private var dualSubtitlesOnly = false
     private var trackMemoryOnly = false
     private var seekSettingsOnly = false
+    private var holdSpeedOnly = false
+    private var playerControlsOnly = false
     private var rmFixture: String? = null
     private var softwareFixture: String? = null
     private var rmAudioMime = "audio/cook"
@@ -23,6 +25,8 @@ class PgsInstrumentation : Instrumentation() {
         benchmark = arguments?.getString("benchmark_sup") == "true"
         dualSubtitlesOnly = arguments?.getString("dual_subtitles_only") == "true"
         trackMemoryOnly = arguments?.getString("track_memory_only") == "true"
+        playerControlsOnly = arguments?.getString("player_controls_only") == "true"
+        holdSpeedOnly = arguments?.getString("hold_speed_only") == "true"
         seekSettingsOnly = arguments?.getString("seek_settings_only") == "true"
         rmFixture = arguments?.getString("rm_fixture")
         softwareFixture = arguments?.getString("software_fixture")
@@ -33,6 +37,17 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (playerControlsOnly) {
+                result.putString("stream", PlayerControlsPlaybackTest(this).runAll() + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (holdSpeedOnly) {
+                HoldSpeedTest().runAll(targetContext)
+                result.putString("stream", "Hold speed tap, hold, release, repeat, cancellation and settings checks passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (seekSettingsOnly) {
                 runOnMainSync { SeekSettingsTest().runAll(targetContext) }
                 result.putString("stream", "Independent seek intervals, persistence, defaults and player increment checks passed\n")

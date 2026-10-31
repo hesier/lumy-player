@@ -207,6 +207,12 @@ class SettingsActivity : ThemedActivity() {
                 choose(R.string.settings_seek_back, Settings.SEEK_INTERVALS.map { getString(R.string.skip_seconds, it) },
                     Settings.SEEK_INTERVALS.indexOf(settings.seekBackSeconds)) { settings.seekBackSeconds = Settings.SEEK_INTERVALS[it] }
             },
+            Row(getString(R.string.settings_hold_speed), getString(R.string.playback_speed_value, settings.holdSpeed.toString()),
+                getString(R.string.settings_hold_speed_detail)) {
+                choose(R.string.settings_hold_speed,
+                    Settings.HOLD_SPEEDS.map { getString(R.string.playback_speed_value, it.toString()) },
+                    Settings.HOLD_SPEEDS.indexOf(settings.holdSpeed)) { settings.holdSpeed = Settings.HOLD_SPEEDS[it] }
+            },
             Row(getString(R.string.settings_progress_time), getString(
                 if (settings.showRemainingTime) R.string.progress_time_remaining else R.string.progress_time_total,
             )) {
