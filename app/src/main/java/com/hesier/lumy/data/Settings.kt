@@ -51,6 +51,10 @@ class Settings(context: Context) {
         get() = prefs.getInt("seek_back_seconds", 10).takeIf { it in SEEK_INTERVALS } ?: 10
         set(v) = prefs.edit().putInt("seek_back_seconds", v).apply()
 
+    var showRemainingTime: Boolean
+        get() = prefs.getBoolean("show_remaining_time", true)
+        set(v) = prefs.edit().putBoolean("show_remaining_time", v).apply()
+
     val seekForwardMs: Long get() = seekForwardSeconds * 1_000L
     val seekBackMs: Long get() = seekBackSeconds * 1_000L
 

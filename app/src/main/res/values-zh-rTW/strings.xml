@@ -395,4 +395,7 @@
     <string name="settings_clear_subtitle_memory_detail">清除本機所有檔案和影集的主字幕記憶，保留音軌記憶與記憶開關狀態。</string>
     <string name="settings_seek_forward">快轉時長</string>
     <string name="settings_seek_back">倒轉時長</string>
+    <string name="settings_progress_time">進度條右側時間</string>
+    <string name="progress_time_total">影片總時長</string>
+    <string name="progress_time_remaining">剩餘時長</string>
 </resources>

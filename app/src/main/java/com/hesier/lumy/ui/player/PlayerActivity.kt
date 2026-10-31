@@ -998,7 +998,7 @@ class PlayerActivity : ThemedActivity() {
     private fun scheduleHideControls() {
         hideJob?.cancel()
         hideJob = lifecycleScope.launch {
-            delay(5_000)
+            delay(3_000)
             if (player.isPlaying && scrubTarget == null) {
                 hideControls()
                 autoHiddenAt = SystemClock.elapsedRealtime()
@@ -1023,7 +1023,11 @@ class PlayerActivity : ThemedActivity() {
         binding.seekBar.progress = (shown * 10_000 / duration).toInt()
         binding.seekBar.secondaryProgress = (bufferedMs * 10_000 / duration).toInt()
         binding.position.text = formatClock(positionMs)
-        binding.remaining.text = "-" + formatClock(duration - shown)
+        binding.remaining.text = if (settings.showRemainingTime) {
+            "-" + formatClock((duration - shown).coerceAtLeast(0))
+        } else {
+            formatClock(duration)
+        }
         binding.scrub.visibility = if (scrubTarget != null) View.VISIBLE else View.INVISIBLE
         binding.scrub.text = scrubTarget?.let { formatClock(it) }
     }
