@@ -28,6 +28,7 @@
             android:layout_marginTop="24dp" />
 
         <TextView
+            android:id="@+id/hint"
             style="@style/Text.Body"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

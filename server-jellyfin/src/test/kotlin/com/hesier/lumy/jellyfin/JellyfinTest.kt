@@ -49,6 +49,14 @@ class JellyfinTest {
     }
 
     @Test
+    fun `probe identifies fnOS compatibility endpoint for independent login routing`() = runBlocking {
+        web.enqueue(MockResponse().setBody("""{"Id":"fnos","OperatingSystem":"fnOS","ProductName":"Jellyfin"}"""))
+        val server = JellyfinConnector(client).probe(web.url("/").toString())
+        assertEquals(ServerKind.FNOS, server.kind)
+        assertEquals("/System/Info/Public", web.takeRequest().path)
+    }
+
+    @Test
     fun `episode maps ids images and progress`() {
         val json = """{"Id":"e1","Name":"Pilot","Type":"Episode","SeriesId":"s1","SeriesName":"Show","SeasonId":"se1",
             "IndexNumber":2,"ParentIndexNumber":1,"RunTimeTicks":36000000000,"ImageTags":{"Primary":"p"},

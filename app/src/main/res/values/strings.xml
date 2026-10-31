@@ -38,6 +38,10 @@
     <string name="kind_plex_detail">Sign in with your plex.tv account to find its servers automatically</string>
     <string name="kind_jellyfin_detail">Enter the server address, username and password</string>
     <string name="kind_emby_detail">Enter the server address, username and password</string>
+    <string name="kind_fnos">fnOS Media</string>
+    <string name="kind_fnos_detail">Use your separate fnOS Media account (not your NAS account)</string>
+    <string name="direct_login_fnos_hint">Enter the fnOS Media address and its separate media account, not your NAS account. If you only enter an IP, http and port 8005 are used</string>
+    <string name="direct_login_fnos_address_hint">e.g. 192.168.1.10:8005</string>
 
     <string name="direct_login_title">Connect to a %1$s server</string>
     <string name="direct_login_hint">The address is shown in the server\'s dashboard or web app. If you only enter an IP, http and port 8096 are used</string>
@@ -133,7 +137,7 @@
     <string name="lang_japanese">Japanese</string>
     <string name="lang_korean">Korean</string>
     <string name="settings_add_server">Add server</string>
-    <string name="settings_add_server_detail">Plex, Jellyfin and Emby are supported, and you can add several</string>
+    <string name="settings_add_server_detail">Plex, Jellyfin, Emby and fnOS Media are supported; add multiple servers</string>
     <string name="server_current">Current</string>
     <string name="server_switch">Switch to this server</string>
     <string name="server_repick">Choose another Plex server</string>

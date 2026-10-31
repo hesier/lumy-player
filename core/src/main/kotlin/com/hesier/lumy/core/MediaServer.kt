@@ -94,7 +94,7 @@ data class ServerSession(
     val deviceId: String? = null,
 )
 
-enum class ServerKind { PLEX, JELLYFIN, EMBY }
+enum class ServerKind { PLEX, JELLYFIN, EMBY, FNOS }
 
 /** 服务端返回了错误状态码（区别于网络不通），这类错误不需要重新探测地址 */
 open class HttpStatusException(val code: Int, message: String) : IOException(message)

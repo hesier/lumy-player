@@ -25,6 +25,10 @@
     <string name="kind_plex_detail">用 plex.tv 账号登录，自动发现账号下的服务器</string>
     <string name="kind_jellyfin_detail">输入服务器地址、用户名和密码</string>
     <string name="kind_emby_detail">输入服务器地址、用户名和密码</string>
+    <string name="kind_fnos">飞牛影视</string>
+    <string name="kind_fnos_detail">使用影视独立账号登录（非 NAS 账号）</string>
+    <string name="direct_login_fnos_hint">请输入飞牛影视地址及影视独立账号，而非 NAS 账号。只填 IP 时默认使用 http 和端口 8005</string>
+    <string name="direct_login_fnos_address_hint">例如 192.168.1.10:8005</string>
 
     <string name="direct_login_title">连接 %1$s 服务器</string>
     <string name="direct_login_hint">在服务器的控制台或网页端可以看到它的地址。只填 IP 时默认使用 http 和端口 8096</string>
@@ -120,7 +124,7 @@
     <string name="lang_japanese">日语</string>
     <string name="lang_korean">韩语</string>
     <string name="settings_add_server">添加服务器</string>
-    <string name="settings_add_server_detail">支持 Plex、Jellyfin、Emby，可以同时添加多台</string>
+    <string name="settings_add_server_detail">支持 Plex、Jellyfin、Emby 和飞牛影视，可以同时添加多台</string>
     <string name="server_current">当前</string>
     <string name="server_switch">切换到这台服务器</string>
     <string name="server_repick">重新选择 Plex 服务器</string>

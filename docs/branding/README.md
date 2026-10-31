@@ -8,3 +8,5 @@
 - `banner.xml` 组合图形与字标；`ic_launcher.xml` 提供旧版桌面和应用内使用的圆角背景。
 
 修改源稿后需同步修改对应矢量 XML；仅修改 SVG 不会自动更新 APK。使用 `./gradlew :app:assembleDebug :app:lintDebug` 检查打包与资源兼容性。
+
+`fnos.svg` 是从提供的飞牛影视标识左侧图形描摹出的纯矢量源稿，保留透明背景，统一使用蓝色 `#2A8FFD`。`ic_kind_fnos.xml` 使用相同路径，并与其他服务器图标统一为深色圆底、60% 居中比例和 24dp 尺寸。

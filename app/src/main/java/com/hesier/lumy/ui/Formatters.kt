@@ -96,6 +96,7 @@ fun ServerKind.label(context: Context): String = context.getString(
         ServerKind.PLEX -> R.string.kind_plex
         ServerKind.JELLYFIN -> R.string.kind_jellyfin
         ServerKind.EMBY -> R.string.kind_emby
+        ServerKind.FNOS -> R.string.kind_fnos
     },
 )
 
@@ -105,6 +106,7 @@ val ServerKind.icon: Int
         ServerKind.PLEX -> R.drawable.ic_kind_plex
         ServerKind.JELLYFIN -> R.drawable.ic_kind_jellyfin
         ServerKind.EMBY -> R.drawable.ic_kind_emby
+        ServerKind.FNOS -> R.drawable.ic_kind_fnos
     }
 
 /** Server subtitles show the user and address; the icon identifies the server kind. */

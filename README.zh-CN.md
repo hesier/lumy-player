@@ -7,7 +7,7 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 ![Android 5.0+](https://img.shields.io/badge/Android-5.0%2B-3DDC84?logo=android&logoColor=white)
 
-一个面向 Android TV、安卓盒子和投影仪的媒体客户端，支持 Plex、Jellyfin 和 Emby，用遥控器操作。
+一个面向 Android TV、安卓盒子和投影仪的媒体客户端，支持 Plex、Jellyfin、Emby 和飞牛影视，用遥控器操作。
 
 <p align="center"><img src="docs/screenshots/home.webp" alt="首页"></p>
 
@@ -16,6 +16,7 @@
 - **登录与服务器**
   - Plex：plex.tv PIN 码登录，自动发现账号下的服务器并探测可用地址（局域网 / 远程 / 中继），连不上时自动重连
   - Jellyfin / Emby：输入服务器地址、用户名和密码登录（只填 IP 时默认 http 和端口 8096），也可以扫码在手机上填写
+  - 飞牛影视：输入服务器地址、影视独立账号和密码登录（只填 IP 时默认 http 和端口 8005）
   - Android 5.0–7.0 的系统证书库较旧，也能连接使用 Let's Encrypt 证书的 HTTPS 服务器（见 [TLS 兼容说明](docs/tls-compatibility.zh-CN.md)）
   - 可以添加多台服务器（同一台服务器也可以添加多次），在侧边栏顶部切换，在设置里重命名、删除
 - **浏览**：首页推荐行（继续观看、最近添加等）、媒体库网格（筛选、排序、首字母索引）、搜索、合集、播放列表、演员作品、更多类似
@@ -64,6 +65,7 @@
 - 只显示电影和剧集媒体库，暂不支持音乐、照片等其他类型
 - 不支持直播电视 / DVR，不支持离线下载
 - 不支持 Plex Home 切换用户和 Jellyfin Quick Connect，请直接登录要使用的账号
+- 飞牛影视暂未接入合集、播放列表、演员作品和相关推荐；转码暂不支持视频流复制和 7.1 音频输出
 - 杜比视界 Profile 5 优先原生播放；不支持或失败时可尝试 HEVC 兼容播放，但颜色可能不正确。正确色彩仍需要支持对应 DV profile 的完整输出链（详见[播放与解码支持](docs/playback.zh-CN.md#杜比视界)）
 - 只支持 ARM 设备（`armeabi-v7a` / `arm64-v8a`）
 - 手机扫码输入要求手机和电视在同一局域网。打不开网页时，请关闭手机 VPN，检查路由器的访客网络或 AP 隔离；电视连着多个网络时，断开用不到的那个
@@ -110,7 +112,7 @@ keyPassword=...
 运行单元测试（core、net 和服务器模块，纯 JVM）：
 
 ```bash
-./gradlew :core:test :net:test :server-plex:test :server-jellyfin:test
+./gradlew :core:test :net:test :server-plex:test :server-jellyfin:test :server-fnos:test
 ```
 
 ### 发布版本
@@ -131,6 +133,7 @@ core/          纯 Kotlin：媒体模型和 MediaServer 接口，与具体服务
 net/           纯 Kotlin：手机扫码输入的局域网接收服务、旧版 Android 补充的 TLS 根证书、检查和下载新版本
 server-plex/   纯 Kotlin：Plex 账号、服务器发现、连接探测和 API 实现（OkHttp + kotlinx.serialization）
 server-jellyfin/ 纯 Kotlin：Jellyfin 和 Emby 的登录与 API 实现（两者接口同源，按 ServerKind 区分认证头）
+server-fnos/     纯 Kotlin：飞牛影视登录、原生 API 与兼容接口实现
 app/           Android 应用：界面（View + RecyclerView，无 Leanback/Compose）和播放器
 ```
 

@@ -13,6 +13,11 @@ import com.hesier.lumy.core.ServerSession
 import com.hesier.lumy.jellyfin.JellyfinClient
 import com.hesier.lumy.jellyfin.JellyfinClientInfo
 import com.hesier.lumy.jellyfin.JellyfinConnector
+import com.hesier.lumy.fnos.FnOsClient
+import com.hesier.lumy.fnos.FnOsClientInfo
+import com.hesier.lumy.fnos.FnOsConnector
+import com.hesier.lumy.fnos.FnOsMediaServer
+import com.hesier.lumy.fnos.FnOsImageInterceptor
 import com.hesier.lumy.jellyfin.JellyfinMediaServer
 import com.hesier.lumy.plex.PlexAccount
 import com.hesier.lumy.plex.PlexClient
@@ -58,6 +63,9 @@ class LumyApp : Application(), ImageLoaderFactory {
     lateinit var jellyfin: JellyfinClient
         private set
     val jellyfinConnector by lazy { JellyfinConnector(jellyfin) }
+    lateinit var fnos: FnOsClient
+        private set
+    val fnosConnector by lazy { FnOsConnector(fnos) }
 
     private var server: MediaServer? = null
 
@@ -104,6 +112,15 @@ class LumyApp : Application(), ImageLoaderFactory {
         // 和 Plex 共用连接池
         jellyfin = JellyfinClient(
             JellyfinClientInfo(
+                product = getString(R.string.app_name),
+                version = BuildConfig.VERSION_NAME,
+                deviceId = store.clientId,
+                device = Build.MODEL,
+            ),
+            plex.http,
+        )
+        fnos = FnOsClient(
+            FnOsClientInfo(
                 product = getString(R.string.app_name),
                 version = BuildConfig.VERSION_NAME,
                 deviceId = store.clientId,
@@ -240,12 +257,14 @@ class LumyApp : Application(), ImageLoaderFactory {
     private fun createServer(session: ServerSession): MediaServer = when (session.kind) {
         ServerKind.PLEX -> PlexMediaServer(session, plex)
         ServerKind.JELLYFIN, ServerKind.EMBY -> JellyfinMediaServer(session, jellyfin)
+        ServerKind.FNOS -> FnOsMediaServer(session, fnos)
     }
 
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
         .okHttpClient {
             plex.http.newBuilder()
                 .cache(Cache(File(cacheDir, "images"), 150L * 1024 * 1024))
+                .addNetworkInterceptor(FnOsImageInterceptor(::currentServer))
                 .build()
         }
         // 海报不需要透明通道，RGB_565 能省一半内存，对低端盒子很重要

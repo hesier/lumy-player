@@ -32,6 +32,9 @@ class AddServerActivity : ThemedActivity() {
         binding.emby.bind(ServerKind.EMBY, R.string.kind_emby_detail) {
             startActivity(DirectLoginActivity.intent(this, ServerKind.EMBY))
         }
+        binding.fnos.bind(ServerKind.FNOS, R.string.kind_fnos_detail) {
+            startActivity(DirectLoginActivity.intent(this, ServerKind.FNOS))
+        }
         binding.plex.root.requestFocus()
     }
 

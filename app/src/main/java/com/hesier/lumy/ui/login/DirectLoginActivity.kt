@@ -9,6 +9,8 @@ import com.hesier.lumy.ui.ThemedActivity
 import androidx.lifecycle.lifecycleScope
 import com.hesier.lumy.core.HttpStatusException
 import com.hesier.lumy.core.ServerKind
+import com.hesier.lumy.core.ServerSession
+import com.hesier.lumy.fnos.FnOsConnector
 import com.hesier.lumy.jellyfin.JellyfinConnector
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
@@ -30,13 +32,20 @@ class DirectLoginActivity : ThemedActivity() {
     private val app get() = LumyApp.instance
     private var busy = false
     private var phoneInput: PhoneInputPanel? = null
+    private val kind by lazy {
+        runCatching { ServerKind.valueOf(intent.getStringExtra(EXTRA_KIND)!!) }.getOrDefault(ServerKind.JELLYFIN)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityDirectLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        val kind = runCatching { ServerKind.valueOf(intent.getStringExtra(EXTRA_KIND)!!) }.getOrDefault(ServerKind.JELLYFIN)
         binding.title.text = getString(R.string.direct_login_title, kind.label(this))
+        if (kind == ServerKind.FNOS) {
+            binding.title.maxLines = 2
+            binding.hint.setText(R.string.direct_login_fnos_hint)
+            binding.address.setHint(R.string.direct_login_fnos_address_hint)
+        }
         setupInputNavigation()
         binding.name.setOnEditorActionListener { _, action, _ ->
             if (action == EditorInfo.IME_ACTION_DONE) connect()
@@ -86,7 +95,9 @@ class DirectLoginActivity : ThemedActivity() {
         val address = binding.address.text.toString()
         val username = binding.username.text.toString().trim()
         val password = binding.password.text.toString()
-        if (JellyfinConnector.normalizeAddress(address) == null) return showStatus(getString(R.string.direct_login_bad_address), binding.address)
+        val normalized = if (kind == ServerKind.FNOS) FnOsConnector.normalizeAddress(address)
+            else JellyfinConnector.normalizeAddress(address)
+        if (normalized == null) return showStatus(getString(R.string.direct_login_bad_address), binding.address)
         if (username.isEmpty()) return showStatus(getString(R.string.direct_login_need_username), binding.username)
 
         busy = true
@@ -94,13 +105,13 @@ class DirectLoginActivity : ThemedActivity() {
         showStatus(getString(R.string.direct_login_probing), null)
         lifecycleScope.launch {
             val result = run {
-                val server = attempt { app.jellyfinConnector.probe(address) }.getOrElse {
+                val server = attempt { probe(address) }.getOrElse {
                     return@run getString(R.string.direct_login_unreachable, it.readableMessage()) to binding.address
                 }
                 // 用户可能在地址栏里只写了 IP，显示补全后的地址，方便确认
                 binding.address.setText(server.baseUrl)
-                showStatus(getString(R.string.direct_login_signing_in, server.info.serverName.ifBlank { server.baseUrl }), null)
-                val session = attempt { app.jellyfinConnector.signIn(server, username, password) }.getOrElse {
+                showStatus(getString(R.string.direct_login_signing_in, server.name.ifBlank { server.baseUrl }), null)
+                val session = attempt { server.signIn(username, password) }.getOrElse {
                     val wrong = it is HttpStatusException && (it.code == 401 || it.code == 403)
                     return@run getString(if (wrong) R.string.direct_login_wrong_password else R.string.direct_login_failed, it.readableMessage()) to
                         if (wrong) binding.password else binding.connect
@@ -115,6 +126,35 @@ class DirectLoginActivity : ThemedActivity() {
             result?.let { (message, focus) -> showStatus(message, focus) }
         }
     }
+
+    private suspend fun probe(address: String): LoginServer {
+        val fnosAddress = if (kind == ServerKind.FNOS) address else {
+            val server = app.jellyfinConnector.probe(address)
+            if (server.kind != ServerKind.FNOS) {
+                return LoginServer(server.baseUrl, server.info.serverName) { username, password ->
+                    app.jellyfinConnector.signIn(server, username, password)
+                }
+            }
+            server.baseUrl
+        }
+        val server = app.fnosConnector.probe(fnosAddress)
+        // Preserve automatic detection when a different server type was selected.
+        if (!server.info.operatingSystem.equals("fnOS", ignoreCase = true)) {
+            val detected = app.jellyfinConnector.probe(server.baseUrl)
+            return LoginServer(detected.baseUrl, detected.info.serverName) { username, password ->
+                app.jellyfinConnector.signIn(detected, username, password)
+            }
+        }
+        return LoginServer(server.baseUrl, server.info.serverName) { username, password ->
+            app.fnosConnector.signIn(server, username, password)
+        }
+    }
+
+    private data class LoginServer(
+        val baseUrl: String,
+        val name: String,
+        val signIn: suspend (String, String) -> ServerSession,
+    )
 
     private fun showStatus(text: String, focus: View?) {
         binding.status.visibility = View.VISIBLE

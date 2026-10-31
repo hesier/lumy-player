@@ -14,4 +14,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "lumy-tv"
-include(":core", ":net", ":server-plex", ":server-jellyfin", ":app")
+include(":core", ":net", ":server-plex", ":server-jellyfin", ":server-fnos", ":app")

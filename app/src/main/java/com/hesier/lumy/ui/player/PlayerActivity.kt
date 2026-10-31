@@ -48,6 +48,7 @@ import com.hesier.lumy.core.MediaVersion
 import com.hesier.lumy.core.PlaybackMode
 import com.hesier.lumy.core.PlaybackRequest
 import com.hesier.lumy.core.PlaybackState
+import com.hesier.lumy.core.ServerKind
 import com.hesier.lumy.core.SubtitleStream
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
@@ -143,7 +144,12 @@ class PlayerActivity : ThemedActivity() {
     private var doviWatchJob: Job? = null
 
     private val settings get() = LumyApp.instance.settings
-    private val policy get() = PlanPolicy(settings.allowTranscode, settings.allowSubtitleBurn, settings.displaySupportsHdr, server.embedsSubtitles)
+    private val policy get() = PlanPolicy(
+        settings.allowTranscode,
+        settings.allowSubtitleBurn,
+        settings.displaySupportsHdr,
+        server.embedsSubtitles,
+    )
     /** 剧集的下一集，加载完详情后异步获取 */
     private var nextEpisode: MediaItem? = null
     /** 已自动跳过的标记，避免往回拖时被反复跳过 */
@@ -386,7 +392,10 @@ class PlayerActivity : ThemedActivity() {
                 server.saveStreamSelection(req.version, req.audioStreamId, req.subtitleStreamId)
             }
             if (request !== req) return@launch
-            val source = server.playbackSource(req)
+            val source = attempt { server.playbackSource(req) }.getOrElse {
+                if (request === req) showError(getString(R.string.player_error, it.readableMessage()), retryAt = positionMs)
+                return@launch
+            }
             // A decision request may finish after another seek, track change or episode switch.
             if (request !== req) return@launch
             pgsSelection.configure(
@@ -424,7 +433,11 @@ class PlayerActivity : ThemedActivity() {
             }
             // 带内封字幕的转码流已从起播点开始，而且不能跳转
             val embedded = (p.mode as? PlaybackMode.Transcode)?.embedSubtitleId != null
-            player.setMediaItems(media, source.startPart, if (source.isHls || embedded) 0 else source.startOffsetMs)
+            // fnOS serves a full VOD timeline but only generates segments near the requested start.
+            val nativeHls = source.isHls && server.session.kind == ServerKind.FNOS
+            if (nativeHls) hlsAligned = true
+            player.setMediaItems(media, source.startPart,
+                if ((source.isHls && !nativeHls) || embedded) 0 else source.startOffsetMs)
             player.setPlaybackSpeed(speed)
             player.prepare()
             player.playWhenReady = playWhenReady
@@ -494,7 +507,7 @@ class PlayerActivity : ThemedActivity() {
      * 这时改用服务器转码（视频能直接复制时只换封装），由服务器从目标位置开始。
      */
     private fun fallBackIfUnseekable(target: Long): Boolean {
-        if (player.isCurrentMediaItemSeekable || fellBack || !settings.allowTranscode) return false
+        if (player.isCurrentMediaItemSeekable || fellBack || !policy.allowTranscode) return false
         DebugLog.i(TAG, "unseekable direct play, transcode from $target")
         fellBack = true
         Toast.makeText(this, R.string.player_unseekable_fallback, Toast.LENGTH_LONG).show()
@@ -582,7 +595,7 @@ class PlayerActivity : ThemedActivity() {
             } else if (network && error.errorCode != PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
                 // 连不上服务器时转码也一样连不上，直接提示
                 showError(getString(R.string.player_network_error), retryAt = current)
-            } else if (plan?.mode is PlaybackMode.Direct && !fellBack && settings.allowTranscode) {
+            } else if (plan?.mode is PlaybackMode.Direct && !fellBack && policy.allowTranscode) {
                 // 硬解失败、格式识别错误等：自动改用服务器转码，从当前位置继续。
                 // 视频解码失败要重新编码；封装、解析等问题只换封装，服务器几乎没有负担
                 fellBack = true
@@ -590,7 +603,7 @@ class PlayerActivity : ThemedActivity() {
                 Toast.makeText(this@PlayerActivity, R.string.player_fallback, Toast.LENGTH_LONG).show()
                 start(current)
             } else {
-                val hint = if (!settings.allowTranscode && plan?.reasons?.isNotEmpty() == true) {
+                val hint = if (!policy.allowTranscode && plan?.reasons?.isNotEmpty() == true) {
                     getString(R.string.direct_only_failed, plan!!.reasons.text(this@PlayerActivity))
                 } else {
                     error.errorCodeName + (error.cause?.message?.let { " · $it" } ?: "")
@@ -723,7 +736,8 @@ class PlayerActivity : ThemedActivity() {
             val textGroups = groups.filter { it.type == C.TRACK_TYPE_TEXT }
             val group = if (s.external) {
                 textGroups.firstOrNull { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX + s.id) == true }
-            } else if ((mode as? PlaybackMode.Transcode)?.embedSubtitleId == s.id) {
+            } else if ((mode as? PlaybackMode.Transcode)?.embedSubtitleId == s.id ||
+                (mode is PlaybackMode.Transcode && server.session.kind == ServerKind.FNOS)) {
                 // 转码流里只带了这一条内封字幕，轨道号和原文件对不上
                 textGroups.firstOrNull { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX) != true }
             } else {
@@ -756,7 +770,9 @@ class PlayerActivity : ThemedActivity() {
         val embedded = groups.filter { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX) != true }
         val mode = plan?.mode
         if (mode is PlaybackMode.Transcode) {
-            return embedded.firstOrNull().takeIf { mode.embedSubtitleId == stream.id }
+            val nativeText = server.session.kind == ServerKind.FNOS && subtitle?.id == stream.id &&
+                mode.burnSubtitleId != stream.id
+            return embedded.firstOrNull().takeIf { mode.embedSubtitleId == stream.id || nativeText }
         }
         return matchGroup(embedded, stream.index, version.subtitles.filter { !it.external }.indexOf(stream))
     }
@@ -829,6 +845,8 @@ class PlayerActivity : ThemedActivity() {
             }
         OptionsPanel(this, getString(R.string.player_subtitles), options) { i ->
             val selected = if (i == 0) null else version.subtitles[i - 1]
+            // Native HLS contains only the subtitle selected when its session was created.
+            val nativeSubtitleChanged = server.session.kind == ServerKind.FNOS && transcoding && selected?.id != subtitle?.id
             val oldPgs = subtitle?.takeIf { it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
             val newPgs = selected?.takeIf { it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
             if (selected?.id != subtitle?.id) bitmapSubtitles.clear()
@@ -839,7 +857,7 @@ class PlayerActivity : ThemedActivity() {
             // Skipped PGS tracks have no decoded cues; rebuild their source when changing tracks.
             val newPlan = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed)
             val sameMode = newPlan.mode == plan?.mode
-            if (sameMode && oldPgs == newPgs) applyTrackSelection()
+            if (sameMode && oldPgs == newPgs && !nativeSubtitleChanged) applyTrackSelection()
             else start(positionMs, playWhenReady = !sameMode || player.playWhenReady)
         }.show()
     }
@@ -914,7 +932,7 @@ class PlayerActivity : ThemedActivity() {
         playPauseIcon = playButton.findViewById(R.id.icon)
         if (version.subtitles.isNotEmpty()) row.addActionButton(R.drawable.ic_subtitles, getString(R.string.player_subtitles)) { pickSubtitle() }
         if (version.audio.size > 1) row.addActionButton(R.drawable.ic_audio, getString(R.string.player_audio)) { pickAudio() }
-        if (settings.allowTranscode) row.addActionButton(R.drawable.ic_hd, getString(R.string.player_quality)) { pickQuality() }
+        if (policy.allowTranscode) row.addActionButton(R.drawable.ic_hd, getString(R.string.player_quality)) { pickQuality() }
         row.addActionButton(R.drawable.ic_speed, getString(R.string.player_speed)) { pickSpeed() }
         if (detail.chapters.size > 1) row.addActionButton(R.drawable.ic_list, getString(R.string.player_chapters)) { pickChapter() }
         row.addActionButton(R.drawable.ic_more, getString(R.string.player_more)) { showMore() }

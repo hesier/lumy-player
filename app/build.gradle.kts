@@ -124,6 +124,7 @@ dependencies {
     implementation(project(":net"))
     implementation(project(":server-plex"))
     implementation(project(":server-jellyfin"))
+    implementation(project(":server-fnos"))
 
     implementation(libs.coroutines.android)
     implementation(libs.androidx.core)

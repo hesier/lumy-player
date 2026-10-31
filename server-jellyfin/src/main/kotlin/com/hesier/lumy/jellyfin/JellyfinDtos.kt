@@ -11,6 +11,7 @@ data class PublicSystemInfo(
     val version: String = "",
     /** Jellyfin 是 “Jellyfin Server”，Emby 没有这个字段 */
     val productName: String? = null,
+    val operatingSystem: String? = null,
 )
 
 @Serializable

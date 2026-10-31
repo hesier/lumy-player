@@ -14,7 +14,11 @@ class JellyfinConnector(private val client: JellyfinClient) {
     suspend fun probe(address: String): Server {
         val base = normalizeAddress(address) ?: throw IllegalArgumentException("Invalid server address: $address")
         val info = client.fetch<PublicSystemInfo>(client.request("$base/System/Info/Public", ServerKind.JELLYFIN, null).build())
-        val kind = if (info.productName?.contains("Jellyfin", ignoreCase = true) == true) ServerKind.JELLYFIN else ServerKind.EMBY
+        val kind = when {
+            info.operatingSystem.equals("fnOS", ignoreCase = true) -> ServerKind.FNOS
+            info.productName?.contains("Jellyfin", ignoreCase = true) == true -> ServerKind.JELLYFIN
+            else -> ServerKind.EMBY
+        }
         return Server(base, kind, info)
     }
 
