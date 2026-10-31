@@ -12,8 +12,12 @@ object Navigator {
         val intent = when (item.type) {
             MediaType.COLLECTION, MediaType.PLAYLIST -> ItemListActivity.container(context, item)
             MediaType.PERSON -> libraryId?.let { ItemListActivity.person(context, item, it) } ?: return
-            else -> DetailActivity.intent(context, item.id)
+            else -> DetailActivity.intent(context, item)
         }
-        context.startActivity(intent)
+        if (context is ThemedActivity && intent.component?.className == DetailActivity::class.java.name) {
+            context.openDetail(intent)
+        } else {
+            context.startActivity(intent)
+        }
     }
 }

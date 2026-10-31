@@ -1,6 +1,7 @@
 package com.hesier.lumy.ui
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.view.KeyEvent
 import android.view.SoundEffectConstants
@@ -22,6 +23,12 @@ abstract class ThemedActivity : FragmentActivity() {
     private var appliedNight = true
     private var appliedLanguage = AppLanguage.SYSTEM
     private var appliedScale = 1f
+    private var openingDetail: Intent? = null
+
+    fun openDetail(intent: Intent) {
+        openingDetail = intent
+        startActivity(intent)
+    }
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
@@ -48,6 +55,15 @@ abstract class ThemedActivity : FragmentActivity() {
      * 就没有声音（详情页的上下键就是这样）。这里补上：按键被消费且焦点变了才播，系统自己处理的不会重复。
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        openingDetail?.let { intent ->
+            if (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER ||
+                event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+            ) {
+                // The old window can still receive the next press during the transition.
+                if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) startActivity(intent)
+                return true
+            }
+        }
         val before = currentFocus
         val handled = super.dispatchKeyEvent(event)
         if (handled && event.action == KeyEvent.ACTION_DOWN && currentFocus !== before) {
@@ -71,6 +87,7 @@ abstract class ThemedActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        openingDetail = null
         // 在设置里换了主题或语言后，返回栈里的页面回到前台时重建
         recreateIfThemeChanged()
     }

@@ -3,6 +3,7 @@ package com.hesier.lumy.ui.detail
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -76,6 +77,10 @@ class DetailActivity : ThemedActivity() {
     private var versionIndex = 0
     private lateinit var fileInfo: FileInfoSection
     private var firstLoad = true
+    private var openJob: Job? = null
+    private var loadingPlayTarget = true
+    private var pendingPlay = false
+    private var loadingConfirmKey: Int? = null
 
     /** “查看全部”选完季回来：切换到该季，焦点放在它的标签上 */
     private val seasonPicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -90,6 +95,7 @@ class DetailActivity : ThemedActivity() {
 
     /** 长按方向键时放慢移动速度 */
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (handleLoadingConfirm(event)) return true
         if (keyThrottle.shouldDrop(event)) return true
         val wasInActions = binding.actions.hasFocus()
         val handled = super.dispatchKeyEvent(event)
@@ -98,6 +104,59 @@ class DetailActivity : ThemedActivity() {
             event.keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP && !wasInActions && binding.actions.hasFocus()
         ) binding.scroll.smoothScrollTo(0, 0)
         return handled
+    }
+
+    private fun handleLoadingConfirm(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_DPAD_CENTER &&
+            event.keyCode != KeyEvent.KEYCODE_ENTER && event.keyCode != KeyEvent.KEYCODE_NUMPAD_ENTER
+        ) return false
+        if (!loadingPlayTarget && loadingConfirmKey != event.keyCode) return false
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> if (event.repeatCount == 0) loadingConfirmKey = event.keyCode
+            KeyEvent.ACTION_UP -> if (loadingConfirmKey == event.keyCode) {
+                loadingConfirmKey = null
+                pendingPlay = !event.isCanceled
+                playPendingIfReady()
+            }
+        }
+        return true
+    }
+
+    private fun playPendingIfReady() {
+        if (!pendingPlay || isFinishing) return
+        // Cards for a specific movie or episode already identify the playback target.
+        if (firstLoad) intent.getStringExtra(EXTRA_PLAY_ID)?.let { id ->
+            pendingPlay = false
+            startPlayer(id, 0, intent.getLongExtra(EXTRA_PLAY_START, 0))
+            return
+        }
+        if (loadingPlayTarget) return
+        pendingPlay = false
+        val item = headerItem ?: return
+        // A show's first action can be "mark watched" until its episodes arrive.
+        if (item.type == MediaType.SHOW && seriesPlayTarget == null) return
+        binding.actions.getChildAt(0)?.performClick()
+    }
+
+    private fun finishPlayTargetLoading() {
+        loadingPlayTarget = false
+        playPendingIfReady()
+    }
+
+    override fun onPause() {
+        pendingPlay = false
+        loadingConfirmKey = null
+        super.onPause()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getStringExtra(EXTRA_ID) != this.intent.getStringExtra(EXTRA_ID)) {
+            startActivity(Intent(intent).setFlags(intent.flags and Intent.FLAG_ACTIVITY_SINGLE_TOP.inv()))
+            return
+        }
+        pendingPlay = true
+        playPendingIfReady()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -130,10 +189,14 @@ class DetailActivity : ThemedActivity() {
 
     /** 打开任意条目：剧集和季都换算成“所属剧 + 选中的季/集” */
     private fun open(id: String) {
+        if (openJob?.isActive == true) return
+        loadingPlayTarget = true
         binding.state.showLoading()
-        lifecycleScope.launch {
+        openJob = lifecycleScope.launch {
             val app = LumyApp.instance
             val entry = attempt { app.withReconnect { it.detail(id) } }.getOrElse {
+                loadingPlayTarget = false
+                pendingPlay = false
                 binding.state.showMessage(getString(R.string.load_failed, it.readableMessage()), getString(R.string.retry)) { open(id) }
                 return@launch
             }
@@ -165,6 +228,7 @@ class DetailActivity : ThemedActivity() {
                 loadSeasons()
             }
             firstLoad = false
+            if (!isSeries || selectedEpisode != null || seriesPlayTarget != null) finishPlayTargetLoading()
         }
     }
 
@@ -316,9 +380,13 @@ class DetailActivity : ThemedActivity() {
     private var focusPlayOnReturn = false
 
     private fun play(item: MediaItem, startMs: Long) {
-        focusPlayOnReturn = true
         val version = if (item.id == headerItem?.id) versionIndex else 0
-        startActivity(PlayerActivity.intent(this, item.id, version, startMs))
+        startPlayer(item.id, version, startMs)
+    }
+
+    private fun startPlayer(id: String, version: Int, startMs: Long) {
+        focusPlayOnReturn = true
+        startActivity(PlayerActivity.intent(this, id, version, startMs))
     }
 
     // ---- 分季标签 ----
@@ -327,7 +395,10 @@ class DetailActivity : ThemedActivity() {
         val show = main ?: return
         lifecycleScope.launch {
             seasons = attempt { server.children(show.item.id) }.getOrDefault(emptyList())
-            if (seasons.isEmpty()) return@launch
+            if (seasons.isEmpty()) {
+                finishPlayTargetLoading()
+                return@launch
+            }
             val initial = seasons.firstOrNull { it.id == currentSeasonId }
                 ?: seasons.firstOrNull { it.id == show.onDeck?.parentId }
                 ?: seasons.first()
@@ -437,6 +508,7 @@ class DetailActivity : ThemedActivity() {
             if (seasonId != currentSeasonId) return@launch
             seasonEpisodes = episodes
             renderHeader()
+            finishPlayTargetLoading()
             binding.episodes.visibility = View.VISIBLE
             val adapter = episodesAdapter()
             adapter.selectedId = selectedEpisode?.id
@@ -520,6 +592,8 @@ class DetailActivity : ThemedActivity() {
 
     companion object {
         private const val EXTRA_ID = "id"
+        private const val EXTRA_PLAY_ID = "play_id"
+        private const val EXTRA_PLAY_START = "play_start"
         private const val MAX_PEOPLE = 20
         private const val SEASON_SWITCH_DELAY_MS = 250L
         private const val EPISODE_DETAIL_DELAY_MS = 300L
@@ -527,6 +601,15 @@ class DetailActivity : ThemedActivity() {
         private const val HEADER_UPDATE_DELAY_MS = 160L
 
         fun intent(context: Context, id: String, seasonId: String? = null): Intent =
-            Intent(context, DetailActivity::class.java).putExtra(EXTRA_ID, seasonId ?: id)
+            Intent(context, DetailActivity::class.java)
+                .putExtra(EXTRA_ID, seasonId ?: id)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+        fun intent(context: Context, item: MediaItem): Intent = intent(context, item.id).apply {
+            if (item.type == MediaType.MOVIE || item.type == MediaType.EPISODE) {
+                putExtra(EXTRA_PLAY_ID, item.id)
+                putExtra(EXTRA_PLAY_START, item.viewOffsetMs?.takeIf { it > 30_000 } ?: 0)
+            }
+        }
     }
 }
