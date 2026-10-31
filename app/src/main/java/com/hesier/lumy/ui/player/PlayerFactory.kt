@@ -58,6 +58,8 @@ object PlayerFactory {
         offsets: SyncOffsets,
         passthrough: Boolean = false,
         allowSoftwareVideo: Boolean = false,
+        seekBackMs: Long = 10_000,
+        seekForwardMs: Long = 30_000,
     ): PlayerBundle {
         val upstream = OkHttpDataSource.Factory(http).setDefaultRequestProperties(headers)
         // ASS/SSA 交给 libass 渲染（保留字体、颜色、位置、动画），内封（MKV）和外挂都走这里；
@@ -142,8 +144,8 @@ object PlayerFactory {
             .setTrackSelector(subtitles)
             .setMediaSourceFactory(SupMediaSourceFactory(mediaSources, dataSources))
             .setLoadControl(loadControl())
-            .setSeekBackIncrementMs(10_000)
-            .setSeekForwardIncrementMs(30_000)
+            .setSeekBackIncrementMs(seekBackMs)
+            .setSeekForwardIncrementMs(seekForwardMs)
             .build()
         subtitles.attachAss(player, ass, secondaryAss)
         return PlayerBundle(player = player, ass = ass, codecs = codecs, pgs = pgs, subtitles = subtitles, secondaryAss = secondaryAss)

@@ -405,4 +405,6 @@
     <string name="settings_clear_audio_memory_detail">Forget audio choices for all files and shows on this device. Subtitle memories and the memory switch stay unchanged.</string>
     <string name="settings_clear_subtitle_memory">Clear subtitle memories</string>
     <string name="settings_clear_subtitle_memory_detail">Forget primary subtitle choices for all files and shows on this device. Audio memories and the memory switch stay unchanged.</string>
+    <string name="settings_seek_forward">Seek forward duration</string>
+    <string name="settings_seek_back">Seek back duration</string>
 </resources>

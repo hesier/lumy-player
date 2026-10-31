@@ -199,6 +199,14 @@ class SettingsActivity : ThemedActivity() {
                 settings.matchFrameRate = !settings.matchFrameRate
                 render()
             },
+            Row(getString(R.string.settings_seek_forward), getString(R.string.skip_seconds, settings.seekForwardSeconds)) {
+                choose(R.string.settings_seek_forward, Settings.SEEK_INTERVALS.map { getString(R.string.skip_seconds, it) },
+                    Settings.SEEK_INTERVALS.indexOf(settings.seekForwardSeconds)) { settings.seekForwardSeconds = Settings.SEEK_INTERVALS[it] }
+            },
+            Row(getString(R.string.settings_seek_back), getString(R.string.skip_seconds, settings.seekBackSeconds)) {
+                choose(R.string.settings_seek_back, Settings.SEEK_INTERVALS.map { getString(R.string.skip_seconds, it) },
+                    Settings.SEEK_INTERVALS.indexOf(settings.seekBackSeconds)) { settings.seekBackSeconds = Settings.SEEK_INTERVALS[it] }
+            },
             Row(getString(R.string.settings_auto_next), onOff(settings.autoPlayNext)) {
                 settings.autoPlayNext = !settings.autoPlayNext
                 render()

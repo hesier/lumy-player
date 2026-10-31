@@ -76,6 +76,10 @@ P7 / P8 base-layer playback does not prove native Dolby Vision output or full en
 
 The table does not override the HDR setting: when **TV supports HDR** is off and server transcoding is allowed, conversion to SDR still applies.
 
+## Seek intervals
+
+**Settings → Playback → Seek forward duration / Seek back duration** independently sets each step to 5, 10, 15, 30, 60 or 120 seconds. Defaults are 30 seconds forward and 10 seconds back. These apply to remote seek keys, Left/Right with controls hidden, and single steps on the progress bar. Holding a direction on the progress bar still accelerates seeking.
+
 ## Audio
 
 - **Settings → Audio → Remember manual audio choices** controls local file and show memories (on by default). Turning it off ignores and stops updating audio memories while keeping existing records. **Clear audio memories** removes only audio records and keeps the switch state.

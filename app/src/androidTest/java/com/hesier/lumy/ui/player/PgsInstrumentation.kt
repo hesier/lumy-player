@@ -12,6 +12,7 @@ class PgsInstrumentation : Instrumentation() {
     private var benchmark = false
     private var dualSubtitlesOnly = false
     private var trackMemoryOnly = false
+    private var seekSettingsOnly = false
     private var rmFixture: String? = null
     private var softwareFixture: String? = null
     private var rmAudioMime = "audio/cook"
@@ -22,6 +23,7 @@ class PgsInstrumentation : Instrumentation() {
         benchmark = arguments?.getString("benchmark_sup") == "true"
         dualSubtitlesOnly = arguments?.getString("dual_subtitles_only") == "true"
         trackMemoryOnly = arguments?.getString("track_memory_only") == "true"
+        seekSettingsOnly = arguments?.getString("seek_settings_only") == "true"
         rmFixture = arguments?.getString("rm_fixture")
         softwareFixture = arguments?.getString("software_fixture")
         rmAudioMime = arguments?.getString("rm_audio_mime") ?: "audio/cook"
@@ -31,6 +33,12 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (seekSettingsOnly) {
+                runOnMainSync { SeekSettingsTest().runAll(targetContext) }
+                result.putString("stream", "Independent seek intervals, persistence, defaults and player increment checks passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (trackMemoryOnly) {
                 com.hesier.lumy.data.TrackMemoryTest(targetContext).runAll()
                 result.putString("stream", "Track memory migration, independent switches, writes, clearing and selection checks passed\n")

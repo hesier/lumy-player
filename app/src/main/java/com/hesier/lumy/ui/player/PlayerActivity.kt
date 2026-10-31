@@ -173,6 +173,7 @@ class PlayerActivity : ThemedActivity() {
         val bundle = PlayerFactory.create(
             this, app.plex.http, server.playbackHeaders(), offsets,
             passthrough = settings.passthrough, allowSoftwareVideo = settings.allowSoftwareVideoDecoding,
+            seekBackMs = settings.seekBackMs, seekForwardMs = settings.seekForwardMs,
         )
         player = bundle.player
         ass = bundle.ass
@@ -1016,12 +1017,13 @@ class PlayerActivity : ThemedActivity() {
 
     /** 拖动进度条：按住方向键越久步长越大，松手 0.8 秒后才真正 seek，避免每一步都请求网络 */
     private fun scrub(forward: Boolean, repeat: Int) {
-        val step = when {
+        val baseStep = if (forward) settings.seekForwardMs else settings.seekBackMs
+        val step = maxOf(baseStep, when {
             repeat > 20 -> 120_000L
             repeat > 8 -> 60_000L
             repeat > 2 -> 30_000L
-            else -> 10_000L
-        }
+            else -> baseStep
+        })
         val base = scrubTarget ?: positionMs
         scrubTarget = (base + if (forward) step else -step).coerceIn(0, durationMs)
         updateProgress()
@@ -1079,11 +1081,11 @@ class PlayerActivity : ThemedActivity() {
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
-                if (down) skip(30_000)
+                if (down) skip(settings.seekForwardMs)
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_REWIND -> {
-                if (down) skip(-10_000)
+                if (down) skip(-settings.seekBackMs)
                 return true
             }
             KeyEvent.KEYCODE_BACK -> {
@@ -1110,8 +1112,8 @@ class PlayerActivity : ThemedActivity() {
             if (down) {
                 when (event.keyCode) {
                     KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> togglePlay()
-                    KeyEvent.KEYCODE_DPAD_LEFT -> skip(-10_000)
-                    KeyEvent.KEYCODE_DPAD_RIGHT -> skip(30_000)
+                    KeyEvent.KEYCODE_DPAD_LEFT -> skip(-settings.seekBackMs)
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> skip(settings.seekForwardMs)
                     // 下键直接到按钮行（更常用），上键到进度条
                     KeyEvent.KEYCODE_DPAD_DOWN -> showControls(ControlsFocus.BUTTONS)
                     else -> showControls(ControlsFocus.SEEK)

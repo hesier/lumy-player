@@ -43,6 +43,17 @@ class Settings(context: Context) {
             ?.let { runCatching { VideoScale.valueOf(it) }.getOrNull() } ?: VideoScale.FIT
         set(v) = prefs.edit().putString("video_scale", v.name).apply()
 
+    var seekForwardSeconds: Int
+        get() = prefs.getInt("seek_forward_seconds", 30).takeIf { it in SEEK_INTERVALS } ?: 30
+        set(v) = prefs.edit().putInt("seek_forward_seconds", v).apply()
+
+    var seekBackSeconds: Int
+        get() = prefs.getInt("seek_back_seconds", 10).takeIf { it in SEEK_INTERVALS } ?: 10
+        set(v) = prefs.edit().putInt("seek_back_seconds", v).apply()
+
+    val seekForwardMs: Long get() = seekForwardSeconds * 1_000L
+    val seekBackMs: Long get() = seekBackSeconds * 1_000L
+
     /** [SUBTITLE_POSITIONS] 的下标 */
     var subtitlePosition: Int
         get() = prefs.getInt("subtitle_position", 1).coerceIn(0, SUBTITLE_POSITIONS.lastIndex)
@@ -254,6 +265,7 @@ class Settings(context: Context) {
         /** GitHub 下载代理：原地址拼在它后面 */
         const val DEFAULT_UPDATE_MIRROR = "https://ghfast.top/"
         val SUBTITLE_SCALES = listOf(0.6f, 0.8f, 1f, 1.25f, 1.5f)
+        val SEEK_INTERVALS = listOf(5, 10, 15, 30, 60, 120)
         val UI_SCALES = listOf(0.8f, 0.9f, 1f, 1.1f, 1.2f)
         /** 字幕离底部的距离（占画面高度的比例）：靠下、标准、偏高、更高 */
         val SUBTITLE_POSITIONS = listOf(0.02f, 0.06f, 0.12f, 0.2f)

@@ -389,4 +389,6 @@
     <string name="settings_clear_audio_memory_detail">清除本机所有文件和剧集的音轨记忆，保留字幕记忆和记忆开关状态。</string>
     <string name="settings_clear_subtitle_memory">清除字幕记忆</string>
     <string name="settings_clear_subtitle_memory_detail">清除本机所有文件和剧集的主字幕记忆，保留音轨记忆和记忆开关状态。</string>
+    <string name="settings_seek_forward">快进时长</string>
+    <string name="settings_seek_back">快退时长</string>
 </resources>
