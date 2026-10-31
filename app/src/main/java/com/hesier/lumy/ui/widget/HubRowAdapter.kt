@@ -37,8 +37,15 @@ class HubRowAdapter(
     /** 行结构不变时只换数据，焦点留在原位置 */
     fun update(newHubs: List<Hub>) {
         val sameRows = newHubs.map { it.id to it.style } == hubs.map { it.id to it.style }
+        val oldHubs = hubs
         hubs = newHubs
-        if (sameRows) notifyItemRangeChanged(0, hubs.size) else notifyDataSetChanged()
+        if (sameRows) {
+            hubs.forEachIndexed { index, hub ->
+                if (hub != oldHubs[index]) notifyItemChanged(index)
+            }
+        } else {
+            notifyDataSetChanged()
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {

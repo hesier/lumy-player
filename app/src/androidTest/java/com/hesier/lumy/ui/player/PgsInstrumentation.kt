@@ -8,6 +8,7 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
+    private var cardRefreshOnly = false
     private var benchmark = false
     private var rmFixture: String? = null
     private var softwareFixture: String? = null
@@ -15,6 +16,7 @@ class PgsInstrumentation : Instrumentation() {
 
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        cardRefreshOnly = arguments?.getString("card_refresh_only") == "true"
         benchmark = arguments?.getString("benchmark_sup") == "true"
         rmFixture = arguments?.getString("rm_fixture")
         softwareFixture = arguments?.getString("software_fixture")
@@ -25,6 +27,12 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            runOnMainSync { com.hesier.lumy.ui.CardRefreshTest().runAll() }
+            if (cardRefreshOnly) {
+                result.putString("stream", "Card and hub refresh checks passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             MultiObjectPgsParserTest().runAll()
             PgsSnapshotCodecTest().runAll()
             PgsSnapshotTrackOutputTest().runAll()
@@ -47,7 +55,7 @@ class PgsInstrumentation : Instrumentation() {
                 com.hesier.lumy.ui.player.legacy.SoftwareRv40FixtureTest().runFixture(it)
             }
             val performance = if (benchmark) PgsPerformanceProbe().run(targetContext.filesDir) else ""
-            result.putString("stream", "PGS, track filtering, SUP, Matroska index, TrueHD, Dolby Vision, software video and RM transport checks passed\n$performance")
+            result.putString("stream", "Card refresh, PGS, track filtering, SUP, Matroska index, TrueHD, Dolby Vision, software video and RM transport checks passed\n$performance")
             finish(Activity.RESULT_OK, result)
         } catch (error: Throwable) {
             result.putString("stream", Log.getStackTraceString(error))

@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SimpleItemAnimator
 import com.hesier.lumy.core.HubStyle
@@ -54,9 +55,20 @@ class CardAdapter(
     fun indexOf(id: String): Int = items.indexOfFirst { it?.id == id }
 
     fun submit(list: List<MediaItem>) {
+        if (items == list) return
+        val oldItems = items.toList()
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = oldItems.size
+            override fun getNewListSize() = list.size
+            override fun areItemsTheSame(oldPosition: Int, newPosition: Int) =
+                oldItems[oldPosition]?.id == list[newPosition].id
+            override fun areContentsTheSame(oldPosition: Int, newPosition: Int) =
+                oldItems[oldPosition] == list[newPosition]
+        })
         items.clear()
         items.addAll(list)
-        notifyDataSetChanged()
+        // Keep unchanged card views and their focus/scale when a hub refreshes.
+        diff.dispatchUpdatesTo(this)
     }
 
     fun resize(total: Int) {
