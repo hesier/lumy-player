@@ -65,6 +65,8 @@
 
     <string name="settings_title">Settings</string>
     <string name="settings_section_playback">Playback</string>
+    <string name="settings_section_audio">Audio</string>
+    <string name="settings_section_compatibility">Compatibility</string>
     <string name="settings_section_subtitles">Subtitles</string>
     <string name="settings_section_display">Interface</string>
     <string name="settings_language">Language</string>

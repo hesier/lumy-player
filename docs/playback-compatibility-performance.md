@@ -58,7 +58,7 @@ MKV index handling prefers available video synchronization points and retains a 
 | VP8, VP9, AV1, MPEG-4, VC-1 | Capability mapping implemented; requires an available platform decoder | Insufficient playback coverage in this round; the current software video fallback does not cover these codecs |
 | Other unmapped codecs | No general guarantee | Handled according to capabilities and the user's transcoding policy |
 
-Settings → Playback → **Allow software video decoding** is off by default. When enabled, available hardware remains preferred. Software attempts are limited to eligible H.264 / RV40 video:
+Settings → Compatibility → **Allow software video decoding** is off by default. When enabled, available hardware remains preferred. Software attempts are limited to eligible H.264 / RV40 video:
 
 - Known, valid dimensions: longest edge ≤ 1920, shortest edge ≤ 1080, including 1920×1080. This is not strictly “below 1080p.”
 - SDR only; HDR, unknown dimensions and larger video are excluded.

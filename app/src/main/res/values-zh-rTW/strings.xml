@@ -52,6 +52,8 @@
 
     <string name="settings_title">設定</string>
     <string name="settings_section_playback">播放</string>
+    <string name="settings_section_audio">音訊</string>
+    <string name="settings_section_compatibility">相容性</string>
     <string name="settings_section_subtitles">字幕</string>
     <string name="settings_section_display">介面</string>
     <string name="settings_language">語言</string>
