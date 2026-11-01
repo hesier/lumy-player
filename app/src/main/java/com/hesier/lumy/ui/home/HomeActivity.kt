@@ -306,7 +306,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
         return false
     }
 
-    /** 返回键：内容区 → 侧边栏 → 首页 → 退出，和官方客户端一致 */
+    /** Back from the sidebar always enters the double-press exit flow. */
     // 首页和媒体库卡片多，长按移动比其他页面快一倍
     private val keyThrottle = KeyRepeatThrottle(80)
     private var lastContentFocus: java.lang.ref.WeakReference<View>? = null
@@ -384,11 +384,6 @@ class HomeActivity : ThemedActivity(), HomeHost {
                 val favorites = supportFragmentManager.findFragmentById(R.id.content) as? FavoritesFragment
                 if (favorites?.focusCategoryOnBack() == true) return true
                 navItems.firstOrNull { it.binding.root.isActivated }?.binding?.root?.requestFocus()
-                return true
-            }
-            val home = navItems.firstOrNull { it.target == NavTarget.Home }
-            if (home != null && !home.binding.root.isActivated) {
-                navigate(home.target)
                 return true
             }
             // 最后一步：2 秒内再按一次才退出，避免误触
