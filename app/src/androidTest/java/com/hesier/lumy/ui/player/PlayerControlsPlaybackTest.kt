@@ -42,6 +42,7 @@ class PlayerControlsPlaybackTest(private val instrumentation: Instrumentation) {
             player = field("player") as ExoPlayer
             binding = field("binding") as ActivityPlayerBinding
             await("real video playing", 45_000) { player.isPlaying && player.currentPosition > 0 }
+            checkConfirmFocus()
             checkTimesAndScrub()
             checkAutoHide()
             checkTapAndHold()
@@ -55,6 +56,30 @@ class PlayerControlsPlaybackTest(private val instrumentation: Instrumentation) {
             if (::player.isInitialized) restoreAndExit(start)
         }
         return results.joinToString("\n")
+    }
+
+    private fun checkConfirmFocus() {
+        var visible = false
+        main { visible = binding.controls.visibility == View.VISIBLE }
+        if (visible) press(KeyEvent.KEYCODE_BACK)
+        press(KeyEvent.KEYCODE_DPAD_CENTER)
+        await("confirm pauses and focuses play button") {
+            !player.isPlaying && binding.buttons.getChildAt(0).hasFocus()
+        }
+        press(KeyEvent.KEYCODE_DPAD_RIGHT)
+        main { check(binding.buttons.getChildAt(1).hasFocus()) }
+        press(KeyEvent.KEYCODE_DPAD_LEFT)
+        press(KeyEvent.KEYCODE_DPAD_CENTER)
+        await("button resumes with focus") { player.isPlaying && binding.buttons.getChildAt(0).hasFocus() }
+        press(KeyEvent.KEYCODE_DPAD_UP)
+        main { check(binding.seek.hasFocus()) }
+        press(KeyEvent.KEYCODE_DPAD_CENTER)
+        await("seek pause preserves focus") { !player.isPlaying && binding.seek.hasFocus() }
+        press(KeyEvent.KEYCODE_BACK)
+        press(KeyEvent.KEYCODE_ENTER)
+        await("hidden confirm resumes with focus") { player.isPlaying && binding.buttons.getChildAt(0).hasFocus() }
+        press(KeyEvent.KEYCODE_BACK)
+        results += "Confirm pause/resume focuses play button; left/right and seek navigation preserve usable focus"
     }
 
     private fun checkTimesAndScrub() {

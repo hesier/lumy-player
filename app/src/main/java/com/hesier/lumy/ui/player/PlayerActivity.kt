@@ -239,6 +239,8 @@ class PlayerActivity : ThemedActivity() {
         binding.playerView.setOnTouchListener { _, e -> taps.onTouchEvent(e) }
         // 控制栏空白处吃掉点击，免得点按钮时稍微偏一点就穿透到画面，把控制栏收起
         binding.controls.isClickable = true
+        // Keep the clickable background out of D-pad focus navigation.
+        binding.controls.isFocusable = false
         binding.seek.setOnTouchListener { _, e ->
             val duration = durationMs
             if (duration <= 0) return@setOnTouchListener true
@@ -956,9 +958,6 @@ class PlayerActivity : ThemedActivity() {
 
     private enum class ControlsFocus { SEEK, BUTTONS, NONE }
 
-    private fun showControls(focusSeek: Boolean = true) =
-        showControls(if (focusSeek) ControlsFocus.SEEK else ControlsFocus.NONE)
-
     private fun showControls(target: ControlsFocus) {
         holdSpeedGesture.cancel()
         autoHiddenAt = 0L
@@ -1046,7 +1045,7 @@ class PlayerActivity : ThemedActivity() {
 
     private fun togglePlay() {
         if (player.isPlaying) player.pause() else player.play()
-        showControls(focusSeek = false)
+        showControls(ControlsFocus.BUTTONS)
     }
 
     /** 拖动进度条：按住方向键越久步长越大，松手 0.8 秒后才真正 seek，避免每一步都请求网络 */
