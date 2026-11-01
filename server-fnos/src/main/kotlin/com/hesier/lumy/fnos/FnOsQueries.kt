@@ -82,8 +82,15 @@ internal class FnOsQueries(private val native: FnOsNativeClient) {
 internal fun JsonObject.fnOsMatch(catalog: List<BaseItem>): BaseItem? {
     val id = this["guid"]?.jsonPrimitive?.content ?: return null
     val item = catalog.firstOrNull { it.id == id || it.mediaSources.any { source -> source.id == id } } ?: return null
-    val watched = this["watched"]?.jsonPrimitive?.intOrNull ?: return item
-    return item.copy(userData = (item.userData ?: UserData()).copy(played = watched == 1))
+    return item.withFnOsState(this)
 }
 
 private fun JsonObject.rows(): List<JsonObject> = (this["list"] as? JsonArray).orEmpty().map { it.jsonObject }
+
+internal fun BaseItem.withFnOsState(state: JsonObject): BaseItem {
+    val data = userData ?: UserData()
+    return copy(userData = data.copy(
+        played = (state["is_watched"] ?: state["watched"])?.jsonPrimitive?.intOrNull?.let { it == 1 } ?: data.played,
+        isFavorite = state["is_favorite"]?.jsonPrimitive?.intOrNull?.let { it == 1 } ?: data.isFavorite,
+    ))
+}

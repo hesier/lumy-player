@@ -24,7 +24,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -38,6 +37,7 @@ class FnOsMediaServer(
     override val session: ServerSession,
     private val client: FnOsClient,
 ) : MediaServer {
+    override val supportsFavorites: Boolean get() = true
     override val embedsSubtitles: Boolean get() = false
     private val catalogLock = Mutex()
     private val catalogs = mutableMapOf<String, Pair<Long, List<BaseItem>>>()
@@ -45,6 +45,7 @@ class FnOsMediaServer(
     private val native = FnOsNativeClient(session, client)
     private val progress = FnOsProgress(native)
     private val queries = FnOsQueries(native)
+    private val favorites = FnOsFavorites(native)
     private val playback = FnOsPlayback(session, client, native)
 
     override suspend fun isReachable(): Boolean {
@@ -98,6 +99,28 @@ class FnOsMediaServer(
     override suspend fun genres(libraryId: String): List<FilterOption> =
         queries.genres(libraryId)
 
+    override suspend fun favorites(type: MediaType, offset: Int, limit: Int): Page<MediaItem> {
+        val page = favorites.page(type, offset, limit)
+        val records = progress.resume()
+        val items = page.items.map { row ->
+            val id = favorites.playableId(row)
+            val item = item(id)
+            // Compatibility season details are unavailable until the show's season list is cached.
+            val seasonId = item.seasonId ?: item.parentId
+            if (item.type == "Episode" && seasonId != null && !knownSeasons.containsKey(seasonId)) {
+                item.seriesId?.let { seasons(it) }
+            }
+            item.withFnOsState(row).withProgress(records)
+        }
+        return Page(items, offset, page.total)
+    }
+
+    override suspend fun setFavorite(id: String, favorite: Boolean) {
+        val canonicalId = item(id).let { it.mediaSources.firstOrNull()?.id ?: it.id }
+        favorites.set(canonicalId, favorite)
+        catalogLock.withLock { catalogs.clear() }
+    }
+
     override suspend fun setWatched(id: String, watched: Boolean) {
         val canonicalId = item(id).let { it.mediaSources.firstOrNull()?.id ?: it.id }
         val body = buildJsonObject { put("item_guid", canonicalId) }
@@ -134,8 +157,7 @@ class FnOsMediaServer(
         val item = item(id)
         val canonicalId = item.mediaSources.firstOrNull()?.id ?: item.id
         val state = native.get("item/$canonicalId").jsonObject
-        val watched = state["is_watched"]?.jsonPrimitive?.intOrNull == 1
-        val normalized = item.copy(userData = (item.userData ?: UserData()).copy(played = watched))
+        val normalized = item.withFnOsState(state)
         val info = if (item.mediaSources.isNotEmpty()) native.post("play/info", buildJsonObject {
             put("item_guid", canonicalId)
         }).jsonObject else null

@@ -71,7 +71,7 @@
     <string name="theme_light">淺色</string>
     <string name="theme_system">跟隨系統</string>
     <string name="settings_sidebar">側邊欄顯示</string>
-    <string name="settings_sidebar_detail">勾選要顯示在首頁側邊欄的媒體庫</string>
+    <string name="settings_sidebar_detail">選擇要顯示在首頁側邊欄的媒體庫和播放清單</string>
     <string name="sidebar_all">全部</string>
     <string name="settings_sidebar_order">側邊欄排序</string>
     <string name="settings_sidebar_order_detail">確認鍵選取一項，上下鍵移動，再按確認放下，返回鍵完成；觸控螢幕上點一項再點目標位置</string>
@@ -402,4 +402,13 @@
     <string name="settings_hold_speed_detail">控制列隱藏時長按確認鍵倍速，放開恢復原速。音軌直通時無法使用。</string>
     <string name="playback_speed_value">%1$s×</string>
     <string name="player_hold_speed">%1$s× · 放開確認鍵恢復原速</string>
+
+    <string name="nav_favorites">收藏</string>
+    <string name="add_favorite">加入收藏</string>
+    <string name="remove_favorite">取消收藏</string>
+    <string name="favorites_empty">此分類尚無收藏</string>
+    <string name="favorites_movies">電影</string>
+    <string name="favorites_shows">節目</string>
+    <string name="favorites_episodes">單集</string>
+    <string name="settings_sidebar_favorites_detail">選擇要顯示在首頁側邊欄的媒體庫、播放清單和收藏</string>
 </resources>

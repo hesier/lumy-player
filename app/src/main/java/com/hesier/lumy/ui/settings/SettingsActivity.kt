@@ -172,7 +172,10 @@ class SettingsActivity : ThemedActivity() {
                     recreate()
                 }.show()
             },
-            Row(getString(R.string.settings_sidebar), sidebarSummary(), getString(R.string.settings_sidebar_detail)) { pickSidebarItems() },
+            Row(getString(R.string.settings_sidebar), sidebarSummary(), getString(
+                if (app.currentServer()?.supportsFavorites == true) R.string.settings_sidebar_favorites_detail
+                else R.string.settings_sidebar_detail,
+            )) { pickSidebarItems() },
             Row(getString(R.string.settings_sidebar_order), "", getString(R.string.settings_sidebar_order_detail)) { reorderSidebar() },
             Row(getString(R.string.settings_detail_cast), onOff(settings.detailShowCast)) {
                 settings.detailShowCast = !settings.detailShowCast
@@ -406,7 +409,7 @@ class SettingsActivity : ThemedActivity() {
         val server = app.currentServer() ?: return
         lifecycleScope.launch {
             val libraries = attempt { server.libraries() }.getOrDefault(emptyList())
-            sidebarCandidates = libraries.map { it.id to it.title } + (Settings.PLAYLISTS_ID to getString(R.string.nav_playlists))
+            sidebarCandidates = libraries.map { it.id to it.title } + sidebarShortcuts(server.supportsFavorites)
             val hidden = settings.hiddenSidebarItems(entryId).toMutableSet()
             val options = sidebarCandidates.map { Option(it.second, selected = it.first !in hidden) }
             OptionsPanel(this@SettingsActivity, getString(R.string.settings_sidebar), options, multi = true) { i ->
@@ -415,6 +418,11 @@ class SettingsActivity : ThemedActivity() {
                 settings.setHiddenSidebarItems(entryId, hidden.toSet())
             }.apply { setOnDismissListener { render() } }.show()
         }
+    }
+
+    private fun sidebarShortcuts(supportsFavorites: Boolean): List<Pair<String, String>> = buildList {
+        add(Settings.PLAYLISTS_ID to getString(R.string.nav_playlists))
+        if (supportsFavorites) add(Settings.FAVORITES_ID to getString(R.string.nav_favorites))
     }
 
     private var checkingUpdate = false
@@ -454,7 +462,7 @@ class SettingsActivity : ThemedActivity() {
         lifecycleScope.launch {
             val libraries = attempt { server.libraries() }.getOrDefault(emptyList())
             // 播放列表也参与排序，没排过时在媒体库最后
-            val entries = libraries.map { it.id to it.title } + (Settings.PLAYLISTS_ID to getString(R.string.nav_playlists))
+            val entries = libraries.map { it.id to it.title } + sidebarShortcuts(server.supportsFavorites)
             val ordered = Settings.applyOrder(entries, settings.sidebarOrder(entryId)) { it.first }
             val hidden = settings.hiddenSidebarItems(entryId)
             val visible = ordered.filterNot { it.first in hidden }

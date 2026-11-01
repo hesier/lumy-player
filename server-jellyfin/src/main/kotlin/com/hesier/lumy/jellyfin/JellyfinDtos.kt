@@ -37,6 +37,7 @@ data class ItemsResult(
 data class UserData(
     val playbackPositionTicks: Long = 0,
     val played: Boolean = false,
+    val isFavorite: Boolean = false,
     val unplayedItemCount: Int? = null,
 )
 

@@ -115,6 +115,10 @@ internal class FnOsTestDispatcher : QueueDispatcher() {
     @Volatile var tags = """{"genres":[]}"""
     @Volatile var genres = "[]"
     @Volatile var streams = "{}"
+    @Volatile var favorites = """{"list":[],"total":0}"""
+    @Volatile var favoriteResult = "true"
+    @Volatile var favoriteCode = 0
+    @Volatile var itemState = """{"is_watched":0}"""
 
     override fun dispatch(request: RecordedRequest): MockResponse {
         val path = request.requestUrl!!.encodedPath
@@ -128,13 +132,15 @@ internal class FnOsTestDispatcher : QueueDispatcher() {
             "/v/sign.js" -> MockResponse().setBody(FIXTURE)
             "/v/api/v1/play/list" -> data(resume)
             "/v/api/v1/item/list" -> data(items)
+            "/v/api/v1/favorite/list" -> data(favorites)
+            "/v/api/v1/item/favorite" -> MockResponse().setBody("""{"code":$favoriteCode,"data":$favoriteResult}""")
             "/v/api/v1/search/list" -> data(search)
             "/v/api/v1/tag/list" -> data(tags)
             "/v/api/v1/tag/genres" -> data(genres)
             "/v/api/v1/play/info" -> data(info)
             "/v/api/v1/stream" -> data(streams)
             "/v/api/v1/item/watched", "/v/api/v1/play/record" -> data("true")
-            else -> if (path.startsWith("/v/api/v1/item/")) data("""{"is_watched":0}""")
+            else -> if (path.startsWith("/v/api/v1/item/")) data(itemState)
             else MockResponse().setResponseCode(404)
         }
     }

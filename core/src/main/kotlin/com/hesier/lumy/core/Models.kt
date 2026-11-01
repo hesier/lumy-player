@@ -42,6 +42,7 @@ data class MediaItem(
     val unwatchedCount: Int? = null,
     /** 合集 / 播放列表里的条目数 */
     val childCount: Int? = null,
+    val favorite: Boolean = false,
 ) {
     val progress: Float?
         get() {

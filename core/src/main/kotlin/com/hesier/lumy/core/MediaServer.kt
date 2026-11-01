@@ -15,6 +15,15 @@ interface MediaServer {
      */
     val embedsSubtitles: Boolean get() = false
 
+    /** Native favorites are optional; Plex does not expose this capability. */
+    val supportsFavorites: Boolean get() = false
+
+    suspend fun favorites(type: MediaType, offset: Int, limit: Int): Page<MediaItem> =
+        throw UnsupportedOperationException("Favorites are not supported")
+
+    suspend fun setFavorite(id: String, favorite: Boolean): Unit =
+        throw UnsupportedOperationException("Favorites are not supported")
+
     /** 保存的地址是否仍可用，启动时据此决定是否需要重新连接 */
     suspend fun isReachable(): Boolean
 

@@ -111,7 +111,7 @@ class Settings(context: Context) {
         set(v) = prefs.edit().putBoolean("allow_subtitle_burn", v).apply()
 
     /**
-     * 不在侧边栏显示的媒体库 id（以及 [PLAYLISTS_ID]）。按服务器分开保存：
+     * 不在侧边栏显示的媒体库 id（以及 [PLAYLISTS_ID]、[FAVORITES_ID]）。按服务器分开保存：
      * 不同服务器的媒体库 id 会重复（Plex 都是 1、2、3…）
      */
     fun hiddenSidebarItems(serverId: String): Set<String> =
@@ -120,7 +120,7 @@ class Settings(context: Context) {
     fun setHiddenSidebarItems(serverId: String, ids: Set<String>) =
         prefs.edit().putStringSet("hidden_sidebar:$serverId", ids).apply()
 
-    /** 侧边栏媒体库的顺序（媒体库 id，以及 [PLAYLISTS_ID]）；不在列表里的新媒体库排在后面 */
+    /** 侧边栏媒体库的顺序（媒体库 id，以及 [PLAYLISTS_ID]、[FAVORITES_ID]）；不在列表里的新媒体库排在后面 */
     fun sidebarOrder(serverId: String): List<String> =
         prefs.getString("sidebar_order:$serverId", null)?.split(',')?.filter { it.isNotBlank() } ?: emptyList()
 
@@ -270,6 +270,7 @@ class Settings(context: Context) {
         }
 
         const val PLAYLISTS_ID = "__playlists"
+        const val FAVORITES_ID = "__favorites"
         /** GitHub 下载代理：原地址拼在它后面 */
         const val DEFAULT_UPDATE_MIRROR = "https://ghfast.top/"
         val SUBTITLE_SCALES = listOf(0.6f, 0.8f, 1f, 1.25f, 1.5f)

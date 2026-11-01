@@ -50,6 +50,8 @@ class JellyfinMediaServer(
     // 两家都能把内封字幕复制进 MKV 转码输出（SubtitleMethod=Embed），见 transcodeUrl
     override val embedsSubtitles: Boolean get() = true
 
+    override val supportsFavorites: Boolean get() = true
+
     /** 已经发过“开始播放”的会话，之后的上报走 Progress */
     private val startedSessions = Collections.synchronizedSet(HashSet<String>())
 
@@ -156,6 +158,38 @@ class JellyfinMediaServer(
             found.filter { it.type == type }.takeIf { it.isNotEmpty() }?.let {
                 Hub(id = "search.$type", title = title, style = if (type == MediaType.EPISODE) HubStyle.LANDSCAPE else HubStyle.POSTER, items = it, label = HubLabel.SearchResults(type, null))
             }
+        }
+    }
+
+    override suspend fun favorites(type: MediaType, offset: Int, limit: Int): Page<MediaItem> {
+        val itemType = when (type) {
+            MediaType.MOVIE -> "Movie"
+            MediaType.SHOW -> "Series"
+            MediaType.EPISODE -> "Episode"
+            else -> throw IllegalArgumentException("Unsupported favorite type: $type")
+        }
+        val result = get<ItemsResult>(
+            userUrl("Items").addAll(
+                "Recursive" to "true",
+                "Filters" to "IsFavorite",
+                "IncludeItemTypes" to itemType,
+                "StartIndex" to offset.toString(),
+                "Limit" to limit.toString(),
+                "SortBy" to "SortName",
+                "SortOrder" to "Ascending",
+            ).withFields(),
+        )
+        val items = result.items.map { it.toItem() }
+        return Page(items, offset, result.totalRecordCount ?: (offset + items.size))
+    }
+
+    override suspend fun setFavorite(id: String, favorite: Boolean) {
+        val modern = url("UserFavoriteItems/$id").addQueryParameter("userId", userId)
+        val legacy = url("Users/$userId/FavoriteItems/$id")
+        val candidates = if (kind == ServerKind.JELLYFIN) listOf(modern, legacy) else listOf(legacy)
+        firstOk(candidates) { b ->
+            val req = client.request(b.build().toString(), kind, session.token, deviceId)
+            client.execute((if (favorite) req.post(EMPTY_BODY) else req.delete()).build())
         }
     }
 

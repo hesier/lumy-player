@@ -33,6 +33,8 @@ internal class FnOsNativeClient(
 
     suspend fun post(path: String, body: JsonObject): JsonElement = request(path, body)
 
+    suspend fun put(path: String, body: JsonObject): JsonElement = request(path, body, "PUT")
+
     suspend fun delete(path: String, body: JsonObject): JsonElement = request(path, body, "DELETE")
 
     private suspend fun request(path: String, body: JsonObject?, method: String = "POST"): JsonElement {

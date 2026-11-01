@@ -84,7 +84,7 @@
     <string name="theme_light">Light</string>
     <string name="theme_system">System default</string>
     <string name="settings_sidebar">Sidebar libraries</string>
-    <string name="settings_sidebar_detail">Check the libraries to show in the home sidebar</string>
+    <string name="settings_sidebar_detail">Choose libraries and playlists to show in the home sidebar</string>
     <string name="sidebar_all">All</string>
     <string name="settings_sidebar_order">Sidebar order</string>
     <string name="settings_sidebar_order_detail">Press OK to pick up an item, Up/Down to move it, OK again to drop it, Back when done. On touch, tap an item, then tap where it should go</string>
@@ -418,4 +418,13 @@
     <string name="settings_hold_speed_detail">Hide controls, hold OK to speed up; release to restore. No passthrough.</string>
     <string name="playback_speed_value">%1$s×</string>
     <string name="player_hold_speed">%1$s× · Release OK to restore speed</string>
+
+    <string name="nav_favorites">Favorites</string>
+    <string name="add_favorite">Add to favorites</string>
+    <string name="remove_favorite">Remove from favorites</string>
+    <string name="favorites_empty">No favorites in this category</string>
+    <string name="favorites_movies">Movies</string>
+    <string name="favorites_shows">TV shows</string>
+    <string name="favorites_episodes">Episodes</string>
+    <string name="settings_sidebar_favorites_detail">Choose libraries, playlists and favorites to show in the home sidebar</string>
 </resources>

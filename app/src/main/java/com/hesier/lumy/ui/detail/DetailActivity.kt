@@ -35,6 +35,7 @@ import com.hesier.lumy.ui.widget.StartAlignedLayoutManager
 import com.hesier.lumy.ui.widget.KeyRepeatThrottle
 import com.hesier.lumy.ui.widget.TextPanel
 import com.hesier.lumy.ui.widget.Backdrop
+import com.hesier.lumy.ui.widget.canFavorite
 import com.hesier.lumy.ui.widget.addActionButton
 import com.hesier.lumy.ui.widget.addBadge
 import com.hesier.lumy.ui.widget.attempt
@@ -65,6 +66,7 @@ class DetailActivity : ThemedActivity() {
     /** 剧页面里当前选中的剧集，null 表示上方显示剧本身 */
     private var selectedEpisode: MediaItem? = null
     private val episodeDetails = HashMap<String, MediaDetail>()
+    private val favoriteChanges = HashMap<String, Boolean>()
     private var episodeDetailJob: Job? = null
     private var headerJob: Job? = null
 
@@ -352,7 +354,38 @@ class DetailActivity : ThemedActivity() {
         binding.actions.addActionButton(icon, getString(label)) {
             ItemMenu.toggleWatched(this, server, item) { afterWatchedChange() }
         }
+        addFavoriteAction(item)
         if (focused >= 0) binding.actions.getChildAt(focused.coerceAtMost(binding.actions.childCount - 1))?.requestFocus()
+    }
+
+    private fun addFavoriteAction(item: MediaItem) {
+        if (!server.supportsFavorites || !item.canFavorite) return
+        val favoriteIcon = if (item.favorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite
+        val favoriteLabel = if (item.favorite) R.string.remove_favorite else R.string.add_favorite
+        val button = binding.actions.addActionButton(favoriteIcon, getString(favoriteLabel)) {}
+        button.setOnClickListener {
+            if (favoriteJob?.isActive == true) return@setOnClickListener
+            favoriteJob = lifecycleScope.launch {
+                attempt { server.setFavorite(item.id, !item.favorite) }
+                    .onSuccess { afterFavoriteChange(item.copy(favorite = !item.favorite)) }
+                    .onFailure {
+                        android.widget.Toast.makeText(this@DetailActivity,
+                            getString(R.string.load_failed, it.readableMessage()), android.widget.Toast.LENGTH_SHORT).show()
+                    }
+            }
+        }
+    }
+
+    private var favoriteJob: Job? = null
+
+    private fun afterFavoriteChange(item: MediaItem) {
+        favoriteChanges[item.id] = item.favorite
+        if (main?.item?.id == item.id) main = main?.copy(item = item)
+        if (selectedEpisode?.id == item.id) selectedEpisode = item
+        episodeDetails[item.id]?.let { episodeDetails[item.id] = it.copy(item = item) }
+        seasonEpisodes = seasonEpisodes.map { if (it.id == item.id) item else it }
+        episodesAdapter?.update(item)
+        renderHeader()
     }
 
     private fun afterWatchedChange() {
@@ -550,9 +583,14 @@ class DetailActivity : ThemedActivity() {
         episodeDetailJob?.cancel()
         episodeDetailJob = lifecycleScope.launch {
             delay(EPISODE_DETAIL_DELAY_MS)
-            val d = attempt { server.detail(episode.id) }.getOrNull() ?: return@launch
+            val loaded = attempt { server.detail(episode.id) }.getOrNull() ?: return@launch
+            // A favorite write can finish while this detail request is in flight.
+            val d = favoriteChanges[episode.id]?.let { loaded.copy(item = loaded.item.copy(favorite = it)) } ?: loaded
             episodeDetails[episode.id] = d
-            if (selectedEpisode?.id == episode.id) renderHeader()
+            if (selectedEpisode?.id == episode.id) {
+                selectedEpisode = d.item
+                renderHeader()
+            }
         }
     }
 
@@ -587,7 +625,10 @@ class DetailActivity : ThemedActivity() {
     }
 
     private fun showCardMenu(card: MediaItem) {
-        ItemMenu.show(this, server, card) { afterWatchedChange() }
+        ItemMenu.show(this, server, card) { changed ->
+            afterFavoriteChange(changed)
+            if (changed.watched != card.watched) afterWatchedChange()
+        }
     }
 
     companion object {

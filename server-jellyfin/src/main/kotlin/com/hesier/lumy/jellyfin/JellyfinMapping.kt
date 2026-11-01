@@ -70,6 +70,7 @@ internal fun BaseItem.toItem(): MediaItem {
         durationMs = runTimeTicks?.ticksToMs(),
         viewOffsetMs = data?.playbackPositionTicks?.takeIf { it > 0 }?.ticksToMs(),
         watched = data?.played == true,
+        favorite = data?.isFavorite == true,
         unwatchedCount = data?.unplayedItemCount.takeIf { type == MediaType.SHOW || type == MediaType.SEASON },
         childCount = (childCount ?: recursiveItemCount).takeIf { type == MediaType.COLLECTION || type == MediaType.PLAYLIST },
     )

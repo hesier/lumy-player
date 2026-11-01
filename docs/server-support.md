@@ -2,7 +2,7 @@
 
 English | [简体中文](server-support.zh-CN.md)
 
-Updated: 2026-11-01. Code baseline: `c2d5826`.
+Updated: 2026-11-01.
 
 This page describes **the integrations currently implemented in Lumy Player**, rather than the complete capabilities of each server product. “Integrated” is based on code and API tests; availability still depends on server version, permissions, metadata and device capabilities. “Not integrated” does not mean the server itself lacks the feature.
 
@@ -40,8 +40,11 @@ All integrations support multiple saved entries, switching, renaming and removal
 | More Like This / recommendations | Integrated | Integrated | Integrated | Not integrated |
 | Show, season and episode details and lists | Integrated | Integrated | Integrated | Integrated |
 | Version selection | Integrated | Integrated | Integrated | Compatibility mapping implemented; not independently playback-tested |
+| Personal favorites (movies, shows, episodes) | Not offered | Integrated, server sync | Integrated, server sync | Integrated, native API sync |
 | Mark watched / unwatched | Integrated | Integrated | Integrated | Integrated through native API |
 | Auto-play next episode, including across seasons | Integrated | Integrated | Integrated | Integrated |
+
+The Favorites sidebar entry can be hidden and reordered per server in Settings. Detail actions and card menus can add or remove favorites; the page groups them into movies, shows and episodes. Plex does not offer favorites, and its Watchlist is not mapped to favorites.
 
 Home rows vary by integration. Plex uses server-provided rows; Jellyfin/Emby combine Continue Watching, Next Up and Recently Added in the client; fnOS combines Continue Watching and Recently Added. Empty rows are hidden.
 
@@ -78,7 +81,7 @@ fnOS uses the independent `server-fnos` module and has no dependency on `server-
 
 | Area | Current implementation |
 |---|---|
-| Native APIs | Search, common filters/sorting/pagination, genres, progress and watched state, accurate stream metadata, transcode creation and cleanup |
+| Native APIs | Search, common filters/sorting/pagination, genres, progress, watched and favorite state, accurate stream metadata, transcode creation and cleanup |
 | Compatibility APIs | Sign-in and reachability, libraries, catalog ID mapping, base detail metadata, seasons/episodes, Direct Play URLs, external subtitles and images |
 | Local fallbacks | Last-viewed sorting uses compatibility `LastPlayedDate`; complete SD filtering uses video width |
 

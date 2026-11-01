@@ -35,6 +35,7 @@ data class ItemsResult(
 
 @Serializable
 data class UserData(
+    val isFavorite: Boolean = false,
     val playbackPositionTicks: Long = 0,
     val played: Boolean = false,
     val unplayedItemCount: Int? = null,

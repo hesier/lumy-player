@@ -71,7 +71,7 @@
     <string name="theme_light">浅色</string>
     <string name="theme_system">跟随系统</string>
     <string name="settings_sidebar">侧边栏显示</string>
-    <string name="settings_sidebar_detail">勾选要显示在首页侧边栏的媒体库</string>
+    <string name="settings_sidebar_detail">选择要显示在首页侧边栏的媒体库和播放列表</string>
     <string name="sidebar_all">全部</string>
     <string name="settings_sidebar_order">侧边栏排序</string>
     <string name="settings_sidebar_order_detail">确认键选中一项，上下键移动，再按确认放下，返回键完成；触屏上点一项再点目标位置</string>
@@ -402,4 +402,13 @@
     <string name="settings_hold_speed_detail">控制栏隐藏时长按确认键倍速，松手恢复原速。音轨直通时不可用。</string>
     <string name="playback_speed_value">%1$s×</string>
     <string name="player_hold_speed">%1$s× · 松开确认键恢复原速</string>
+
+    <string name="nav_favorites">收藏</string>
+    <string name="add_favorite">加入收藏</string>
+    <string name="remove_favorite">取消收藏</string>
+    <string name="favorites_empty">此分类暂无收藏</string>
+    <string name="favorites_movies">电影</string>
+    <string name="favorites_shows">节目</string>
+    <string name="favorites_episodes">单集</string>
+    <string name="settings_sidebar_favorites_detail">选择要显示在首页侧边栏的媒体库、播放列表和收藏</string>
 </resources>

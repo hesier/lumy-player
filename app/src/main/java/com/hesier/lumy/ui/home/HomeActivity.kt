@@ -29,6 +29,7 @@ import com.hesier.lumy.databinding.ActivityHomeBinding
 import com.hesier.lumy.databinding.ItemSidebarBinding
 import com.hesier.lumy.ui.Navigator
 import com.hesier.lumy.ui.list.ItemListActivity
+import com.hesier.lumy.ui.favorites.FavoritesFragment
 import com.hesier.lumy.ui.library.LibraryFragment
 import com.hesier.lumy.ui.search.SearchFragment
 import com.hesier.lumy.ui.servers.AddServerActivity
@@ -124,6 +125,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
     private sealed interface NavTarget {
         data object Search : NavTarget
         data object Home : NavTarget
+        data object Favorites : NavTarget
         data class Section(val library: Library) : NavTarget
     }
 
@@ -160,10 +162,15 @@ class HomeActivity : ThemedActivity(), HomeHost {
             val loaded = attempt { server.libraries() }.getOrNull()
             val libraries = loaded ?: emptyList()
             sidebarSnapshot = sidebarState()
-            val ids = libraries.map { it.id } + listOfNotNull(Settings.PLAYLISTS_ID.takeIf { hasPlaylists.await() })
+            val ids = libraries.map { it.id } + listOfNotNull(
+                Settings.PLAYLISTS_ID.takeIf { hasPlaylists.await() },
+                Settings.FAVORITES_ID.takeIf { server.supportsFavorites },
+            )
             Settings.applyOrder(ids, settings.sidebarOrder(entryId)) { it }.filterNot { it in hidden }.forEach { id ->
                 val lib = libraries.firstOrNull { it.id == id }
-                if (lib == null) {
+                if (id == Settings.FAVORITES_ID) {
+                    addNavItem(NavTarget.Favorites, R.drawable.ic_favorite, getString(R.string.nav_favorites))
+                } else if (lib == null) {
                     addActionItem(binding.sidebarItems, R.drawable.ic_list, getString(R.string.nav_playlists)) {
                         startActivity(ItemListActivity.playlists(this@HomeActivity))
                     }
@@ -214,6 +221,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
         return when (target) {
             NavTarget.Search -> page is SearchFragment
             NavTarget.Home -> page is HomeFragment
+            NavTarget.Favorites -> page is FavoritesFragment
             is NavTarget.Section -> (page as? LibraryFragment)?.libraryId == target.library.id
         }
     }
@@ -254,6 +262,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
         val fragment: Fragment = when (target) {
             NavTarget.Search -> SearchFragment()
             NavTarget.Home -> HomeFragment()
+            NavTarget.Favorites -> FavoritesFragment()
             is NavTarget.Section -> LibraryFragment.newInstance(target.library)
         }
         showBackdrop(null)
@@ -372,6 +381,8 @@ class HomeActivity : ThemedActivity(), HomeHost {
         }
         if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
             if (!sidebarExpanded) {
+                val favorites = supportFragmentManager.findFragmentById(R.id.content) as? FavoritesFragment
+                if (favorites?.focusCategoryOnBack() == true) return true
                 navItems.firstOrNull { it.binding.root.isActivated }?.binding?.root?.requestFocus()
                 return true
             }
