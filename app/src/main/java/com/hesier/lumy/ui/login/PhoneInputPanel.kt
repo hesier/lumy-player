@@ -1,12 +1,10 @@
 package com.hesier.lumy.ui.login
 
-import android.app.Dialog
-import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.WindowManager
+import android.view.View
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.hesier.lumy.R
+import com.hesier.lumy.core.ServerKind
 import com.hesier.lumy.net.PhoneInputServer
 import com.hesier.lumy.databinding.ViewPhoneInputPanelBinding
 import kotlinx.coroutines.Job
@@ -17,56 +15,59 @@ import java.net.NetworkInterface
 
 internal class PhoneInputPanel(
     private val activity: FragmentActivity,
+    private val kind: ServerKind,
     private val onReceived: (PhoneInputServer.ServerInput) -> Unit,
-) : Dialog(activity, R.style.Theme_Lumy_Panel) {
+) {
     private var server: PhoneInputServer? = null
     private var expiry: Job? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val b = ViewPhoneInputPanelBinding.inflate(LayoutInflater.from(context))
-        setContentView(b.root)
-        window?.apply {
-            setLayout((800 * context.resources.displayMetrics.density).toInt(), WindowManager.LayoutParams.MATCH_PARENT)
-            addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        }
-        b.close.setOnClickListener { dismiss() }
-        b.close.requestFocus()
-        setOnDismissListener {
-            expiry?.cancel()
-            server?.close()
-            server = null
-        }
+    fun start(b: ViewPhoneInputPanelBinding) {
+        close()
+        b.status.visibility = View.GONE
+        b.qr.visibility = View.VISIBLE
         try {
-            // Bind to one LAN interface, never a VPN/public/wildcard address.
-            val address = NetworkInterface.getNetworkInterfaces().toList()
-                .filter { it.isUp && !it.isLoopback && !it.isVirtual }
-                .filter { it.name.startsWith("wlan") || it.name.startsWith("eth") }
-                .flatMap { it.inetAddresses.toList() }
-                .filterIsInstance<Inet4Address>()
-                .firstOrNull { it.isSiteLocalAddress && !it.isLoopbackAddress }
-                ?: error("No LAN address")
-            val receiver = PhoneInputServer(address, phoneInputPage(context), { input ->
+            lateinit var receiver: PhoneInputServer
+            receiver = PhoneInputServer(lanAddress(), phoneInputPage(activity, kind), { input ->
                 activity.runOnUiThread {
-                    if (isShowing && !activity.isFinishing && !activity.isDestroyed) {
+                    if (server === receiver && !activity.isFinishing && !activity.isDestroyed) {
+                        expiry?.cancel()
+                        showStatus(b, R.string.phone_input_received)
                         onReceived(input)
-                        dismiss()
                     }
                 }
             })
             server = receiver
             b.qr.setImageBitmap(qrBitmap(receiver.url))
-            b.status.text = receiver.url
             expiry = activity.lifecycleScope.launch {
                 while (receiver.isRunning) delay(500)
-                if (isShowing) {
-                    b.qr.setImageDrawable(null)
-                    b.status.setText(R.string.phone_input_expired)
-                }
+                showStatus(b, R.string.phone_input_expired)
             }
         } catch (_: Exception) {
-            server?.close()
-            b.status.setText(R.string.phone_input_unavailable)
+            close()
+            showStatus(b, R.string.phone_input_unavailable)
         }
     }
+
+    fun close() {
+        expiry?.cancel()
+        expiry = null
+        server?.close()
+        server = null
+    }
+
+    private fun showStatus(b: ViewPhoneInputPanelBinding, message: Int) {
+        b.qr.setImageDrawable(null)
+        b.qr.visibility = View.INVISIBLE
+        b.status.visibility = View.VISIBLE
+        b.status.setText(message)
+    }
+
+    private fun lanAddress(): Inet4Address = NetworkInterface.getNetworkInterfaces().toList()
+        // Bind to one LAN interface, never a VPN/public/wildcard address.
+        .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+        .filter { it.name.startsWith("wlan") || it.name.startsWith("eth") }
+        .flatMap { it.inetAddresses.toList() }
+        .filterIsInstance<Inet4Address>()
+        .firstOrNull { it.isSiteLocalAddress && !it.isLoopbackAddress }
+        ?: error("No LAN address")
 }

@@ -27,11 +27,11 @@
     <string name="kind_emby_detail">输入服务器地址、用户名和密码</string>
     <string name="kind_fnos">飞牛影视</string>
     <string name="kind_fnos_detail">使用影视独立账号登录（非 NAS 账号）</string>
-    <string name="direct_login_fnos_hint">请输入飞牛影视地址及影视独立账号，而非 NAS 账号。只填 IP 时默认使用 http 和端口 8005</string>
+    <string name="direct_login_fnos_hint">请输入影视独立账号。只填 IP 时自动补全 http 和端口 8005</string>
     <string name="direct_login_fnos_address_hint">例如 192.168.1.10:8005</string>
 
     <string name="direct_login_title">连接 %1$s 服务器</string>
-    <string name="direct_login_hint">在服务器的控制台或网页端可以看到它的地址。只填 IP 时默认使用 http 和端口 8096</string>
+    <string name="direct_login_hint">只填 IP 时自动补全 http 和端口 8096</string>
     <string name="direct_login_address">服务器地址</string>
     <string name="direct_login_address_hint">例如 192.168.1.10:8096</string>
     <string name="direct_login_username">用户名</string>
@@ -344,14 +344,15 @@
 
     <!-- Phone input -->
     <string name="phone_input_title">手机扫码输入</string>
-    <string name="phone_input_hint">手机与电视连接同一局域网后扫码，五分钟内有效，仅可提交一次。局域网连接使用 HTTP，请在可信网络操作。无法打开时请关闭手机 VPN，或检查路由器的设备隔离设置。</string>
-    <string name="phone_input_web_hint">填写 Jellyfin / Emby 服务信息，发送后请在电视上确认连接。信息通过局域网 HTTP 直接发送到电视，请在可信网络操作。</string>
+    <string name="phone_input_hint">同一局域网扫码填写，5 分钟内有效。请在可信网络操作。</string>
+    <string name="phone_input_web_hint">发送后在电视上确认连接，请在可信局域网使用。</string>
+    <string name="phone_input_refresh">刷新二维码</string>
     <string name="phone_input_send">发送到电视</string>
     <string name="phone_input_sent">已发送，请在电视上选择“连接”完成登录。</string>
     <string name="phone_input_received">已收到手机输入，请检查信息后选择“连接”。</string>
     <string name="phone_input_web_error">发送失败，请检查地址和用户名。若电视窗口已关闭或二维码过期，请重新扫码；若电视已显示填写内容，请直接在电视确认。</string>
-    <string name="phone_input_expired">二维码已失效，请关闭此窗口后重新打开。</string>
-    <string name="phone_input_unavailable">无法启动手机输入，请检查电视的局域网连接后重新打开。</string>
+    <string name="phone_input_expired">二维码已过期，请刷新。</string>
+    <string name="phone_input_unavailable">手机输入暂不可用，请检查电视网络后刷新。</string>
     <string name="update_check">检查更新</string>
     <string name="update_check_detail">从 GitHub 下载新版本并打开系统安装界面</string>
     <string name="update_checking">正在检查…</string>

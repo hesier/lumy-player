@@ -52,15 +52,16 @@ class DirectLoginActivity : ThemedActivity() {
             false
         }
         binding.connect.setOnClickListener { connect() }
-        binding.phoneInput.setOnClickListener {
-            if (busy || phoneInput?.isShowing == true) return@setOnClickListener
-            phoneInput = PhoneInputPanel(this) { input ->
-                binding.address.setText(input.address)
-                binding.username.setText(input.username)
-                binding.password.setText(input.password)
-                binding.name.setText(input.name)
-                showStatus(getString(R.string.phone_input_received), binding.connect)
-            }.also { it.show() }
+        phoneInput = PhoneInputPanel(this, kind) { input ->
+            if (busy) return@PhoneInputPanel
+            binding.address.setText(input.address)
+            binding.username.setText(input.username)
+            binding.password.setText(input.password)
+            binding.name.setText(input.name)
+            showStatus(getString(R.string.phone_input_received), binding.connect)
+        }
+        binding.phoneInput.refresh.setOnClickListener {
+            if (!busy) phoneInput?.start(binding.phoneInput)
         }
         binding.address.requestFocus()
     }
@@ -72,21 +73,30 @@ class DirectLoginActivity : ThemedActivity() {
                 when (direction) {
                     View.FOCUS_UP -> fields.getOrNull(index - 1)
                     View.FOCUS_DOWN -> fields.getOrNull(index + 1) ?: binding.connect
-                    View.FOCUS_LEFT -> binding.phoneInput
+                    View.FOCUS_LEFT -> binding.phoneInput.refresh
                     else -> null
                 }
             }
         }
-        binding.phoneInput.nextFocusRightId = R.id.address
+        binding.phoneInput.refresh.apply {
+            nextFocusRightId = R.id.address
+            nextFocusLeftId = R.id.refresh
+            nextFocusUpId = R.id.refresh
+            nextFocusDownId = R.id.refresh
+        }
         binding.connect.nextFocusUpId = R.id.name
-        binding.connect.nextFocusLeftId = R.id.phone_input
+        binding.connect.nextFocusLeftId = R.id.refresh
         binding.connect.nextFocusRightId = R.id.connect
         binding.connect.nextFocusDownId = R.id.connect
     }
 
+    override fun onStart() {
+        super.onStart()
+        phoneInput?.start(binding.phoneInput)
+    }
+
     override fun onStop() {
-        phoneInput?.dismiss()
-        phoneInput = null
+        phoneInput?.close()
         super.onStop()
     }
 
@@ -101,6 +111,7 @@ class DirectLoginActivity : ThemedActivity() {
         if (username.isEmpty()) return showStatus(getString(R.string.direct_login_need_username), binding.username)
 
         busy = true
+        phoneInput?.close()
         binding.progress.visibility = View.VISIBLE
         showStatus(getString(R.string.direct_login_probing), null)
         lifecycleScope.launch {
@@ -123,7 +134,10 @@ class DirectLoginActivity : ThemedActivity() {
             }
             busy = false
             binding.progress.visibility = View.GONE
-            result?.let { (message, focus) -> showStatus(message, focus) }
+            result?.let { (message, focus) ->
+                phoneInput?.start(binding.phoneInput)
+                showStatus(message, focus)
+            }
         }
     }
 

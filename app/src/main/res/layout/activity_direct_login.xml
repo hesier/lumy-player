@@ -15,17 +15,18 @@
         android:paddingEnd="48dp">
 
         <ImageView
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_launcher" />
 
         <TextView
             android:id="@+id/title"
             style="@style/Text.Hero"
+            android:textSize="28sp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp" />
+            android:layout_marginTop="12dp" />
 
         <TextView
             android:id="@+id/hint"
@@ -35,13 +36,12 @@
             android:layout_marginTop="16dp"
             android:text="@string/direct_login_hint" />
 
-        <TextView
+        <include
             android:id="@+id/phone_input"
-            style="@style/Button.Lumy"
-            android:layout_width="wrap_content"
+            layout="@layout/view_phone_input_panel"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/phone_input_title" />
+            android:layout_marginTop="20dp" />
     </LinearLayout>
 
     <LinearLayout
