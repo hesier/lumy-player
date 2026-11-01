@@ -4,6 +4,34 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.5.0 - 2026-11-01
+
+### Servers and sign-in
+
+- Added **fnOS Media** support: sign in with a media account to browse movies and TV shows, search, filter and sort, resume playback, sync progress and watched status, and use server transcoding. A bare IP address defaults to HTTP on port 8005
+- Jellyfin, Emby and fnOS sign-in screens now show the phone-input QR code inline, with a refresh button
+
+### Playback
+
+- Added **secondary subtitles**: display two available tracks together, with a shared subtitle delay. Ordinary secondary text supports separate size, color and background settings; ASS / SSA and bitmap subtitles keep their original styling and positions
+- Added an extra-small subtitle size
+- Added configurable **hold-to-speed playback**: with the controls hidden, hold OK to speed up and release to restore the previous speed. Defaults to 2×; unavailable during audio passthrough
+- Seek forward and back intervals can now be configured independently, defaulting to 30 seconds forward and 10 seconds back
+- Audio and primary subtitle memories now have separate switches and clear actions, so clearing one keeps the other
+- The progress bar can show total or remaining time on the right. Playback controls now hide after 3 seconds while playing
+
+### Interface
+
+- Fixed card focus jumps when returning to the home screen after playback; landscape cards now show the saved playback position
+- Quickly press OK twice on a movie or episode card to open its details and start or resume playback; show cards play the next target episode once it is available
+- Reorganized settings into Interface, Playback, Audio, Subtitles, Compatibility, Servers and About, and shortened descriptions
+
+### Documentation and limitations
+
+- Added a [server support matrix](docs/server-support.md) covering integration differences and validation limits
+- fnOS checks cover media service version 0.8.43. Collections, playlists, cast filmographies and recommendations are not integrated; transcoding currently re-encodes video and targets stereo or 5.1 audio
+- Secondary subtitles must be present in the current playback source. Transcoding may omit embedded tracks; ASS / SSA and bitmap layouts may overlap
+
 ## 0.4.0 - 2026-10-31
 
 ### Playback
