@@ -44,6 +44,7 @@ class PlayerControlsPlaybackTest(private val instrumentation: Instrumentation) {
             await("real video playing", 45_000) { player.isPlaying && player.currentPosition > 0 }
             checkConfirmFocus()
             checkTimesAndScrub()
+            checkSubtitlePanelHide()
             checkAutoHide()
             checkTapAndHold()
             checkConfiguredSpeed()
@@ -115,9 +116,35 @@ class PlayerControlsPlaybackTest(private val instrumentation: Instrumentation) {
         main { playing = player.isPlaying }
         if (playing) press(KeyEvent.KEYCODE_DPAD_CENTER)
         await("paused after seek") { !player.isPlaying }
+        press(KeyEvent.KEYCODE_DPAD_DOWN)
+        Thread.sleep(2_000)
+        press(KeyEvent.KEYCODE_DPAD_RIGHT)
+        Thread.sleep(1_600)
+        main { check(binding.controls.visibility == View.VISIBLE && !player.isPlaying) }
+        press(KeyEvent.KEYCODE_DPAD_LEFT)
+        await("paused controls hide after navigation", 4_000) { binding.controls.visibility == View.GONE }
+        main { check(!player.isPlaying) }
+        results += "Paused controls hide after the last left/right input without resuming playback"
+    }
+
+    private fun checkSubtitlePanelHide() {
+        press(KeyEvent.KEYCODE_DPAD_DOWN)
+        press(KeyEvent.KEYCODE_DPAD_RIGHT)
+        main {
+            val label = activity.currentFocus?.findViewById<android.widget.TextView>(com.hesier.lumy.R.id.label)
+            check(label?.text == activity.getString(com.hesier.lumy.R.string.player_subtitles))
+        }
+        press(KeyEvent.KEYCODE_DPAD_CENTER)
+        await("subtitle panel open") { !activity.hasWindowFocus() }
         Thread.sleep(3_400)
-        main { check(binding.controls.visibility == View.VISIBLE) { "Paused controls auto-hid" } }
-        results += "Paused controls remain visible past 3 seconds"
+        main { check(binding.controls.visibility == View.VISIBLE) }
+        press(KeyEvent.KEYCODE_DPAD_CENTER)
+        await("subtitle panel dismissed") { activity.hasWindowFocus() }
+        Thread.sleep(2_300)
+        main { check(binding.controls.visibility == View.VISIBLE && !player.isPlaying) }
+        await("controls hide after subtitle selection", 2_000) { binding.controls.visibility == View.GONE }
+        main { check(!player.isPlaying) }
+        results += "Subtitle panel holds controls open and selection restarts the 3-second hide timer while paused"
     }
 
     private fun checkAutoHide() {

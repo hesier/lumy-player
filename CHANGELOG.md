@@ -9,6 +9,7 @@ Each release has a `## <versionName> - <date>` section here and in the Chinese c
 ### Fixes
 
 - Fixed missing button focus after pressing OK to pause or resume playback. The controls now focus the play/pause button when opened, and the clickable background no longer traps D-pad focus
+- Playback controls now hide after 3 seconds of inactivity while paused as well as playing. Closing subtitle or other options panels restarts the timeout, and finishing a touch seek also restarts it
 
 ## 0.5.0 - 2026-11-01
 

@@ -95,4 +95,10 @@ jobs:
             --rawfile zh "$RUNNER_TEMP/notes-zh.md" \
             '{versionCode: $versionCode, versionName: $versionName, apk: $apk, size: $size, sha256: $sha256, notes: {en: $en, zh: $zh}}' \
             > update.json
-          gh release create "$GITHUB_REF_NAME" "$apk" "$apk.sha256" update.json --title "Lumy Player $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$apk" "$apk.sha256" --clobber
+            gh release upload "$GITHUB_REF_NAME" update.json --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "Lumy Player $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$GITHUB_REF_NAME" "$apk" "$apk.sha256" update.json --title "Lumy Player $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
+          fi

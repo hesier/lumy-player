@@ -254,10 +254,14 @@ class PlayerActivity : ThemedActivity() {
                     updateProgress()
                     scheduleHideControls()
                 }
-                MotionEvent.ACTION_UP -> commitScrub()
+                MotionEvent.ACTION_UP -> {
+                    commitScrub()
+                    scheduleHideControls()
+                }
                 MotionEvent.ACTION_CANCEL -> {
                     scrubTarget = null
                     updateProgress()
+                    scheduleHideControls()
                 }
             }
             true
@@ -991,6 +995,7 @@ class PlayerActivity : ThemedActivity() {
     }
 
     private fun hideControls() {
+        hideJob?.cancel()
         controlsJob?.cancel()
         binding.controlsHeader.visibility = View.GONE
         binding.controls.visibility = View.GONE
@@ -1008,9 +1013,10 @@ class PlayerActivity : ThemedActivity() {
 
     private fun scheduleHideControls() {
         hideJob?.cancel()
+        if (!controlsVisible || !hasWindowFocus()) return
         hideJob = lifecycleScope.launch {
             delay(3_000)
-            if (player.isPlaying && scrubTarget == null) {
+            if (controlsVisible && hasWindowFocus() && scrubTarget == null) {
                 hideControls()
                 autoHiddenAt = SystemClock.elapsedRealtime()
             }
@@ -1123,7 +1129,13 @@ class PlayerActivity : ThemedActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (!hasFocus) holdSpeedGesture.cancel()
+        if (hasFocus) {
+            // Restart the idle timeout after a subtitle or other options panel closes.
+            scheduleHideControls()
+        } else {
+            hideJob?.cancel()
+            holdSpeedGesture.cancel()
+        }
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
