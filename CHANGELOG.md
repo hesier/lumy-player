@@ -4,6 +4,12 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.5.1 - 2026-11-01
+
+### Fixes
+
+- Fixed missing button focus after pressing OK to pause or resume playback. The controls now focus the play/pause button when opened, and the clickable background no longer traps D-pad focus
+
 ## 0.5.0 - 2026-11-01
 
 ### Servers and sign-in
