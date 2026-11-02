@@ -33,6 +33,8 @@ sealed interface PlaybackMode {
          * [embedSubtitleId] 的 MKV 能带 TrueHD / DTS，HLS 的 TS 分片不行
          */
         val copyAudio: Boolean = false,
+        /** Combined audio/video budget; adapters reserve audio before limiting video. */
+        val maxTotalBitrateKbps: Int? = null,
     ) : PlaybackMode
 }
 

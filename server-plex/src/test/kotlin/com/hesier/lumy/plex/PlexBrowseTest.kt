@@ -84,6 +84,14 @@ class PlexBrowseTest {
         assertEquals(listOf("$base/library/parts/1/file.mkv", "$base/library/parts/2/file.mkv"), direct.urls)
         assertEquals(0, web.requestCount)
 
+        val limited = server.playbackSource(req(com.hesier.lumy.core.PlaybackMode.Transcode(
+            maxBitrateKbps = 4000, maxTotalBitrateKbps = 3000, copyVideo = false, copyAudio = true,
+        ), 60_000)).urls.first().let { okhttp3.HttpUrl.Companion.run { it.toHttpUrl() } }
+        assertEquals("2616", limited.queryParameter("maxVideoBitrate"))
+        assertEquals("384", limited.queryParameter("audioBitrate"))
+        assertEquals("0", limited.queryParameter("directStreamAudio"))
+        assertEquals("0", limited.queryParameter("directStream"))
+
         val hls = server.playbackSource(req(com.hesier.lumy.core.PlaybackMode.Transcode(), 60_000))
         assertEquals(0, hls.startPart)
         val first = okhttp3.HttpUrl.Companion.run { hls.urls[0].toHttpUrl() }

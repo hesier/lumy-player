@@ -30,7 +30,8 @@ internal fun MediaVersion.withFnOsStreams(data: JsonObject): MediaVersion {
     }
     return copy(
         container = container,
-        bitrateKbps = nativeVideo?.kbps() ?: bitrateKbps,
+        // Native bps describes the video track, not the complete file bitrate.
+        bitrateKbps = bitrateKbps,
         video = nativeVideo?.takeIf { it.isNotEmpty() }?.video(video) ?: video,
         audio = audio.ifEmpty { this.audio },
         subtitles = subtitles.ifEmpty { this.subtitles },

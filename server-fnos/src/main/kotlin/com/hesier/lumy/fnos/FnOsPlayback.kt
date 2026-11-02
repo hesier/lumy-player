@@ -131,13 +131,19 @@ internal class FnOsPlayback(
             selectTrack(streams.objects("subtitle_streams"), it, "subtitle")?.text("guid")
                 ?: throw IOException("fnOS subtitle is missing")
         }
-        val quality = selectQuality(streams.objects("qualities"), mode)
+        // Native AAC has no verified bitrate control; leave headroom for multichannel output.
+        val boundedMode = mode.maxTotalBitrateKbps?.let { total ->
+            val videoBudget = total - NATIVE_AUDIO_RESERVE_KBPS
+            if (videoBudget <= 0) throw IOException("No fnOS quality meets playback limits")
+            mode.copy(maxBitrateKbps = minOf(mode.maxBitrateKbps ?: Int.MAX_VALUE, videoBudget), copyAudio = false)
+        } ?: mode
+        val quality = selectQuality(streams.objects("qualities"), boundedMode)
         return buildJsonObject {
             put("media_guid", request.item.id)
             put("video_guid", video.text("guid") ?: throw IOException("fnOS video GUID is missing"))
             // The native protocol has no verified explicit stream-copy switch.
             put("video_encoder", "h264")
-            put("audio_encoder", audioEncoder(audio, mode))
+            put("audio_encoder", audioEncoder(audio, boundedMode))
             put("channels", if ((audio?.number("channels") ?: 0) >= SURROUND_CHANNELS) SURROUND_CHANNELS else STEREO_CHANNELS)
             put("audio_guid", audio?.text("guid").orEmpty())
             put("subtitle_guid", subtitle ?: "_no_display_")
@@ -198,6 +204,7 @@ internal class FnOsPlayback(
     private fun JsonObject.number(key: String): Int? = (get(key) as? JsonPrimitive)?.intOrNull
 
     private companion object {
+        const val NATIVE_AUDIO_RESERVE_KBPS = 768
         const val MILLIS_PER_SECOND = 1000L
         const val STEREO_CHANNELS = 2
         // Native AAC output is limited to 5.1 even when channels=8 is requested.

@@ -17,6 +17,7 @@ import com.hesier.lumy.core.MediaServer
 import com.hesier.lumy.core.MediaType
 import com.hesier.lumy.core.MediaVersion
 import com.hesier.lumy.core.Page
+import com.hesier.lumy.core.PlaybackBandwidth
 import com.hesier.lumy.core.PlaybackMode
 import com.hesier.lumy.core.PlaybackRequest
 import com.hesier.lumy.core.PlaybackSource
@@ -180,6 +181,8 @@ class PlexMediaServer(
      */
     private fun transcodeUrl(request: PlaybackRequest, mode: PlaybackMode.Transcode, part: Int, offsetMs: Long): String {
         val session = sessionFor(request, part)
+        val budget = PlaybackBandwidth.budget(request)
+        val copyVideo = mode.copyVideo && (budget == null || budget.canCopyVideo(request.version))
         val b = url("/video/:/transcode/universal/start.m3u8")
             .addQueryParameter("path", "/library/metadata/${request.item.id}")
             .addQueryParameter("mediaIndex", request.version.index.toString())
@@ -187,8 +190,8 @@ class PlexMediaServer(
             .addQueryParameter("protocol", "hls")
             .addQueryParameter("fastSeek", "1")
             .addQueryParameter("directPlay", "0")
-            .addQueryParameter("directStream", if (mode.copyVideo) "1" else "0")
-            .addQueryParameter("directStreamAudio", "1")
+            .addQueryParameter("directStream", if (copyVideo) "1" else "0")
+            .addQueryParameter("directStreamAudio", if (budget?.copyAudio == false) "0" else "1")
             .addQueryParameter("offset", (offsetMs / 1000).toString())
             // 不能再带 X-Plex-Session-Identifier 参数：实测服务端会直接返回 400
             .addQueryParameter("session", session)
@@ -196,7 +199,8 @@ class PlexMediaServer(
             .addQueryParameter("subtitles", if (mode.burnSubtitleId != null) "burn" else "none")
             .addQueryParameter("subtitleSize", "100")
             .addQueryParameter("X-Plex-Client-Profile-Extra", if (mode.sdr) CLIENT_PROFILE_EXTRA_SDR else CLIENT_PROFILE_EXTRA)
-        mode.maxBitrateKbps?.let {
+        budget?.let { b.addQueryParameter("audioBitrate", it.audioKbps.toString()) }
+        (budget?.videoKbps ?: mode.maxBitrateKbps)?.let {
             b.addQueryParameter("maxVideoBitrate", it.toString())
             b.addQueryParameter("videoQuality", "100")
         }

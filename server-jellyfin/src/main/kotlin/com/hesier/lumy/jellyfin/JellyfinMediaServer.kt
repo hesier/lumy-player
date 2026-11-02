@@ -14,6 +14,7 @@ import com.hesier.lumy.core.MediaServer
 import com.hesier.lumy.core.MediaType
 import com.hesier.lumy.core.MediaVersion
 import com.hesier.lumy.core.Page
+import com.hesier.lumy.core.PlaybackBandwidth
 import com.hesier.lumy.core.PlaybackMode
 import com.hesier.lumy.core.PlaybackRequest
 import com.hesier.lumy.core.PlaybackSource
@@ -329,6 +330,8 @@ class JellyfinMediaServer(
      */
     private fun transcodeUrl(request: PlaybackRequest, mode: PlaybackMode.Transcode): String {
         val embed = mode.embedSubtitleId
+        val budget = PlaybackBandwidth.budget(request)
+        val copyVideo = mode.copyVideo && (budget == null || budget.canCopyVideo(request.version))
         // MKV 放得下 TrueHD / DTS 等，本机能解码时把原音轨的格式也列上，服务端才会原样复制（实测不列就转成 AAC）
         val sourceAudio = request.version.audio.firstOrNull { it.id == request.audioStreamId }?.codec?.lowercase()
         val audioCodecs = AUDIO_CODECS + listOfNotNull(sourceAudio.takeIf { embed != null && mode.copyAudio && it !in AUDIO_CODECS })
@@ -338,10 +341,10 @@ class JellyfinMediaServer(
             "DeviceId" to deviceId,
             // 只允许 H.264 时服务端会对 HDR 片源做色调映射（需在服务端开启）
             "VideoCodec" to if (mode.sdr) "h264" else "h264,hevc",
-            "AudioCodec" to audioCodecs.joinToString(","),
+            "AudioCodec" to if (budget?.copyAudio == false) "aac" else audioCodecs.joinToString(","),
             "TranscodingMaxAudioChannels" to "8",
-            "AllowVideoStreamCopy" to mode.copyVideo.toString(),
-            "AllowAudioStreamCopy" to "true",
+            "AllowVideoStreamCopy" to copyVideo.toString(),
+            "AllowAudioStreamCopy" to (budget?.copyAudio ?: true).toString(),
         )
         if (embed != null) {
             b.addQueryParameter("StartTimeTicks", (request.startMs * 10_000).toString())
@@ -361,8 +364,9 @@ class JellyfinMediaServer(
         }
         // 不带码率时服务端按很低的默认值（640 kbps）转码，画面会缩到 416x234，所以总要给一个
         val kbps = mode.maxBitrateKbps ?: if (mode.copyVideo) COPY_MAX_KBPS else REENCODE_KBPS
-        b.addQueryParameter("MaxStreamingBitrate", (kbps * 1000).toString())
-        if (!mode.copyVideo) b.addQueryParameter("VideoBitrate", (kbps * 1000).toString())
+        b.addQueryParameter("MaxStreamingBitrate", ((mode.maxTotalBitrateKbps ?: kbps).toLong() * 1000).toString())
+        budget?.let { b.addQueryParameter("AudioBitrate", (it.audioKbps * 1000).toString()) }
+        if (!copyVideo) b.addQueryParameter("VideoBitrate", ((budget?.videoKbps ?: kbps).toLong() * 1000).toString())
         mode.maxHeight?.let {
             b.addQueryParameter("MaxHeight", it.toString())
             b.addQueryParameter("MaxWidth", (it * 16 / 9).toString())

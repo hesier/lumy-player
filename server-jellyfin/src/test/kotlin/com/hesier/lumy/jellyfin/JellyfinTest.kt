@@ -147,6 +147,25 @@ class JellyfinTest {
         assertEquals("false", url.queryParameter("AllowVideoStreamCopy"))
         assertEquals("tok", url.queryParameter("ApiKey"))
 
+        for (kind in listOf(ServerKind.JELLYFIN, ServerKind.EMBY)) {
+            val limited = server(kind).playbackSource(req.copy(mode = PlaybackMode.Transcode(
+                maxBitrateKbps = 4000, maxTotalBitrateKbps = 3000, copyVideo = false, copyAudio = true,
+            ))).urls.single().toHttpUrl()
+            assertEquals("3000000", limited.queryParameter("MaxStreamingBitrate"))
+            assertEquals("2616000", limited.queryParameter("VideoBitrate"))
+            assertEquals("384000", limited.queryParameter("AudioBitrate"))
+            assertEquals("false", limited.queryParameter("AllowAudioStreamCopy"))
+            assertEquals("aac", limited.queryParameter("AudioCodec"))
+        }
+
+        val expandedAudio = server().playbackSource(req.copy(
+            version = req.version.copy(bitrateKbps = 1400),
+            mode = PlaybackMode.Transcode(maxTotalBitrateKbps = 1500, copyVideo = true),
+        )).urls.single().toHttpUrl()
+        assertEquals("false", expandedAudio.queryParameter("AllowVideoStreamCopy"))
+        assertEquals("1125000", expandedAudio.queryParameter("VideoBitrate"))
+        assertEquals("375000", expandedAudio.queryParameter("AudioBitrate"))
+
         // 不限画质也要带码率，否则服务端按 640 kbps 转码
         val reencode = server().playbackSource(req.copy(mode = PlaybackMode.Transcode(maxHeight = 1080, copyVideo = false))).urls.single().toHttpUrl()
         assertEquals("20000000", reencode.queryParameter("VideoBitrate"))

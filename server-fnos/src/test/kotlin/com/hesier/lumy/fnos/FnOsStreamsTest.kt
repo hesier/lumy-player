@@ -23,7 +23,9 @@ class FnOsStreamsTest {
         assertEquals("mkv", version.container)
         assertEquals("mkv", version.part.container)
         assertEquals(12_345L, version.part.durationMs)
-        assertEquals(18_000, version.bitrateKbps)
+        assertEquals(previous.bitrateKbps, version.bitrateKbps)
+        assertEquals(18_000, version.video?.bitrateKbps)
+        assertTrue(com.hesier.lumy.core.PlaybackBandwidth.requiresTranscode(version, 20_000))
         with(version.video!!) {
             assertEquals("hevc", codec)
             assertEquals(3840, width)

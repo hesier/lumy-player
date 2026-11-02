@@ -78,6 +78,33 @@ class FnOsPlaybackTest {
     }
 
     @Test
+    fun `total budget reserves audio before selecting native quality`() = runBlocking {
+        val playback = playback()
+        bootstrap()
+        data(STREAM)
+        data("""{"play_link":"/v/media/session/preset.m3u8"}""")
+        playback.source(request(PlaybackMode.Transcode(maxTotalBitrateKbps = 2000, copyAudio = true)))
+        repeat(3) { web.takeRequest() }
+        val body = web.takeRequest().bodyJson()
+        assertEquals("1000000", body["bitrate"].toString())
+        assertEquals("\"aac\"", body["audio_encoder"].toString())
+    }
+
+    @Test
+    fun `no native quality fits total budget does not start playback`() = runBlocking {
+        val playback = playback()
+        bootstrap()
+        data(STREAM)
+        try {
+            playback.source(request(PlaybackMode.Transcode(maxTotalBitrateKbps = 1500)))
+            fail("Expected an unsatisfied bitrate limit")
+        } catch (error: IOException) {
+            assertEquals("No fnOS quality meets playback limits", error.message)
+        }
+        assertEquals(3, web.requestCount)
+    }
+
+    @Test
     fun `burn uses native subtitle and stopping retries only its own session`() = runBlocking {
         val playback = playback()
         bootstrap()
