@@ -5,8 +5,10 @@ import com.hesier.lumy.core.AudioStream
 import com.hesier.lumy.core.HdrType
 import com.hesier.lumy.core.MediaVersion
 import com.hesier.lumy.core.PlaybackMode
+import com.hesier.lumy.core.PlaybackBandwidth
 import com.hesier.lumy.core.SubtitleStream
 import com.hesier.lumy.R
+import java.text.DecimalFormat
 
 /** 用户在“画质”菜单里的选择 */
 sealed interface Quality {
@@ -39,6 +41,8 @@ sealed interface PlaybackIssue {
     data class VideoTooDemanding(val resolution: String, val tenBit: Boolean, val codec: String) : PlaybackIssue
     data class UnknownAudioCodec(val codec: String) : PlaybackIssue
     data class NoAudioDecoder(val codec: String) : PlaybackIssue
+    data class BandwidthLimit(val kbps: Int, val sourceKbps: Int? = null) : PlaybackIssue
+    data class OutputBitrateLimit(val kbps: Int) : PlaybackIssue
     data object HdrUnsupported : PlaybackIssue
     data class SubtitleNeedsBurn(val codec: String) : PlaybackIssue
 }
@@ -56,6 +60,12 @@ fun PlaybackIssue.text(context: Context): String = when (this) {
     )
     is PlaybackIssue.UnknownAudioCodec -> context.getString(R.string.issue_unknown_audio_codec, codec.uppercase())
     is PlaybackIssue.NoAudioDecoder -> context.getString(R.string.issue_no_audio_decoder, codec.uppercase())
+    is PlaybackIssue.BandwidthLimit -> if (sourceKbps == null) {
+        context.getString(R.string.issue_bitrate_unknown, "%.2f".format(kbps / 1000f))
+    } else {
+        context.getString(R.string.issue_bandwidth_limit, DecimalFormat("0.00#").format(sourceKbps / 1000.0), "%.2f".format(kbps / 1000f))
+    }
+    is PlaybackIssue.OutputBitrateLimit -> context.getString(R.string.issue_output_bitrate_limit, "%.2f".format(kbps / 1000f))
     PlaybackIssue.HdrUnsupported -> context.getString(R.string.issue_hdr_unsupported)
     is PlaybackIssue.SubtitleNeedsBurn -> context.getString(R.string.issue_subtitle_needs_burn, codec.uppercase())
 }
@@ -78,6 +88,7 @@ data class PlanPolicy(
     val displaySupportsHdr: Boolean = true,
     /** 服务器转码时能带上内封字幕（[com.hesier.lumy.core.MediaServer.embedsSubtitles]） */
     val serverEmbedsSubtitles: Boolean = false,
+    val maxTotalBitrateKbps: Int? = null,
 )
 
 /**
@@ -98,8 +109,15 @@ class PlaybackPlanner(private val device: DeviceProfile) {
         /** 本机实际解码视频失败（设备声明支持也不算数），转码时必须重新编码视频 */
         videoDecodeFailed: Boolean = false,
     ): Plan {
+        val bandwidthLimited = PlaybackBandwidth.requiresTranscode(version, policy.maxTotalBitrateKbps)
         val mediaProblems = buildList {
-            if (videoDecodeFailed) add(PlaybackIssue.VideoDecodeFailed) else if (forceTranscode) add(PlaybackIssue.DirectPlayFailed)
+            if (bandwidthLimited) {
+                val limit = policy.maxTotalBitrateKbps!!
+                val source = PlaybackBandwidth.sourceKbps(version, includePartialParts = true)?.takeIf { it > limit }
+                add(PlaybackIssue.BandwidthLimit(limit, source))
+            }
+            if (videoDecodeFailed) add(PlaybackIssue.VideoDecodeFailed)
+            else if (forceTranscode) add(PlaybackIssue.DirectPlayFailed)
             if (!device.containerSupported(version.container)) add(PlaybackIssue.Container(version.container.orEmpty()))
             version.video?.let { device.videoProblem(it) }?.let(::add)
             audio?.let { device.audioProblem(it.codec) }?.let(::add)
@@ -119,8 +137,12 @@ class PlaybackPlanner(private val device: DeviceProfile) {
         }
 
         val videoOk = !videoDecodeFailed && version.video?.let(device::videoProblem) == null
-        val reencode = quality is Quality.Limited || !videoOk || toSdr
         val audioOk = audio == null || device.audioProblem(audio.codec) == null
+        val budget = PlaybackBandwidth.budget(
+            PlaybackMode.Transcode(maxTotalBitrateKbps = policy.maxTotalBitrateKbps, copyAudio = audioOk), audio,
+        )
+        val outputLimited = budget != null && !budget.canCopyVideo(version)
+        val reencode = quality is Quality.Limited || bandwidthLimited || !videoOk || toSdr || outputLimited
         // 转码输出里没有内封字幕：服务器能带上时由本机渲染，否则要么烧录，要么这条字幕不可用。
         // 视频反正要重新编码时，烧录几乎不增加服务器负担，不受开关限制（Plex 此时也会自己烧录服务器记住的字幕）
         val needsBurn = subtitle != null && !device.canRenderSubtitle(subtitle, transcoding = true)
@@ -130,6 +152,7 @@ class PlaybackPlanner(private val device: DeviceProfile) {
             is Quality.Limited -> PlaybackMode.Transcode(
                 quality.bitrateKbps, quality.height, burnSubtitleId = burnId, embedSubtitleId = embedId, copyVideo = false, sdr = toSdr,
                 copyAudio = audioOk,
+                maxTotalBitrateKbps = policy.maxTotalBitrateKbps,
             )
             // 本机解不了的视频要重新编码；超过 1080p 的降到 1080p，解不了 4K HEVC 的设备多半也解不了 4K H.264。
             // 转 SDR 也降到 1080p：4K 色调映射加重新编码对服务器负担很大，不少盒子也解不了 4K H.264
@@ -140,9 +163,15 @@ class PlaybackPlanner(private val device: DeviceProfile) {
                 copyVideo = !reencode && burnId == null,
                 sdr = toSdr,
                 copyAudio = audioOk,
+                maxTotalBitrateKbps = policy.maxTotalBitrateKbps,
             )
         }
-        val reasons = mediaProblems + (if (toSdr) listOf(PlaybackIssue.HdrUnsupported) else emptyList()) + if (!directSubtitleOk && burnId != null) listOf(PlaybackIssue.SubtitleNeedsBurn(subtitle!!.codec)) else emptyList()
+        val reasons = buildList {
+            addAll(mediaProblems)
+            if (outputLimited && !bandwidthLimited) add(PlaybackIssue.OutputBitrateLimit(policy.maxTotalBitrateKbps!!))
+            if (toSdr) add(PlaybackIssue.HdrUnsupported)
+            if (!directSubtitleOk && burnId != null) add(PlaybackIssue.SubtitleNeedsBurn(subtitle!!.codec))
+        }.distinct()
         return Plan(mode, reasons, subtitleUnavailable = needsBurn && burnId == null && embedId == null)
     }
 

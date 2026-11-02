@@ -88,10 +88,18 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("secondary_subtitle_background", subtitleBackground)
         set(v) = prefs.edit().putBoolean("secondary_subtitle_background", v).apply()
 
-    /** 关闭后只直接播放，设备不支持的格式会报错而不是交给服务器转码 */
-    var allowTranscode: Boolean
-        get() = prefs.getBoolean("allow_transcode", true)
-        set(v) = prefs.edit().putBoolean("allow_transcode", v).apply()
+    // Preserve the legacy value until each server has its own explicit preference.
+    fun allowTranscode(serverId: String): Boolean =
+        prefs.getBoolean("allow_transcode:$serverId", prefs.getBoolean("allow_transcode", true))
+
+    fun setAllowTranscode(serverId: String, enabled: Boolean) =
+        prefs.edit().putBoolean("allow_transcode:$serverId", enabled).apply()
+
+    fun bandwidthMbps(serverId: String): Int =
+        prefs.getInt("bandwidth_mbps:$serverId", 0).takeIf { it in BANDWIDTH_OPTIONS } ?: 0
+
+    fun setBandwidthMbps(serverId: String, mbps: Int) =
+        prefs.edit().putInt("bandwidth_mbps:$serverId", mbps).apply()
 
     var allowSoftwareVideoDecoding: Boolean
         get() = prefs.getBoolean("allow_software_video_decoding", false)
@@ -129,7 +137,8 @@ class Settings(context: Context) {
 
     /** 删除服务器时一起清掉 */
     fun forgetServer(serverId: String) =
-        prefs.edit().remove("hidden_sidebar:$serverId").remove("sidebar_order:$serverId").apply()
+        prefs.edit().remove("hidden_sidebar:$serverId").remove("sidebar_order:$serverId")
+            .remove("allow_transcode:$serverId").remove("bandwidth_mbps:$serverId").apply()
 
     /** 旧版本只有一台服务器，侧边栏设置没有按服务器区分，归到升级后的那台 */
     fun migrateSidebar(serverId: String) {
@@ -261,6 +270,8 @@ class Settings(context: Context) {
         name?.let { runCatching { SkipMode.valueOf(it) }.getOrNull() } ?: default
 
     companion object {
+        val BANDWIDTH_OPTIONS = listOf(0, 10, 20, 30, 50, 60, 100)
+
         /** 按保存的顺序排列，没排过序的保持原顺序放在后面 */
         fun <T> applyOrder(items: List<T>, order: List<String>, id: (T) -> String): List<T> {
             val rank = order.withIndex().associate { it.value to it.index }

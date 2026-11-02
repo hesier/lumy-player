@@ -283,7 +283,7 @@
     <string name="subtitle_unavailable">服务器转码时无法显示内封字幕（已禁止服务器烧录字幕，可在设置中开启）</string>
     <string name="direct_only_failed">设备无法直接播放：%1$s（已禁止服务器转码）</string>
     <string name="settings_allow_transcode">允许服务器转码</string>
-    <string name="settings_allow_transcode_detail">关闭后只直接播放；设备不支持的视频会报错，不会占用服务器</string>
+    <string name="settings_allow_transcode_detail">关闭后仅直接播放，不兼容格式会报错</string>
     <string name="settings_display_hdr">电视支持 HDR</string>
     <string name="settings_display_hdr_detail">关闭后转为 1080p SDR；需允许转码并开启服务器色调映射。</string>
     <string name="settings_allow_burn">允许服务器烧录字幕</string>
@@ -411,4 +411,15 @@
     <string name="favorites_shows">节目</string>
     <string name="favorites_episodes">单集</string>
     <string name="settings_sidebar_favorites_detail">选择要显示在首页侧边栏的媒体库、播放列表和收藏</string>
+    <string name="settings_current_server_only">仅对当前服务器生效</string>
+    <string name="settings_server_bandwidth">服务器可用带宽</string>
+    <string name="bandwidth_unlimited">不限</string>
+    <string name="bandwidth_mbps">%1$d Mbps</string>
+    <string name="settings_bandwidth_unlimited_detail">不限码率，优先直接播放</string>
+    <string name="settings_bandwidth_limit_detail">音视频最高 %1$s Mbps，超限时转码</string>
+    <string name="settings_bandwidth_transcode_disabled">转码已关闭，码率限制不生效</string>
+    <string name="issue_bandwidth_limit">片源码率 %1$s Mbps 超过上限 %2$s Mbps</string>
+    <string name="settings_bandwidth_option_detail">音视频合计最高 %1$s Mbps</string>
+    <string name="issue_bitrate_unknown">片源码率未知，采用上限 %1$s Mbps</string>
+    <string name="issue_output_bitrate_limit">需重新编码以满足音视频合计 %1$s Mbps 上限</string>
 </resources>

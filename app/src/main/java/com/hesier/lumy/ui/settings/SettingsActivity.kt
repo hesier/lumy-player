@@ -21,6 +21,7 @@ import kotlin.math.roundToInt
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.hesier.lumy.core.TrackLanguage
+import com.hesier.lumy.core.PlaybackBandwidth
 import com.hesier.lumy.BuildConfig
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
@@ -112,6 +113,35 @@ class SettingsActivity : ThemedActivity() {
             return true
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun serverSettingDetail(detail: String): String =
+        detail + " · " + getString(R.string.settings_current_server_only)
+
+    private fun bandwidthLabel(mbps: Int): String =
+        if (mbps == 0) getString(R.string.bandwidth_unlimited) else getString(R.string.bandwidth_mbps, mbps)
+
+    private fun bandwidthDetail(mbps: Int): String {
+        val total = PlaybackBandwidth.maxTotalKbps(mbps)
+        val detail = if (total == null) getString(R.string.settings_bandwidth_unlimited_detail)
+            else getString(R.string.settings_bandwidth_limit_detail, "%.2f".format(total / 1000f))
+        val scopedDetail = serverSettingDetail(detail)
+        return if (settings.allowTranscode(entryId)) scopedDetail
+            else scopedDetail + "\n" + getString(R.string.settings_bandwidth_transcode_disabled)
+    }
+
+    private fun pickBandwidth() {
+        val serverId = entryId
+        val options = Settings.BANDWIDTH_OPTIONS.map { mbps ->
+            val total = PlaybackBandwidth.maxTotalKbps(mbps)
+            val detail = if (total == null) getString(R.string.settings_bandwidth_unlimited_detail)
+                else getString(R.string.settings_bandwidth_option_detail, "%.2f".format(total / 1000f))
+            Option(bandwidthLabel(mbps), detail, settings.bandwidthMbps(serverId) == mbps)
+        }
+        OptionsPanel(this, getString(R.string.settings_server_bandwidth), options) { index ->
+            settings.setBandwidthMbps(serverId, Settings.BANDWIDTH_OPTIONS[index])
+            render()
+        }.show()
     }
 
     private fun selectCategory(index: Int) {
@@ -297,11 +327,16 @@ class SettingsActivity : ThemedActivity() {
                 Toast.makeText(this, R.string.track_memory_cleared, Toast.LENGTH_SHORT).show()
             },
             ),
-            listOf(
-            Row(getString(R.string.settings_allow_transcode), onOff(settings.allowTranscode), getString(R.string.settings_allow_transcode_detail)) {
-                settings.allowTranscode = !settings.allowTranscode
+            listOfNotNull(
+            Row(getString(R.string.settings_allow_transcode), onOff(settings.allowTranscode(entryId)),
+                serverSettingDetail(getString(R.string.settings_allow_transcode_detail))) {
+                settings.setAllowTranscode(entryId, !settings.allowTranscode(entryId))
                 render()
-            },
+            }.takeIf { app.currentEntry != null },
+            Row(getString(R.string.settings_server_bandwidth), bandwidthLabel(settings.bandwidthMbps(entryId)),
+                bandwidthDetail(settings.bandwidthMbps(entryId))) {
+                pickBandwidth()
+            }.takeIf { app.currentEntry != null },
             Row(getString(R.string.settings_allow_software_video_decoding), onOff(settings.allowSoftwareVideoDecoding), getString(R.string.settings_allow_software_video_decoding_detail)) {
                 settings.allowSoftwareVideoDecoding = !settings.allowSoftwareVideoDecoding
                 render()

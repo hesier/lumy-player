@@ -154,10 +154,11 @@ class PlayerActivity : ThemedActivity() {
 
     private val settings get() = LumyApp.instance.settings
     private val policy get() = PlanPolicy(
-        settings.allowTranscode,
+        settings.allowTranscode(LumyApp.instance.currentEntry?.id.orEmpty()),
         settings.allowSubtitleBurn,
         settings.displaySupportsHdr,
         server.embedsSubtitles,
+        com.hesier.lumy.core.PlaybackBandwidth.maxTotalKbps(settings.bandwidthMbps(LumyApp.instance.currentEntry?.id.orEmpty())),
     )
     /** 剧集的下一集，加载完详情后异步获取 */
     private var nextEpisode: MediaItem? = null

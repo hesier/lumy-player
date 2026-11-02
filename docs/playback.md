@@ -18,6 +18,14 @@ Lumy Player uses Direct Play whenever possible. Direct Play keeps the original q
 
 Transcoding requires **Allow server transcoding** to be on (the default). When it's off, Lumy Player always uses Direct Play. If the device can't play a file, an error explains why.
 
+### Server bandwidth
+
+**Settings → Compatibility → Allow server transcoding / Available server bandwidth** apply only to the current saved server. Both settings are marked as applying only to the current server. Existing installations retain the previous transcoding switch value until it is changed for each server.
+
+Bandwidth defaults to Unlimited. Selecting a bandwidth uses **75% for video and audio combined**: 20 Mbps allows a target of 15 Mbps, shown in the setting and each option. Sources within budget still prefer Direct Play; sources above budget or with unknown bitrate request video transcoding. File size divided by duration can estimate total source bitrate. Manual quality limits still apply alongside this budget. With transcoding off, Direct Play continues and the setting explains that the limit cannot be applied.
+
+This is a bitrate target, not a strict network speed limit; peaks and transport overhead can exceed it. Plex and Jellyfin / Emby reserve audio before setting video bitrate. fnOS selects an available video preset after reserving 768 kbps for native AAC; its audio bitrate cannot currently be controlled, so this reserve is an estimate. If no preset fits, playback fails rather than choosing a higher preset.
+
 ### Decided before playback starts
 
 “Remuxes only” and “converts the audio only” require an integration that permits video stream copy. fnOS currently re-encodes the video instead.

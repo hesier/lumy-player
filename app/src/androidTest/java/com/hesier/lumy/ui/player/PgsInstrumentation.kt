@@ -12,6 +12,7 @@ class PgsInstrumentation : Instrumentation() {
     private var benchmark = false
     private var dualSubtitlesOnly = false
     private var trackMemoryOnly = false
+    private var bandwidthSettingsOnly = false
     private var seekSettingsOnly = false
     private var holdSpeedOnly = false
     private var playerControlsOnly = false
@@ -27,6 +28,7 @@ class PgsInstrumentation : Instrumentation() {
         trackMemoryOnly = arguments?.getString("track_memory_only") == "true"
         playerControlsOnly = arguments?.getString("player_controls_only") == "true"
         holdSpeedOnly = arguments?.getString("hold_speed_only") == "true"
+        bandwidthSettingsOnly = arguments?.getString("bandwidth_settings_only") == "true"
         seekSettingsOnly = arguments?.getString("seek_settings_only") == "true"
         rmFixture = arguments?.getString("rm_fixture")
         softwareFixture = arguments?.getString("software_fixture")
@@ -45,6 +47,12 @@ class PgsInstrumentation : Instrumentation() {
             if (holdSpeedOnly) {
                 HoldSpeedTest().runAll(targetContext)
                 result.putString("stream", "Hold speed tap, hold, release, repeat, cancellation and settings checks passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (bandwidthSettingsOnly) {
+                runOnMainSync { BandwidthSettingsTest().runAll(targetContext) }
+                result.putString("stream", "Per-server bandwidth, transcoding migration and playback planning checks passed\n")
                 finish(Activity.RESULT_OK, result)
                 return
             }

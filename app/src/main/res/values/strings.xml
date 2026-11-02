@@ -296,7 +296,7 @@
     <string name="subtitle_unavailable">Embedded subtitles can\'t be shown while the server transcodes (server burn-in is off; you can turn it on in Settings)</string>
     <string name="direct_only_failed">This device can\'t play the file directly: %1$s (server transcoding is off)</string>
     <string name="settings_allow_transcode">Allow server transcoding</string>
-    <string name="settings_allow_transcode_detail">When off, only Direct Play is used. Videos this device can\'t play show an error instead of loading the server</string>
+    <string name="settings_allow_transcode_detail">When off, Direct Play only; unsupported files show an error</string>
     <string name="settings_display_hdr">TV supports HDR</string>
     <string name="settings_display_hdr_detail">When off, convert to 1080p SDR. Requires transcoding and server tone mapping.</string>
     <string name="settings_allow_burn">Allow server subtitle burn-in</string>
@@ -427,4 +427,15 @@
     <string name="favorites_shows">TV shows</string>
     <string name="favorites_episodes">Episodes</string>
     <string name="settings_sidebar_favorites_detail">Choose libraries, playlists and favorites to show in the home sidebar</string>
+    <string name="settings_current_server_only">Current server only</string>
+    <string name="settings_server_bandwidth">Available server bandwidth</string>
+    <string name="bandwidth_unlimited">Unlimited</string>
+    <string name="bandwidth_mbps">%1$d Mbps</string>
+    <string name="settings_bandwidth_unlimited_detail">No bitrate limit; prefer Direct Play</string>
+    <string name="settings_bandwidth_limit_detail">Video + audio up to %1$s Mbps; transcode above limit</string>
+    <string name="settings_bandwidth_transcode_disabled">Transcoding is off; bitrate limit inactive</string>
+    <string name="issue_bandwidth_limit">Source bitrate %1$s Mbps exceeds the %2$s Mbps limit</string>
+    <string name="settings_bandwidth_option_detail">Video + audio up to %1$s Mbps</string>
+    <string name="issue_bitrate_unknown">Source bitrate unknown; applying the %1$s Mbps limit</string>
+    <string name="issue_output_bitrate_limit">Re-encoding to fit the %1$s Mbps video + audio budget</string>
 </resources>

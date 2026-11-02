@@ -283,7 +283,7 @@
     <string name="subtitle_unavailable">伺服器轉碼時無法顯示內嵌字幕（已停用伺服器燒入字幕，可在設定中開啟）</string>
     <string name="direct_only_failed">裝置無法直接播放：%1$s（已停用伺服器轉碼）</string>
     <string name="settings_allow_transcode">允許伺服器轉碼</string>
-    <string name="settings_allow_transcode_detail">關閉後只直接播放；裝置不支援的影片會顯示錯誤，不會占用伺服器</string>
+    <string name="settings_allow_transcode_detail">關閉後僅直接播放，不相容格式會顯示錯誤</string>
     <string name="settings_display_hdr">電視支援 HDR</string>
     <string name="settings_display_hdr_detail">關閉後轉為 1080p SDR；需允許轉碼並開啟伺服器色調對應。</string>
     <string name="settings_allow_burn">允許伺服器燒入字幕</string>
@@ -411,4 +411,15 @@
     <string name="favorites_shows">節目</string>
     <string name="favorites_episodes">單集</string>
     <string name="settings_sidebar_favorites_detail">選擇要顯示在首頁側邊欄的媒體庫、播放清單和收藏</string>
+    <string name="settings_current_server_only">僅對目前伺服器生效</string>
+    <string name="settings_server_bandwidth">伺服器可用頻寬</string>
+    <string name="bandwidth_unlimited">不限</string>
+    <string name="bandwidth_mbps">%1$d Mbps</string>
+    <string name="settings_bandwidth_unlimited_detail">不限位元率，優先直接播放</string>
+    <string name="settings_bandwidth_limit_detail">影音最高 %1$s Mbps，超限時轉碼</string>
+    <string name="settings_bandwidth_transcode_disabled">轉碼已關閉，位元率限制不生效</string>
+    <string name="issue_bandwidth_limit">來源位元率 %1$s Mbps 超過上限 %2$s Mbps</string>
+    <string name="settings_bandwidth_option_detail">影音合計最高 %1$s Mbps</string>
+    <string name="issue_bitrate_unknown">來源位元率未知，採用上限 %1$s Mbps</string>
+    <string name="issue_output_bitrate_limit">需重新編碼以符合影音合計 %1$s Mbps 上限</string>
 </resources>
