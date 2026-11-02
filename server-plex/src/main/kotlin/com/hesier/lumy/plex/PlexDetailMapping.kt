@@ -18,6 +18,7 @@ import kotlinx.serialization.json.JsonObject
 
 internal fun PlexMetadata.toDetail(json: Json): MediaDetail = MediaDetail(
     item = toItem(),
+    originalTitle = originalTitle,
     tagline = tagline,
     contentRating = contentRating,
     rating = audienceRating ?: rating,

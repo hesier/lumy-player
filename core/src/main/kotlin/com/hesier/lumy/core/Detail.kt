@@ -20,6 +20,8 @@ data class MediaDetail(
     val onDeck: MediaItem? = null,
     val markers: List<Marker> = emptyList(),
     val chapters: List<Chapter> = emptyList(),
+    val originalTitle: String? = null,
+    val providerIds: Map<String, String> = emptyMap(),
 )
 
 /** 一个可播放的版本（源文件） */

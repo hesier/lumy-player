@@ -82,6 +82,8 @@ internal fun BaseItem.toDetail(segments: List<MediaSegmentDto>, onDeck: MediaIte
     val realChapters = chapters.filter { it.markerType == null || it.markerType == "Chapter" }
     return MediaDetail(
         item = item,
+        originalTitle = originalTitle,
+        providerIds = providerIds,
         tagline = taglines.firstOrNull(),
         contentRating = officialRating,
         rating = communityRating,

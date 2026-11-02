@@ -64,6 +64,9 @@ interface MediaServer {
     /** 剧集的下一集（跨季），没有则为 null */
     suspend fun nextEpisode(episode: MediaItem): MediaItem?
 
+    /** Optional read-only plugin resource. Implementations keep server-specific routes here. */
+    fun danmakuResource(itemId: String): ServerDanmaku? = null
+
     suspend fun detail(id: String): MediaDetail
 
     /** 剧的各季，或季的各集 */

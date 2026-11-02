@@ -253,6 +253,18 @@ class JellyfinMediaServer(
         return list.dropWhile { it.id != episode.id }.getOrNull(1)?.toItem()
     }
 
+    override fun danmakuResource(itemId: String): com.hesier.lumy.core.ServerDanmaku {
+        val resource = url("api/danmu").addPathSegment(itemId)
+        val format = if (kind == ServerKind.JELLYFIN) {
+            resource.addPathSegment("raw")
+            com.hesier.lumy.core.ServerDanmakuFormat.XML
+        } else {
+            resource.addQueryParameter("option", "GetJsonById")
+            com.hesier.lumy.core.ServerDanmakuFormat.EMBY_JSON
+        }
+        return com.hesier.lumy.core.ServerDanmaku(resource.build().toString(), playbackHeaders(), format)
+    }
+
     override suspend fun detail(id: String): MediaDetail = coroutineScope {
         val segments = async { if (kind == ServerKind.JELLYFIN) mediaSegments(id) else emptyList() }
         val item = item(id, DETAIL_FIELDS) ?: throw JellyfinHttpException(404, "Item $id not found")
@@ -470,7 +482,7 @@ class JellyfinMediaServer(
         /** 不限画质但本机解不了、必须重新编码时的目标码率（1080p 高画质） */
         const val REENCODE_KBPS = 20_000
         const val LIST_FIELDS = "Overview,ChildCount,RecursiveItemCount,ParentId"
-        const val DETAIL_FIELDS = "$LIST_FIELDS,Genres,People,Studios,Taglines,MediaSources,MediaStreams,Chapters"
+        const val DETAIL_FIELDS = "$LIST_FIELDS,OriginalTitle,ProviderIds,Genres,People,Studios,Taglines,MediaSources,MediaStreams,Chapters"
     }
 }
 

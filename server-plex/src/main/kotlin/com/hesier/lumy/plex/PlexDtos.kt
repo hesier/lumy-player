@@ -81,6 +81,7 @@ data class PlexMetadata(
     val ratingKey: String,
     val type: String = "",
     val title: String = "",
+    val originalTitle: String? = null,
     val grandparentTitle: String? = null,
     val parentTitle: String? = null,
     val index: Int? = null,

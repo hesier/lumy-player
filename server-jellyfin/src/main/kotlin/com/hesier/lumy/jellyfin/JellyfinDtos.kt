@@ -93,6 +93,8 @@ data class BaseItem(
     val childCount: Int? = null,
     val recursiveItemCount: Int? = null,
     // ---- 以下只在详情里有 ----
+    val originalTitle: String? = null,
+    val providerIds: Map<String, String> = emptyMap(),
     val taglines: List<String> = emptyList(),
     val officialRating: String? = null,
     val communityRating: Double? = null,
