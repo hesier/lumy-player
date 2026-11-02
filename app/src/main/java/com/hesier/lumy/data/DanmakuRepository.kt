@@ -1,6 +1,7 @@
 package com.hesier.lumy.data
 
 import com.hesier.lumy.core.ServerDanmakuFormat
+import com.hesier.lumy.core.MediaType
 import com.hesier.lumy.net.danmaku.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -14,10 +15,11 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
         private set
 
     suspend fun load(media: DanmakuMedia, force: Boolean = false): DanmakuLoad = withContext(Dispatchers.IO) {
+        val configured = runCatching { services.endpoint }.getOrNull()
+        val manual = configured != null && store.match(media.key, configured.identity) != null
         try {
             serverFailure = null
-            val manual = store.choice(media.key)
-            if (manual != null) return@withContext pinned(media, manual, force)
+            if (manual) return@withContext online(media, checkNotNull(configured), force)
             if (media.plugin != null) {
                 try {
                     val plugin = plugin(media, force)
@@ -25,16 +27,10 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (error: DanmakuException) { serverFailure = error.reason }
             }
-            online(media, services.endpoint, force)
+            online(media, configured ?: services.endpoint, force)
         } catch (cancelled: CancellationException) { throw cancelled }
-        catch (error: DanmakuException) { DanmakuLoad.Failed(error.reason, store.choice(media.key) != null) }
-        catch (_: Exception) { DanmakuLoad.Failed(DanmakuFailure.CONNECTION) }
-    }
-
-    private suspend fun pinned(media: DanmakuMedia, choice: DanmakuChoice, force: Boolean): DanmakuLoad {
-        if (choice.kind == DanmakuSourceKind.SERVER) return plugin(media, force)
-        val endpoint = endpoint(choice)
-        return online(media, endpoint, force)
+        catch (error: DanmakuException) { DanmakuLoad.Failed(error.reason, manual) }
+        catch (_: Exception) { DanmakuLoad.Failed(DanmakuFailure.CONNECTION, manual) }
     }
 
     fun endpoint(choice: DanmakuChoice): DanmakuEndpoint {
@@ -73,16 +69,7 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
         val choice = DanmakuChoice(if (endpoint.official) DanmakuSourceKind.OFFICIAL else DanmakuSourceKind.CUSTOM, endpoint.identity)
         val api = DanmakuApi(http, endpoint)
         val saved = store.match(media.key, choice.identity)
-        val selected = if (saved != null) resolveSaved(api, saved) else {
-            val anime = DanmakuMatcher.anime(media, api.search(media.title))
-                ?: media.originalTitle?.takeIf { !DanmakuMatcher.same(it, media.title) }?.let {
-                    DanmakuMatcher.anime(media, api.search(it))
-                } ?: return DanmakuLoad.NeedsMatch(choice)
-            val details = api.details(anime.id)
-            if (!compatibleAnime(details, anime)) return DanmakuLoad.NeedsMatch(choice)
-            val episode = DanmakuMatcher.episode(media, details) ?: return DanmakuLoad.NeedsMatch(choice)
-            DanmakuMatch(choice, details, episode, media.year, media.season, media.number)
-        }
+        val selected = if (saved != null) resolveSaved(api, saved) else automaticMatch(api, media, choice)
         if (selected == null) return DanmakuLoad.NeedsMatch(choice)
         if (saved != null && (saved.anime.id != selected.anime.id || saved.episode.id != selected.episode.id))
             store.remember(media.key, selected)
@@ -90,7 +77,37 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
             "${selected.anime.id}|${selected.anime.title}|${selected.anime.year}|${selected.episode.title}|${selected.episode.number}|${selected.episode.seasonId}")
         if (force) store.invalidate(key)
         val comments = store.cached(key) ?: api.comments(selected.episode.id).also { if (it.isNotEmpty()) store.cache(key, it) }
-        return if (comments.isEmpty()) DanmakuLoad.Empty(choice) else DanmakuLoad.Loaded(comments, choice)
+        return if (comments.isEmpty()) DanmakuLoad.Empty(choice)
+            else DanmakuLoad.Loaded(comments, choice, selected, automatic = saved == null)
+    }
+
+    private suspend fun automaticMatch(api: DanmakuApi, media: DanmakuMedia, choice: DanmakuChoice): DanmakuMatch? {
+        val keywords = DanmakuMatcher.keywords(media)
+        val canIdentify = media.type == MediaType.MOVIE || keywords.size > 1
+        val candidate = if (canIdentify) api.match(keywords.first()) else null
+        if (candidate != null) {
+            val details = api.details(candidate.animeId)
+            val episode = details.episodes.firstOrNull { it.id == candidate.episodeId } ?: return null
+            val number = episode.number
+            if (media.type == MediaType.EPISODE && number != null &&
+                number.trim().toDoubleOrNull() != media.number?.toDouble()) return null
+            return DanmakuMatch(choice, details, episode, media.year, media.season, media.number)
+        }
+        val anime = automaticAnime(api, media) ?: return null
+        val details = api.details(anime.id)
+        if (details.id != anime.id) return null
+        val episode = DanmakuMatcher.episode(media, details) ?: return null
+        return DanmakuMatch(choice, details, episode, media.year, media.season, media.number)
+    }
+
+    private suspend fun automaticAnime(api: DanmakuApi, media: DanmakuMedia): DanmakuAnime? {
+        val titles = listOfNotNull(media.title, media.originalTitle?.takeUnless { DanmakuMatcher.same(it, media.title) })
+        for (title in titles) {
+            for (keyword in DanmakuMatcher.keywords(media, title)) {
+                DanmakuMatcher.anime(api.search(keyword))?.let { return it }
+            }
+        }
+        return null
     }
 
     private suspend fun resolveSaved(api: DanmakuApi, saved: DanmakuMatch): DanmakuMatch? {

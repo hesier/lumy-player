@@ -7,6 +7,8 @@ import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -30,6 +32,17 @@ class DanmakuTransport(private val http: OkHttpClient) {
         return DanmakuRequestPool.get(http, normalized, copiedHeaders) { getUnshared(normalized, copiedHeaders) }
     }
 
+    /** Optional matching requests never share GET responses or forward bodies on redirects. */
+    suspend fun postJson(url: String, json: String, headers: Map<String, String> = emptyMap()): ByteArray? {
+        val request = try {
+            Request.Builder().url(checkedUrl(url))
+                .post(json.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                .apply { headers.forEach { (key, value) -> header(key, value) } }.build()
+        } catch (error: IllegalArgumentException) { throw DanmakuException(DanmakuFailure.INVALID_RESPONSE, error) }
+        val result = client.newCall(request).read(allowUnsupported = true, rejectRedirects = true)
+        return if (result.unsupported) null else result.bytes
+    }
+
     private suspend fun getUnshared(url: String, headers: Map<String, String>): ByteArray {
         var current = checkedUrl(url)
         var currentHeaders = headers
@@ -50,7 +63,7 @@ class DanmakuTransport(private val http: OkHttpClient) {
         throw DanmakuException(DanmakuFailure.UNAVAILABLE)
     }
 
-    private suspend fun Call.read(): Reply = suspendCancellableCoroutine { continuation ->
+    private suspend fun Call.read(allowUnsupported: Boolean = false, rejectRedirects: Boolean = false): Reply = suspendCancellableCoroutine { continuation ->
         continuation.invokeOnCancellation { cancel() }
         enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -61,8 +74,12 @@ class DanmakuTransport(private val http: OkHttpClient) {
                 continuation.resumeWith(runCatching {
                     response.use {
                         continuation.context.ensureActive()
-                        if (it.code in REDIRECT_CODES) return@use Reply(location = it.header("Location")
-                            ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE))
+                        if (it.code in REDIRECT_CODES) {
+                            if (rejectRedirects) throw DanmakuException(DanmakuFailure.UNAVAILABLE)
+                            return@use Reply(location = it.header("Location")
+                                ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE))
+                        }
+                        if (allowUnsupported && it.code in UNSUPPORTED_CODES) return@use Reply(unsupported = true)
                         checkStatus(it.code)
                         Reply(bytes = readLimited(it))
                     }
@@ -107,9 +124,10 @@ class DanmakuTransport(private val http: OkHttpClient) {
         throw DanmakuException(failure)
     }
 
-    private data class Reply(val bytes: ByteArray = ByteArray(0), val location: String? = null)
+    private data class Reply(val bytes: ByteArray = ByteArray(0), val location: String? = null, val unsupported: Boolean = false)
     private companion object {
         const val MAX_REDIRECTS = 3
+        val UNSUPPORTED_CODES = setOf(404, 405, 501)
         val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
     }
 }

@@ -6,39 +6,28 @@ import com.hesier.lumy.net.danmaku.DanmakuEpisode
 import java.text.Normalizer
 import java.util.Locale
 
-/** Conservative metadata matching: an incomplete or ambiguous result requires user selection. */
+/** Automatic selection follows source order; stored manual matches are validated separately. */
 internal object DanmakuMatcher {
-    fun anime(media: DanmakuMedia, candidates: List<DanmakuAnime>): DanmakuAnime? {
-        val titles = listOfNotNull(media.title, media.originalTitle).map(::title)
-        return candidates.filter { candidate ->
-            title(candidate.title) in titles && media.year != null && candidate.year == media.year &&
-                when (media.type) {
-                    MediaType.MOVIE -> movie(candidate.type)
-                    MediaType.EPISODE -> !movie(candidate.type) && compatibleSeason(media.season, candidate.title)
-                    else -> false
-                }
-        }.singleOrNull()
+    fun keywords(media: DanmakuMedia, title: String = media.title): List<String> {
+        val season = media.season
+        val number = media.number
+        return if (media.type == MediaType.EPISODE && season != null && season >= 0 && number != null && number > 0)
+            listOf(String.format(Locale.ROOT, "%s S%02dE%02d", title, season, number), title)
+        else listOf(title)
     }
 
+    fun anime(candidates: List<DanmakuAnime>): DanmakuAnime? = candidates.firstOrNull()
+
     fun episode(media: DanmakuMedia, anime: DanmakuAnime): DanmakuEpisode? = when (media.type) {
-        MediaType.MOVIE -> anime.episodes.singleOrNull()
-        MediaType.EPISODE -> anime.episodes.filter { item ->
-            val number = item.number?.toIntOrNull()
-            number != null && number > 0 && number == media.number &&
-                (item.seasonId.isNullOrBlank() && media.season == 1 || item.seasonId == media.season?.toString())
-        }.singleOrNull()
+        MediaType.MOVIE -> anime.episodes.firstOrNull { number(it) == 1.0 } ?: anime.episodes.firstOrNull()
+        MediaType.EPISODE -> media.number?.takeIf { it > 0 }?.let { current ->
+            anime.episodes.firstOrNull { number(it) == current.toDouble() }
+        }
         else -> null
     }
 
+    private fun number(episode: DanmakuEpisode) = episode.number?.trim()?.toDoubleOrNull()
     fun same(left: String, right: String) = normalize(left) == normalize(right)
-    private fun title(value: String) = normalize(value.replace(Regex("\\(\\d{4}\\)|（\\d{4}）"), "")
-        .replace(Regex("【[^】]*】.*$|\\s+from\\s+.*$", RegexOption.IGNORE_CASE), ""))
     private fun normalize(value: String) = Normalizer.normalize(value, Normalizer.Form.NFKC)
         .lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
-    private fun movie(value: String?) = value?.let { Regex("movie|电影|電影|剧场|劇場", RegexOption.IGNORE_CASE).containsMatchIn(it) } == true
-    private fun compatibleSeason(season: Int?, value: String): Boolean {
-        if (season == null || season < 1) return false
-        val explicit = Regex("(?:S|Season\\s*)(\\d+)|第([一二三四五六七八九十0-9]+)季", RegexOption.IGNORE_CASE).find(value)
-        return if (explicit == null) season == 1 else explicit.groupValues.drop(1).firstOrNull { it.isNotEmpty() }?.toIntOrNull() == season
-    }
 }

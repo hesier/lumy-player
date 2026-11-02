@@ -75,6 +75,111 @@ class DanmakuApiTest {
         assertFalse(failure.stackTraceToString().contains("secret"))
     }
 
+    @Test fun customMatchPreservesPrefixUnicodeBodyAndFirstNumericCandidate() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"success":true,"isMatched":true,"matches":[
+            {"animeId":2452047,"episodeId":11410},{"animeId":9,"episodeId":10}]}"""))
+        assertEquals(DanmakuMatchCandidate("2452047", "11410"), api("/proxy/token/").match("三体 S01E01"))
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/proxy/token/api/v2/match", request.path)
+        assertEquals("application/json; charset=utf-8", request.getHeader("Content-Type"))
+        assertEquals("""{"fileName":"三体 S01E01"}""", request.body.readUtf8())
+        listOf("Authorization", "X-Emby-Token", "X-AppId", "X-AppSecret", "X-Signature").forEach {
+            assertNull(request.getHeader(it))
+        }
+    }
+
+    @Test fun matchPreservesOpaqueIdsWithoutNormalizingAgainstDetailsIds() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"success":true,"isMatched":true,
+            "matches":[{"animeId":"2452047","episodeId":"opaque/episode"}]}"""))
+        server.enqueue(MockResponse().setBody("""{"success":true,"bangumi":{
+            "animeId":2452047,"bangumiId":"opaque-bangumi","animeTitle":"show","episodes":[]}}"""))
+        val api = api("/prefix/api/v2/")
+        val match = checkNotNull(api.match("show S01E01"))
+        assertEquals(DanmakuMatchCandidate("2452047", "opaque/episode"), match)
+        assertEquals("opaque-bangumi", api.details(match.animeId).id)
+        assertEquals("/prefix/api/v2/match", server.takeRequest().path)
+        assertEquals("/prefix/api/v2/bangumi/2452047", server.takeRequest().path)
+    }
+
+    @Test fun inexactMatchStillReturnsTheFirstCandidate() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"success":true,"isMatched":false,"matches":[
+            {"animeId":"first-anime","episodeId":"first-episode"},
+            {"animeId":"second-anime","episodeId":"second-episode"}]}"""))
+        assertEquals(DanmakuMatchCandidate("first-anime", "first-episode"), api().match("show S01E01"))
+    }
+
+    @Test fun matchSupportsInt64IdsAndEscapesSyntheticTitle() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"success":true,"isMatched":true,
+            "matches":[{"animeId":9223372036854775806,"episodeId":9223372036854775805}]}"""))
+        assertEquals(DanmakuMatchCandidate("9223372036854775806", "9223372036854775805"),
+            api().match("三体 \"special\" S01E01"))
+        val json = kotlinx.serialization.json.Json.parseToJsonElement(server.takeRequest().body.readUtf8())
+            as kotlinx.serialization.json.JsonObject
+        assertEquals("三体 \"special\" S01E01", json.getValue("fileName").text())
+    }
+
+    @Test fun matchReturnsNullForNoMatchAndOptionalUnsupportedStatuses() = runBlocking {
+        listOf("""{"success":true,"isMatched":false,"matches":[]}""",
+            """{"success":true,"isMatched":true,"matches":[]}""").forEach { body ->
+            server.enqueue(MockResponse().setBody(body))
+            assertNull(api().match("show S01E01"))
+        }
+        listOf(404, 405, 501).forEach { code ->
+            server.enqueue(MockResponse().setResponseCode(code).setBody("not supported"))
+            assertNull(api().match("show S01E01"))
+        }
+    }
+
+    @Test fun malformedNonEmptyMatchNeverSelectsALaterCandidate() = runBlocking {
+        listOf("""{"matches":[{} ,{"animeId":1,"episodeId":2}]}""", """{"matches":[null]}""",
+            """{"matches":[{"animeId":true,"episodeId":2}]}""",
+            """{"matches":[{"animeId":1,"episodeId":1.5}]}""",
+            """{"matches":[{"animeId":"","episodeId":2}]}""", """{"matches":{}}""",
+            """{"isMatched":"invalid","matches":[{"animeId":1,"episodeId":2}]}""",
+            """{"success":true,"isMatched":false}""", "not JSON").forEach { body ->
+            server.enqueue(MockResponse().setBody(body))
+            val error = runCatching { api().match("show S01E01") }.exceptionOrNull() as DanmakuException
+            assertEquals(DanmakuFailure.INVALID_RESPONSE, error.reason)
+        }
+    }
+
+    @Test fun matchRetainsBusinessAndHttpFailuresWithoutLeakingPrivateData() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"success":false,"errorMessage":"private-token","matches":[]}"""))
+        val business = runCatching { api("/private-token/").match("show S01E01") }.exceptionOrNull() as DanmakuException
+        assertEquals(DanmakuFailure.UNAVAILABLE, business.reason)
+        assertFalse(business.stackTraceToString().contains("private-token"))
+        mapOf(401 to DanmakuFailure.AUTH, 429 to DanmakuFailure.RATE_LIMITED, 500 to DanmakuFailure.UNAVAILABLE)
+            .forEach { (code, expected) ->
+                server.enqueue(MockResponse().setResponseCode(code))
+                val failure = runCatching { api().match("show S01E01") }.exceptionOrNull() as DanmakuException
+                assertEquals(expected, failure.reason)
+            }
+    }
+
+    @Test fun officialMatchReusesTheFixedOriginSignatureWithoutExposingTheSecret() = runBlocking {
+        val http = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            assertEquals("POST", request.method)
+            assertEquals("https://api.dandanplay.net/api/v2/match", request.url.toString())
+            val buffer = okio.Buffer()
+            request.body!!.writeTo(buffer)
+            assertEquals("""{"fileName":"show S01E01","matchMode":"fileNameOnly"}""", buffer.readUtf8())
+            val timestamp = request.header("X-Timestamp")!!
+            val expected = MessageDigest.getInstance("SHA-256")
+                .digest(("app" + timestamp + "/api/v2/match" + "secret").toByteArray()).toByteString().base64()
+            assertEquals(expected, request.header("X-Signature"))
+            assertEquals("app", request.header("X-AppId"))
+            assertNull(request.header("X-AppSecret"))
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .body("""{"success":true,"isMatched":false,"matches":[
+                    {"animeId":1,"episodeId":2},{"animeId":3,"episodeId":4}]}""".toResponseBody()).build()
+        }.build()
+        val official = DanmakuApi(http, DanmakuEndpoint(DanmakuEndpoint.OFFICIAL_URL,
+            official = true, DanmakuCredentials("app", "secret")))
+        assertEquals(DanmakuMatchCandidate("1", "2"), official.match("show S01E01"))
+    }
+
     @Test fun officialWithoutCredentialsFailsBeforeNetwork() = runBlocking {
         val official = DanmakuApi(OkHttpClient(), DanmakuEndpoint(DanmakuEndpoint.OFFICIAL_URL, official = true))
         val failure = runCatching { official.comments("1") }.exceptionOrNull() as DanmakuException

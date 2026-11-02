@@ -8,6 +8,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.longOrNull
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
@@ -25,6 +28,27 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
         result
     }
 
+    /** Sends a synthetic title only; matching remains an optional server capability. */
+    suspend fun match(fileName: String): DanmakuMatchCandidate? = withContext(Dispatchers.IO) {
+        val url = url("match", query = emptyMap())
+        val body = buildJsonObject {
+            put("fileName", fileName)
+            if (endpoint.official) put("matchMode", "fileNameOnly")
+        }.toString()
+        val bytes = transport.postJson(url.toString(), body, headers(url)) ?: return@withContext null
+        val root = parseResponse(bytes)
+        root.field("isMatched")?.let { flag ->
+            if ((flag as? JsonPrimitive)?.booleanOrNull == null)
+                throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
+        }
+        val matches = root.field("matches") as? JsonArray ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
+        if (matches.isEmpty()) return@withContext null
+        val first = matches.first() as? JsonObject ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
+        DanmakuMatchCandidate(first.field("animeId")?.remoteId()
+            ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE), first.field("episodeId")?.remoteId()
+            ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE))
+    }
+
     suspend fun details(animeId: String): DanmakuAnime = withContext(Dispatchers.IO) {
         val root = request("bangumi", animeId)
         (root.field("bangumi") as? JsonObject ?: root.field("anime") as? JsonObject)?.anime()
@@ -39,7 +63,10 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
 
     private suspend fun request(vararg path: String, query: Map<String, String> = emptyMap()): JsonObject {
         val url = url(*path, query = query)
-        val bytes = transport.get(url.toString(), headers(url))
+        return parseResponse(transport.get(url.toString(), headers(url)))
+    }
+
+    private fun parseResponse(bytes: ByteArray): JsonObject {
         try {
             val root = Json.parseToJsonElement(bytes.toString(Charsets.UTF_8)) as? JsonObject
                 ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)

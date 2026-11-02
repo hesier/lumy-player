@@ -32,7 +32,8 @@ internal data class DanmakuMedia(
 }
 
 internal sealed interface DanmakuLoad {
-    data class Loaded(val comments: List<DanmakuComment>, val source: DanmakuChoice) : DanmakuLoad
+    data class Loaded(val comments: List<DanmakuComment>, val source: DanmakuChoice,
+        val match: DanmakuMatch? = null, val automatic: Boolean = false) : DanmakuLoad
     data class NeedsMatch(val source: DanmakuChoice) : DanmakuLoad
     data class Empty(val source: DanmakuChoice) : DanmakuLoad
     data class Failed(val reason: DanmakuFailure, val manual: Boolean = false) : DanmakuLoad

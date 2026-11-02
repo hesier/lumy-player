@@ -11,6 +11,9 @@ import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
+import okhttp3.mockwebserver.Dispatcher
+import okhttp3.mockwebserver.RecordedRequest
+import java.util.concurrent.CountDownLatch
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
@@ -94,6 +97,70 @@ class DanmakuTransportTest {
         first.enqueue(MockResponse().setChunkedBody(Buffer().write(expanded), 8192))
         assertEquals(DanmakuFailure.TOO_LARGE,
             (runCatching { transport.get(first.url("/").toString()) }.exceptionOrNull() as DanmakuException).reason)
+    }
+
+    @Test fun concurrentPostBodiesAreNeverCoalesced() = runBlocking {
+        val arrivals = CountDownLatch(2)
+        first.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                arrivals.countDown()
+                check(arrivals.await(3, TimeUnit.SECONDS))
+                return MockResponse().setBody(request.body.readUtf8())
+            }
+        }
+        val url = first.url("/api/v2/match").toString()
+        val one = async(Dispatchers.IO) { transport.postJson(url, """{"fileName":"one"}""") }
+        val two = async(Dispatchers.IO) { transport.postJson(url, """{"fileName":"two"}""") }
+        assertEquals("""{"fileName":"one"}""", one.await()!!.toString(Charsets.UTF_8))
+        assertEquals("""{"fileName":"two"}""", two.await()!!.toString(Charsets.UTF_8))
+        assertEquals(2, first.requestCount)
+    }
+
+    @Test fun postNeverRedirectsTheBodyOrCredentialsEvenOnTheSameOrigin() = runBlocking {
+        listOf(301, 302, 303, 307, 308).forEach { code ->
+            val target = if (code == 303) first.url("/same-origin") else second.url("/other-origin")
+            first.enqueue(MockResponse().setResponseCode(code).setHeader("Location", target))
+            val error = runCatching {
+                transport.postJson(first.url("/token/api/v2/match").toString(), "private-title",
+                    mapOf("Authorization" to "private-login", "X-Signature" to "private-signature"))
+            }.exceptionOrNull() as DanmakuException
+            assertEquals(DanmakuFailure.UNAVAILABLE, error.reason)
+            assertFalse(error.stackTraceToString().contains("private"))
+            assertEquals("POST", first.takeRequest().method)
+        }
+        assertEquals(5, first.requestCount)
+        assertEquals(0, second.requestCount)
+    }
+
+    @Test fun postRetainsResponseLimitsAndUrlValidation() = runBlocking {
+        first.enqueue(MockResponse().setBody("x").setHeader("Content-Length", MAX_DANMAKU_BYTES + 1))
+        val oversized = runCatching {
+            transport.postJson(first.url("/api/v2/match").toString(), "{}")
+        }.exceptionOrNull() as DanmakuException
+        assertEquals(DanmakuFailure.TOO_LARGE, oversized.reason)
+        val invalid = runCatching { transport.postJson("file:///private-token", "{}") }
+            .exceptionOrNull() as DanmakuException
+        assertEquals(DanmakuFailure.INVALID_RESPONSE, invalid.reason)
+        assertFalse(invalid.stackTraceToString().contains("private-token"))
+    }
+
+    @Test fun postCancellationInterruptsBlockedBodyRead() = runBlocking {
+        val bodyStarted = CompletableDeferred<Unit>()
+        val http = OkHttpClient.Builder().addNetworkInterceptor { chain ->
+            chain.proceed(chain.request()).also { bodyStarted.complete(Unit) }
+        }.build()
+        first.enqueue(MockResponse().setBody("slow match response").setBodyDelay(3, TimeUnit.SECONDS))
+        val result = async(Dispatchers.IO) {
+            DanmakuTransport(http).postJson(first.url("/api/v2/match").toString(), "{}")
+        }
+        withTimeout(5_000) { bodyStarted.await() }
+        withTimeout(2_000) { result.cancelAndJoin() }
+        assertTrue(result.isCancelled)
+        withContext(Dispatchers.IO) {
+            val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(2)
+            while (http.dispatcher.runningCallsCount() > 0 && System.nanoTime() < end) Thread.sleep(10)
+            assertEquals(0, http.dispatcher.runningCallsCount())
+        }
     }
 
     @Test fun cancellationInterruptsBlockedBodyRead() = runBlocking {
