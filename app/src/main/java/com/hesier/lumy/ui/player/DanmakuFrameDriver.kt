@@ -20,8 +20,7 @@ internal class DanmakuFrameDriver(
     private lateinit var choreographer: Choreographer
     private val layer = view.parent as DanmakuLayer
     private val requested = AtomicBoolean(false)
-    private val drawCredit = AtomicBoolean(true)
-    private val dirty = AtomicBoolean(false)
+    private val frameGate = DanmakuFrameGate()
     private val layoutListener = android.view.View.OnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
         if (r - l != oldR - oldL || b - t != oldB - oldT) requestFrame()
     }
@@ -91,8 +90,7 @@ internal class DanmakuFrameDriver(
     }
 
     fun onDrawn() {
-        drawCredit.set(true)
-        if (dirty.getAndSet(false)) handler.post {
+        if (frameGate.consume()) handler.post {
             if (released) return@post
             // Consume this display tick now, and cancel a competing cache/vsync request.
             choreographer.removeFrameCallback(this)
@@ -109,10 +107,7 @@ internal class DanmakuFrameDriver(
     private fun produceFrame() {
         if (released) return
         // Wait for consumption without blocking the worker or skipping a display tick.
-        if (!drawCredit.compareAndSet(true, false)) {
-            dirty.set(true)
-            return
-        }
+        if (!frameGate.acquire()) return
         val started = System.nanoTime()
         // 上游会随视口宽度改写时长；只在它改变时恢复用户选择的速度。
         AkDanmakuAccess.config(comments).let { config ->

@@ -36,6 +36,7 @@ class DanmakuProbeTest(private val instrumentation: Instrumentation) {
 
     fun runAll(): String {
         check(preferences.edit().clear().commit())
+        DanmakuFrameGateTest.runAll()
         main { DanmakuBudgetTest.runAll(); DanmakuAutoDensityTest.runAll(); DanmakuSettingsMappingTest.runAll() }
         results += "Input burst, Unicode length, cache queue bounds, cancellation and retry checks passed"
         val fixture = File(instrumentation.targetContext.cacheDir, "danmaku-fixture.mkv")
