@@ -30,7 +30,10 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
   - Audio / subtitle delay adjustment, refresh-rate matching
   - Remembers audio and subtitle choices, reports progress to the server
 - **Settings**: default quality, allow / disallow transcoding, subtitle size, sidebar items and order (saved per server), server management and more
+- **Backup and restore**: Settings › About › Backup and restore saves settings, servers with login sessions, and track selections to a `.lumy` file. Leave the backup password empty to save without encryption, or set a password to encrypt it. Transfer it using a phone on the same LAN or the system file picker / USB drive. Restore is also available on the initial server setup screen. Preview and choose what to replace; device-specific settings are excluded from restoration by default. Keep any password you set: it cannot be recovered. Expired login sessions still require signing in again.
 - **Languages**: English, Simplified Chinese and Traditional Chinese, following the system language or chosen in Settings
+
+File / USB backup transfer requires a system document picker. Some TV systems only provide a placeholder; use phone transfer on these devices.
 
 See the [server support matrix](docs/server-support.md) for differences between integrations.
 
@@ -61,7 +64,7 @@ Download `lumy-player-vX.Y.Z.apk` from the [latest release](https://github.com/h
 
 Later versions can be installed from inside the app: it checks for a new release once a day (Settings › About also has Check for updates), downloads it and opens the system installer. The first time, Android asks you to allow Lumy to install apps. If GitHub is slow or blocked on your network, turn on Download mirror in the same section.
 
-APKs you build yourself are signed with a different key, so they cannot be installed over a release build (or vice versa). Uninstall the existing app first; your servers and settings will need to be set up again.
+APKs you build yourself are signed with a different key, so they cannot be installed over a release build (or vice versa). Export a backup before uninstalling, then restore it after installing the other build.
 
 ## Known limitations
 

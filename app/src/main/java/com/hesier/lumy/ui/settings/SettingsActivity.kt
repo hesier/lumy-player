@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
 import com.hesier.lumy.ui.ThemedActivity
+import com.hesier.lumy.ui.backup.BackupController
 import androidx.core.view.children
 import androidx.lifecycle.lifecycleScope
 import com.hesier.lumy.ui.widget.attempt
@@ -67,11 +68,13 @@ class SettingsActivity : ThemedActivity() {
     private val lastFocused = IntArray(CATEGORIES.size)
     /** 恢复焦点之前系统会先把焦点给第一个分类，这时不能跟着切换分类 */
     private var focusRestored = false
+    private lateinit var backup: BackupController
     /** 侧边栏设置针对当前服务器 */
     private val entryId: String get() = app.currentEntry?.id.orEmpty()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        backup = BackupController(this)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.categories.layoutManager = LinearLayoutManager(this)
@@ -369,6 +372,7 @@ class SettingsActivity : ThemedActivity() {
                     }.show()
                 }.takeIf { settings.useUpdateMirror },
             ) + listOf(
+                Row(getString(R.string.backup_title), "", getString(R.string.backup_create_detail)) { backup.show() },
                 Row(getString(R.string.device_info), "", getString(R.string.device_info_detail)) { showDeviceInfo() },
             ),
         )

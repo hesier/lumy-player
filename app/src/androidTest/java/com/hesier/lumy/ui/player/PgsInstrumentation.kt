@@ -12,6 +12,7 @@ class PgsInstrumentation : Instrumentation() {
     private var benchmark = false
     private var dualSubtitlesOnly = false
     private var trackMemoryOnly = false
+    private var backupOnly = false
     private var playbackNoticeOnly = false
     private var bandwidthSettingsOnly = false
     private var seekSettingsOnly = false
@@ -27,6 +28,7 @@ class PgsInstrumentation : Instrumentation() {
         benchmark = arguments?.getString("benchmark_sup") == "true"
         dualSubtitlesOnly = arguments?.getString("dual_subtitles_only") == "true"
         trackMemoryOnly = arguments?.getString("track_memory_only") == "true"
+        backupOnly = arguments?.getString("backup_only") == "true"
         playerControlsOnly = arguments?.getString("player_controls_only") == "true"
         holdSpeedOnly = arguments?.getString("hold_speed_only") == "true"
         playbackNoticeOnly = arguments?.getString("playback_notice_only") == "true"
@@ -41,6 +43,14 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (backupOnly) {
+                com.hesier.lumy.data.backup.BackupStoreTest(targetContext).runAll()
+                com.hesier.lumy.ui.backup.BackupDocumentsTest(this).runAll()
+                com.hesier.lumy.ui.backup.BackupUiTest(this).runAll()
+                result.putString("stream", "Backup schema, scopes, credentials, rollback, device encryption and D-pad checks passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (playerControlsOnly) {
                 result.putString("stream", PlayerControlsPlaybackTest(this).runAll() + "\n")
                 finish(Activity.RESULT_OK, result)

@@ -31,6 +31,7 @@ import com.hesier.lumy.util.DebugLog
 import com.hesier.lumy.util.withLegacyTls
 import com.hesier.lumy.data.Settings
 import com.hesier.lumy.data.TrackMemory
+import com.hesier.lumy.data.backup.BackupStore
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import kotlinx.coroutines.CoroutineScope
@@ -95,6 +96,7 @@ class LumyApp : Application(), ImageLoaderFactory {
         super.onCreate()
         instance = this
         DebugLog.init(this)
+        BackupStore(this).recoverPendingRestore()
         store = SessionStore(this)
         settings = Settings(this)
         trackMemory = TrackMemory(this)

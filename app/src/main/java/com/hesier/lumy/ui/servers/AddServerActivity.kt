@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import com.hesier.lumy.ui.ThemedActivity
+import com.hesier.lumy.ui.backup.BackupController
 import com.hesier.lumy.core.ServerKind
 import com.hesier.lumy.R
 import com.hesier.lumy.databinding.ActivityAddServerBinding
@@ -21,8 +22,10 @@ class AddServerActivity : ThemedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val backup = BackupController(this)
         binding = ActivityAddServerBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.restoreBackup.setOnClickListener { backup.restore() }
         binding.plex.bind(ServerKind.PLEX, R.string.kind_plex_detail) {
             startActivity(Intent(this, LoginActivity::class.java))
         }
