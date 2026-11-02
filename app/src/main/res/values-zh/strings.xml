@@ -276,7 +276,7 @@
     <string name="quality_transcode_detail">服务器转码，适合网络或设备性能不足</string>
     <string name="speed_normal">正常</string>
     <string name="mode_direct">直接播放</string>
-    <string name="mode_direct_stream">直接串流（仅转封装）</string>
+    <string name="mode_direct_stream">直接串流（复制视频）</string>
     <string name="mode_transcode">服务器转码</string>
     <string name="subtitle_burn_note">需要服务器烧录</string>
     <string name="subtitle_not_available_note">当前播放方式下不可用</string>
@@ -302,11 +302,11 @@
     <string name="issue_unknown_video_codec">不支持的视频编码 %1$s</string>
     <string name="player_dovi_compatibility">正在兼容播放杜比视界视频，色彩可能不准确</string>
     <string name="issue_no_video_decoder">设备没有 %1$s 解码器</string>
-    <string name="issue_video_too_demanding">设备无法硬解 %1$s %2$s</string>
-    <string name="issue_video_too_demanding_10bit">设备无法硬解 %1$s 10bit %2$s</string>
+    <string name="issue_video_too_demanding">设备报告不支持 %1$s %2$s 解码</string>
+    <string name="issue_video_too_demanding_10bit">设备报告不支持 %1$s 10bit %2$s 解码</string>
     <string name="issue_unknown_audio_codec">不支持的音频编码 %1$s</string>
     <string name="issue_no_audio_decoder">设备无法解码 %1$s 音频</string>
-    <string name="issue_hdr_unsupported">电视不支持 HDR</string>
+    <string name="issue_hdr_unsupported">已设置电视不支持 HDR</string>
     <string name="issue_subtitle_needs_burn">%1$s 字幕需要服务器烧录</string>
     <string name="list_separator">；</string>
 
@@ -420,6 +420,11 @@
     <string name="settings_bandwidth_transcode_disabled">转码已关闭，码率限制不生效</string>
     <string name="issue_bandwidth_limit">片源码率 %1$s Mbps 超过上限 %2$s Mbps</string>
     <string name="settings_bandwidth_option_detail">音视频合计最高 %1$s Mbps</string>
+    <string name="player_transcode_notice">服务器转码：%1$s</string>
+    <string name="player_stream_notice">服务器串流：%1$s</string>
     <string name="issue_bitrate_unknown">片源码率未知，采用上限 %1$s Mbps</string>
+    <string name="issue_quality_limit">已选择 %1$dp / %2$s Mbps 画质</string>
     <string name="issue_output_bitrate_limit">需重新编码以满足音视频合计 %1$s Mbps 上限</string>
+    <string name="issue_unseekable">直接播放无法跳转</string>
+    <string name="player_server_playback_error">服务器播放失败：%1$s\n原因：%2$s</string>
 </resources>

@@ -18,6 +18,8 @@ Lumy Player uses Direct Play whenever possible. Direct Play keeps the original q
 
 Transcoding requires **Allow server transcoding** to be on (the default). When it's off, Lumy Player always uses Direct Play. If the device can't play a file, an error explains why.
 
+When playback starts or switches to server processing, a notice appears at the bottom for about six seconds: “Server transcoding: reasons” or “Server streaming: reasons” when video is copied. All reasons also appear in Playback Info; seeking or reconnecting with the same plan does not repeat the notice. Known source bitrates show both the source rate and limit; unknown rates have a separate reason. Reported device capabilities and actual decoding failures are distinguished.
+
 ### Server bandwidth
 
 **Settings → Compatibility → Allow server transcoding / Available server bandwidth** apply only to the current saved server. Both settings are marked as applying only to the current server. Existing installations retain the previous transcoding switch value until it is changed for each server.

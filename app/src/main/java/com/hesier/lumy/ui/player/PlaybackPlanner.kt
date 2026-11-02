@@ -35,6 +35,8 @@ fun qualityLabel(context: Context, q: Quality): String = when (q) {
 sealed interface PlaybackIssue {
     data object VideoDecodeFailed : PlaybackIssue
     data object DirectPlayFailed : PlaybackIssue
+    data object Unseekable : PlaybackIssue
+    data class QualityLimit(val height: Int, val kbps: Int) : PlaybackIssue
     data class Container(val container: String) : PlaybackIssue
     data class UnknownVideoCodec(val codec: String) : PlaybackIssue
     data class NoVideoDecoder(val codec: String) : PlaybackIssue
@@ -50,6 +52,8 @@ sealed interface PlaybackIssue {
 fun PlaybackIssue.text(context: Context): String = when (this) {
     PlaybackIssue.VideoDecodeFailed -> context.getString(R.string.issue_video_decode_failed)
     PlaybackIssue.DirectPlayFailed -> context.getString(R.string.issue_direct_play_failed)
+    PlaybackIssue.Unseekable -> context.getString(R.string.issue_unseekable)
+    is PlaybackIssue.QualityLimit -> context.getString(R.string.issue_quality_limit, height, "%.0f".format(kbps / 1000f))
     is PlaybackIssue.Container -> context.getString(R.string.issue_container, container.uppercase())
     is PlaybackIssue.UnknownVideoCodec -> context.getString(R.string.issue_unknown_video_codec, codec.uppercase())
     is PlaybackIssue.NoVideoDecoder -> context.getString(R.string.issue_no_video_decoder, codec.uppercase())
@@ -108,6 +112,7 @@ class PlaybackPlanner(private val device: DeviceProfile) {
         forceTranscode: Boolean = false,
         /** 本机实际解码视频失败（设备声明支持也不算数），转码时必须重新编码视频 */
         videoDecodeFailed: Boolean = false,
+        fallbackReason: PlaybackIssue? = null,
     ): Plan {
         val bandwidthLimited = PlaybackBandwidth.requiresTranscode(version, policy.maxTotalBitrateKbps)
         val mediaProblems = buildList {
@@ -117,7 +122,7 @@ class PlaybackPlanner(private val device: DeviceProfile) {
                 add(PlaybackIssue.BandwidthLimit(limit, source))
             }
             if (videoDecodeFailed) add(PlaybackIssue.VideoDecodeFailed)
-            else if (forceTranscode) add(PlaybackIssue.DirectPlayFailed)
+            else if (forceTranscode) add(fallbackReason ?: PlaybackIssue.DirectPlayFailed)
             if (!device.containerSupported(version.container)) add(PlaybackIssue.Container(version.container.orEmpty()))
             version.video?.let { device.videoProblem(it) }?.let(::add)
             audio?.let { device.audioProblem(it.codec) }?.let(::add)
@@ -145,8 +150,9 @@ class PlaybackPlanner(private val device: DeviceProfile) {
         val reencode = quality is Quality.Limited || bandwidthLimited || !videoOk || toSdr || outputLimited
         // 转码输出里没有内封字幕：服务器能带上时由本机渲染，否则要么烧录，要么这条字幕不可用。
         // 视频反正要重新编码时，烧录几乎不增加服务器负担，不受开关限制（Plex 此时也会自己烧录服务器记住的字幕）
-        val needsBurn = subtitle != null && !device.canRenderSubtitle(subtitle, transcoding = true)
-        val embedId = subtitle?.id?.takeIf { needsBurn && canEmbed(subtitle, policy) }
+        val forceBurn = fallbackReason is PlaybackIssue.SubtitleNeedsBurn
+        val needsBurn = subtitle != null && (forceBurn || !device.canRenderSubtitle(subtitle, transcoding = true))
+        val embedId = subtitle?.id?.takeIf { needsBurn && !forceBurn && canEmbed(subtitle, policy) }
         val burnId = subtitle?.id?.takeIf { needsBurn && embedId == null && (policy.allowSubtitleBurn || reencode) }
         val mode = when (quality) {
             is Quality.Limited -> PlaybackMode.Transcode(
@@ -168,9 +174,10 @@ class PlaybackPlanner(private val device: DeviceProfile) {
         }
         val reasons = buildList {
             addAll(mediaProblems)
+            if (quality is Quality.Limited) add(PlaybackIssue.QualityLimit(quality.height, quality.bitrateKbps))
             if (outputLimited && !bandwidthLimited) add(PlaybackIssue.OutputBitrateLimit(policy.maxTotalBitrateKbps!!))
             if (toSdr) add(PlaybackIssue.HdrUnsupported)
-            if (!directSubtitleOk && burnId != null) add(PlaybackIssue.SubtitleNeedsBurn(subtitle!!.codec))
+            if (burnId != null) add(PlaybackIssue.SubtitleNeedsBurn(subtitle!!.codec))
         }.distinct()
         return Plan(mode, reasons, subtitleUnavailable = needsBurn && burnId == null && embedId == null)
     }

@@ -289,7 +289,7 @@
     <string name="quality_transcode_detail">Server transcodes. For slow networks or devices</string>
     <string name="speed_normal">Normal</string>
     <string name="mode_direct">Direct Play</string>
-    <string name="mode_direct_stream">Direct Stream (remux only)</string>
+    <string name="mode_direct_stream">Direct Stream (video copied)</string>
     <string name="mode_transcode">Server transcode</string>
     <string name="subtitle_burn_note">Burned in by server</string>
     <string name="subtitle_not_available_note">Not available in this playback mode</string>
@@ -315,11 +315,11 @@
     <string name="issue_unknown_video_codec">Unsupported video codec %1$s</string>
     <string name="player_dovi_compatibility">Playing without Dolby Vision. Colors may be incorrect</string>
     <string name="issue_no_video_decoder">No %1$s decoder on this device</string>
-    <string name="issue_video_too_demanding">Can\'t hardware-decode %1$s %2$s</string>
-    <string name="issue_video_too_demanding_10bit">Can\'t hardware-decode %1$s 10-bit %2$s</string>
+    <string name="issue_video_too_demanding">Device reports no decoding support for %1$s %2$s</string>
+    <string name="issue_video_too_demanding_10bit">Device reports no decoding support for %1$s 10bit %2$s</string>
     <string name="issue_unknown_audio_codec">Unsupported audio codec %1$s</string>
     <string name="issue_no_audio_decoder">Can\'t decode %1$s audio</string>
-    <string name="issue_hdr_unsupported">TV doesn\'t support HDR</string>
+    <string name="issue_hdr_unsupported">TV is set to not support HDR</string>
     <string name="issue_subtitle_needs_burn">%1$s subtitles need server burn-in</string>
     <string name="list_separator">"; "</string>
 
@@ -436,6 +436,11 @@
     <string name="settings_bandwidth_transcode_disabled">Transcoding is off; bitrate limit inactive</string>
     <string name="issue_bandwidth_limit">Source bitrate %1$s Mbps exceeds the %2$s Mbps limit</string>
     <string name="settings_bandwidth_option_detail">Video + audio up to %1$s Mbps</string>
+    <string name="player_transcode_notice">Server transcoding: %1$s</string>
+    <string name="player_stream_notice">Server streaming: %1$s</string>
     <string name="issue_bitrate_unknown">Source bitrate unknown; applying the %1$s Mbps limit</string>
+    <string name="issue_quality_limit">Selected quality: %1$dp, %2$s Mbps</string>
     <string name="issue_output_bitrate_limit">Re-encoding to fit the %1$s Mbps video + audio budget</string>
+    <string name="issue_unseekable">Direct Play cannot seek</string>
+    <string name="player_server_playback_error">Server playback failed: %1$s\nReason: %2$s</string>
 </resources>

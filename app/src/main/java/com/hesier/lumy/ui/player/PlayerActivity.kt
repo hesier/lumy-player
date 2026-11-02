@@ -123,6 +123,8 @@ class PlayerActivity : ThemedActivity() {
     private var plan: Plan? = null
     /** 直接播放失败后改用转码，同一版本内保持 */
     private var fellBack = false
+    private var fallbackReason: PlaybackIssue? = null
+    private val playbackNotice by lazy { PlaybackNotice(binding.playbackNotice, lifecycleScope) }
     /** 回退转码是因为本机视频解码失败：设备声明支持也不能让服务器原样复制视频流 */
     private var videoDecodeFailed = false
     /** 网络错误已自动重试的次数，恢复播放后清零 */
@@ -359,6 +361,7 @@ class PlayerActivity : ThemedActivity() {
         dualSubtitles.clear()
         version = v
         fellBack = false
+        fallbackReason = null
         videoDecodeFailed = false
         doviHevcFallback = false
         codecs.softwareVideoMime = null
@@ -379,7 +382,7 @@ class PlayerActivity : ThemedActivity() {
         // 换字幕 / 音轨 / 画质等重新起播时，旧会话要先报停止，否则服务端的“正在播放”里会一直留着它
         if (request != null) report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
-        val p = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed)
+        val p = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed, fallbackReason = fallbackReason)
         DebugLog.i(TAG, "plan ${item.title} id=${item.id} [${version.summary}] dovi=${version.video?.doviProfile} audio=${audio?.codec} sub=${subtitle?.codec} -> ${p.mode} reasons=${p.reasons} subUnavailable=${p.subtitleUnavailable}")
         val req = PlaybackRequest(item, version, p.mode, positionMs, UUID.randomUUID().toString(), audio?.id, subtitle?.id)
         request = req
@@ -403,6 +406,8 @@ class PlayerActivity : ThemedActivity() {
         binding.buffering.visibility = View.VISIBLE
         if (p.subtitleUnavailable) Toast.makeText(this, R.string.subtitle_unavailable, Toast.LENGTH_LONG).show()
 
+        playbackNotice.show("${item.id}:${version.id}:${version.index}", p,
+            copiesVideo = (p.mode as? PlaybackMode.Transcode)?.copyVideo == true && server.session.kind != ServerKind.FNOS)
         startJob = lifecycleScope.launch {
             // 转码时服务端按记住的音轨/字幕输出，所以先保存选择
             if (p.mode is PlaybackMode.Transcode) attempt {
@@ -410,7 +415,12 @@ class PlayerActivity : ThemedActivity() {
             }
             if (request !== req) return@launch
             val source = attempt { server.playbackSource(req) }.getOrElse {
-                if (request === req) showError(getString(R.string.player_error, it.readableMessage()), retryAt = positionMs)
+                if (request === req) {
+                    val message = if (p.mode is PlaybackMode.Transcode) getString(
+                        R.string.player_server_playback_error, it.readableMessage(), p.reasons.text(this@PlayerActivity),
+                    ) else getString(R.string.player_error, it.readableMessage())
+                    showError(message, retryAt = positionMs)
+                }
                 return@launch
             }
             // A decision request may finish after another seek, track change or episode switch.
@@ -527,7 +537,7 @@ class PlayerActivity : ThemedActivity() {
         if (player.isCurrentMediaItemSeekable || fellBack || !policy.allowTranscode) return false
         DebugLog.i(TAG, "unseekable direct play, transcode from $target")
         fellBack = true
-        Toast.makeText(this, R.string.player_unseekable_fallback, Toast.LENGTH_LONG).show()
+        fallbackReason = PlaybackIssue.Unseekable
         start(target)
         return true
     }
@@ -617,7 +627,7 @@ class PlayerActivity : ThemedActivity() {
                 // 视频解码失败要重新编码；封装、解析等问题只换封装，服务器几乎没有负担
                 fellBack = true
                 videoDecodeFailed = error.isVideoDecodeError()
-                Toast.makeText(this@PlayerActivity, R.string.player_fallback, Toast.LENGTH_LONG).show()
+                fallbackReason = if (videoDecodeFailed) PlaybackIssue.VideoDecodeFailed else PlaybackIssue.DirectPlayFailed
                 start(current)
             } else {
                 val hint = if (!policy.allowTranscode && plan?.reasons?.isNotEmpty() == true) {
@@ -768,6 +778,7 @@ class PlayerActivity : ThemedActivity() {
             } else if (mode is PlaybackMode.Direct && policy.allowTranscode && policy.allowSubtitleBurn) {
                 // 播放器没认出这条字幕，用户允许时改由服务器烧录
                 fellBack = true
+                fallbackReason = PlaybackIssue.SubtitleNeedsBurn(s.codec)
                 start(positionMs)
                 return
             } else {
@@ -868,12 +879,16 @@ class PlayerActivity : ThemedActivity() {
             val oldPgs = subtitle?.takeIf { it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
             val newPgs = selected?.takeIf { it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
             if (selected?.id != subtitle?.id) bitmapSubtitles.clear()
+            if (selected?.id != subtitle?.id && fallbackReason is PlaybackIssue.SubtitleNeedsBurn) {
+                fallbackReason = null
+                fellBack = false
+            }
             subtitle = selected
             if (secondarySubtitle?.id == selected?.id) secondarySubtitle = null
             saveSelection()
             rememberSubtitle()
             // Skipped PGS tracks have no decoded cues; rebuild their source when changing tracks.
-            val newPlan = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed)
+            val newPlan = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed, fallbackReason = fallbackReason)
             val sameMode = newPlan.mode == plan?.mode
             if (sameMode && oldPgs == newPgs && !nativeSubtitleChanged) applyTrackSelection()
             else start(positionMs, playWhenReady = !sameMode || player.playWhenReady)
@@ -1235,7 +1250,7 @@ class PlayerActivity : ThemedActivity() {
         val p = plan
         val modeLabel = when (val m = p?.mode) {
             PlaybackMode.Direct -> getString(R.string.mode_direct)
-            is PlaybackMode.Transcode -> if (m.copyVideo) {
+            is PlaybackMode.Transcode -> if (m.copyVideo && server.session.kind != ServerKind.FNOS) {
                 getString(R.string.mode_direct_stream)
             } else {
                 getString(R.string.mode_transcode)

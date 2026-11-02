@@ -276,7 +276,7 @@
     <string name="quality_transcode_detail">伺服器轉碼，適合網路或裝置效能不足時</string>
     <string name="speed_normal">正常</string>
     <string name="mode_direct">直接播放</string>
-    <string name="mode_direct_stream">直接串流（僅轉換封裝）</string>
+    <string name="mode_direct_stream">直接串流（複製視訊）</string>
     <string name="mode_transcode">伺服器轉碼</string>
     <string name="subtitle_burn_note">需要伺服器燒入</string>
     <string name="subtitle_not_available_note">目前播放方式下無法使用</string>
@@ -302,11 +302,11 @@
     <string name="issue_unknown_video_codec">不支援的視訊編碼 %1$s</string>
     <string name="player_dovi_compatibility">正在相容播放杜比視界影片，色彩可能不準確</string>
     <string name="issue_no_video_decoder">裝置沒有 %1$s 解碼器</string>
-    <string name="issue_video_too_demanding">裝置無法硬體解碼 %1$s %2$s</string>
-    <string name="issue_video_too_demanding_10bit">裝置無法硬體解碼 %1$s 10bit %2$s</string>
+    <string name="issue_video_too_demanding">裝置回報不支援 %1$s %2$s 解碼</string>
+    <string name="issue_video_too_demanding_10bit">裝置回報不支援 %1$s 10bit %2$s 解碼</string>
     <string name="issue_unknown_audio_codec">不支援的音訊編碼 %1$s</string>
     <string name="issue_no_audio_decoder">裝置無法解碼 %1$s 音訊</string>
-    <string name="issue_hdr_unsupported">電視不支援 HDR</string>
+    <string name="issue_hdr_unsupported">已設定電視不支援 HDR</string>
     <string name="issue_subtitle_needs_burn">%1$s 字幕需要伺服器燒入</string>
     <string name="list_separator">；</string>
 
@@ -420,6 +420,11 @@
     <string name="settings_bandwidth_transcode_disabled">轉碼已關閉，位元率限制不生效</string>
     <string name="issue_bandwidth_limit">來源位元率 %1$s Mbps 超過上限 %2$s Mbps</string>
     <string name="settings_bandwidth_option_detail">影音合計最高 %1$s Mbps</string>
+    <string name="player_transcode_notice">伺服器轉碼：%1$s</string>
+    <string name="player_stream_notice">伺服器串流：%1$s</string>
     <string name="issue_bitrate_unknown">來源位元率未知，採用上限 %1$s Mbps</string>
+    <string name="issue_quality_limit">已選擇 %1$dp / %2$s Mbps 畫質</string>
     <string name="issue_output_bitrate_limit">需重新編碼以符合影音合計 %1$s Mbps 上限</string>
+    <string name="issue_unseekable">直接播放無法跳轉</string>
+    <string name="player_server_playback_error">伺服器播放失敗：%1$s\n原因：%2$s</string>
 </resources>
