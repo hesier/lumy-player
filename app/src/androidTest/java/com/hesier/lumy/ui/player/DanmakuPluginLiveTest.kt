@@ -10,6 +10,7 @@ import com.hesier.lumy.jellyfin.JellyfinMediaServer
 import com.hesier.lumy.net.danmaku.*
 import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
 import java.util.concurrent.CopyOnWriteArrayList
 
 /** Read-only plugin downloads use saved credentials; no remote video or playback reporting is used. */
@@ -52,7 +53,6 @@ class DanmakuPluginLiveTest(private val instrumentation: Instrumentation) {
             val version = detail.versions.firstOrNull() ?: error("Selected plugin item needs a playable version")
             val media = DanmakuMedia.from(server, detail, version, saved.id)
             val plugin = checkNotNull(media.plugin)
-            val manual = if (kind == ServerKind.JELLYFIN) seedManual(media, services) else null
             val http = observedHttp(plugin.url, plugin.headers, saved.session.token, fixture.endpoint)
             val repository = DanmakuRepository(services, store, http)
             val loaded = runBlocking { repository.load(media) }
@@ -60,10 +60,10 @@ class DanmakuPluginLiveTest(private val instrumentation: Instrumentation) {
             check(pluginStatus == 200 && authValid) { "Plugin HTTP/authentication validation failed" }
             val result = loaded as? DanmakuLoad.Loaded ?: error("Plugin integration did not load comments")
             validateSource(kind, result, fixture)
-            manual?.let { check(store.match(media.key, it.choice.identity) == it) { "Plugin loading changed the stored online manual match" } }
+            if (kind == ServerKind.JELLYFIN) verifyManualOverride(media, services, http, fixture)
             val visible = DanmakuPluginLiveOverlay(instrumentation, preferences).use { it.run(result.comments, result.sourceOffsetMs) }
             return "Plugin integration: kind=$kind normalized=${result.comments.size} " +
-                "firstVisible=${visible.first} seekVisible=${visible.second} source=${result.source.kind}; authentication, priority/fallback and cleanup passed"
+                "firstVisible=${visible.first} seekVisible=${visible.second} source=${result.source.kind}; authentication, source selection and cleanup passed"
         } finally {
             fixture.close()
             store.clearCache(); store.clearMatches(); check(preferences.edit().clear().commit())
@@ -76,6 +76,43 @@ class DanmakuPluginLiveTest(private val instrumentation: Instrumentation) {
         val anime = DanmakuAnime("A", "Flow A", episodes = emptyList())
         val episode = DanmakuEpisode("A2", "Flow A episode 2", "2", "opaque")
         return DanmakuMatch(choice, anime, episode, media.year, media.season, media.number).also { store.remember(media.key, it) }
+    }
+
+    private fun verifyManualOverride(media: DanmakuMedia, services: DanmakuServices, http: OkHttpClient,
+        fixture: DanmakuPlayerFlowServer) {
+        val manual = seedManual(media, services)
+        val restoredStore = DanmakuStore(context, "danmaku-plugin-live-test")
+        check(restoredStore.match(media.key, manual.choice.identity) == manual) { "Manual match was not persisted" }
+        val repository = DanmakuRepository(services, restoredStore, http)
+        events.clear(); fixture.paths.clear()
+        val loaded = runBlocking { repository.load(media) } as DanmakuLoad.Loaded
+        checkManual(loaded, manual)
+        check(events.isNotEmpty() && events.all { it == "online" }) { "Manual selection contacted the plugin" }
+        val downloads = fixture.commentRequests()
+        check(downloads == 1)
+        events.clear()
+        val reloaded = runBlocking { repository.load(media, force = true) } as DanmakuLoad.Loaded
+        checkManual(reloaded, manual)
+        check(events.isNotEmpty() && events.all { it == "online" } && fixture.commentRequests() == downloads + 1) {
+            "Force reload did not preserve and redownload the manual selection"
+        }
+        check(restoredStore.match(media.key, manual.choice.identity) == manual)
+        check(onlineAuthIsolated) { "Media authentication leaked to the independent online source" }
+        restoredStore.restoreAuto(media.key)
+        check(store.match(media.key, manual.choice.identity) == null && restoredStore.choice(media.key) == null)
+        events.clear(); fixture.paths.clear(); pluginStatus = 0; authValid = false
+        val automatic = runBlocking { repository.load(media, force = true) } as DanmakuLoad.Loaded
+        check(pluginStatus == 200 && authValid)
+        check(automatic.source.kind == DanmakuSourceKind.SERVER && automatic.match == null && !automatic.automatic)
+        check(automatic.comments.isNotEmpty() && events == listOf("plugin") && fixture.paths.isEmpty()) {
+            "Restoring automatic matching did not return exclusively to the plugin"
+        }
+    }
+
+    private fun checkManual(loaded: DanmakuLoad.Loaded, manual: DanmakuMatch) {
+        check(loaded.source.kind == DanmakuSourceKind.CUSTOM && !loaded.automatic)
+        check(loaded.match?.anime?.id == manual.anime.id && loaded.match?.episode?.id == manual.episode.id)
+        check(loaded.comments.isNotEmpty())
     }
 
     private fun observedHttp(pluginUrl: String, headers: Map<String, String>, token: String, onlineUrl: String) =

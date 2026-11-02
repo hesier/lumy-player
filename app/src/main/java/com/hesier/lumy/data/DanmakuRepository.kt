@@ -19,6 +19,8 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
         val manual = configured != null && store.match(media.key, configured.identity) != null
         try {
             serverFailure = null
+            // Explicit per-item choices remain active until the user restores automatic matching.
+            if (manual) return@withContext online(media, checkNotNull(configured), force)
             if (media.plugin != null) {
                 try {
                     val plugin = plugin(media, force)
@@ -26,11 +28,15 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (error: DanmakuException) { serverFailure = error.reason }
             }
-            // Saved online corrections apply only after the server plugin has no usable data.
             online(media, configured ?: services.endpoint, force)
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (error: DanmakuException) { DanmakuLoad.Failed(error.reason, manual) }
         catch (_: Exception) { DanmakuLoad.Failed(DanmakuFailure.CONNECTION, manual) }
+    }
+
+    fun onlineChoice(): DanmakuChoice {
+        val endpoint = services.endpoint
+        return DanmakuChoice(if (endpoint.official) DanmakuSourceKind.OFFICIAL else DanmakuSourceKind.CUSTOM, endpoint.identity)
     }
 
     fun endpoint(choice: DanmakuChoice): DanmakuEndpoint {

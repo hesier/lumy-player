@@ -3,11 +3,38 @@ package com.hesier.lumy.ui.player
 import android.app.Instrumentation
 import com.hesier.lumy.R
 import com.hesier.lumy.data.DanmakuLoad
+import com.hesier.lumy.data.DanmakuSourceKind
 
 /** Runs real PlayerDanmaku menus and storage with an isolated source configuration. */
 class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
     fun runAll(live: Boolean = false): String = if (live) runOne(true, false) else
-        listOf(runOne(false, false), runOne(false, true)).joinToString("\n")
+        listOf(runOne(false, false), runOne(false, true), runWithPlugin()).joinToString("\n")
+
+    private fun runWithPlugin(): String {
+        val server = DanmakuPlayerFlowServer()
+        val fixture = DanmakuPlayerFlowFixture(instrumentation, live = false)
+        try {
+            fixture.open(server.endpoint, withPlugin = true)
+            check(fixture.awaitLoaded(automatic = false).source.kind == DanmakuSourceKind.SERVER)
+            check(server.paths.size == 1 && server.paths.single() == "/plugin")
+            fixture.checkVisible()
+            val manual = manualSelection(fixture)
+            val pluginReads = server.paths.count { it == "/plugin" }
+            fixture.reopenController()
+            val remembered = fixture.awaitLoaded(automatic = false)
+            check(remembered.source == manual.source && remembered.match?.episode?.id == manual.match?.episode?.id)
+            check(server.paths.count { it == "/plugin" } == pluginReads)
+            fixture.checkVisible()
+            forceReload(fixture, server)
+            checkFailedReload(fixture, server)
+            check(fixture.store.match(fixture.mediaKey(), manual.source.identity) != null)
+            restoreAutomatic(fixture, manual, withPlugin = true)
+            check(server.paths.count { it == "/plugin" } > pluginReads)
+            return "Player plugin flow: manual override, remembered selection after reopen, reload/failure retention and restore to server passed"
+        } finally {
+            try { fixture.close() } finally { server.close() }
+        }
+    }
 
     private fun runOne(live: Boolean, matchAvailable: Boolean): String {
         val server = if (live) null else DanmakuPlayerFlowServer().apply {
@@ -54,7 +81,12 @@ class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
             fixture.pick("Flow B")
             "Flow B"
         }
+        val previous = fixture.result()
         fixture.pickEpisode(workTitle, if (fixture.live) 1 else 2)
+        fixture.await("manual match installed") {
+            val value = fixture.result() as? DanmakuLoad.Loaded
+            value != null && value !== previous && value.match != null && !value.automatic
+        }
         val loaded = fixture.awaitLoaded(automatic = false)
         val match = checkNotNull(loaded.match)
         if (!fixture.live) check(match.anime.id == "B" && match.episode.id == "B3") {
@@ -94,17 +126,20 @@ class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
         server.failComments = false
     }
 
-    private fun restoreAutomatic(fixture: DanmakuPlayerFlowFixture, manual: DanmakuLoad.Loaded) {
+    private fun restoreAutomatic(fixture: DanmakuPlayerFlowFixture, manual: DanmakuLoad.Loaded, withPlugin: Boolean = false) {
         fixture.toasts.clear()
+        val previous = fixture.result()
         fixture.openMenu()
         fixture.pick(fixture.text(R.string.danmaku_restore_auto))
-        val restored = fixture.awaitLoaded(automatic = true)
-        if (!fixture.live) check(restored.match?.anime?.id == "A" && restored.match?.episode?.id == "A2")
-        if (!fixture.live) check(restored.match?.episode?.number == "2")
+        fixture.await("restored source installed") { fixture.result() is DanmakuLoad.Loaded && fixture.result() !== previous }
+        val restored = fixture.awaitLoaded(automatic = !withPlugin)
+        if (withPlugin) check(restored.source.kind == DanmakuSourceKind.SERVER && restored.match == null)
+        else if (!fixture.live) check(restored.match?.anime?.id == "A" && restored.match?.episode?.number == "2")
         else check(!restored.match?.episode?.id.isNullOrBlank())
         check(fixture.store.match(fixture.mediaKey(), manual.source.identity) == null)
         fixture.expectToast(fixture.text(R.string.danmaku_loading))
-        fixture.expectToast(fixture.feedbackPrefix(R.string.danmaku_auto_matched))
+        fixture.expectToast(if (withPlugin) fixture.text(R.string.danmaku_source_server)
+            else fixture.feedbackPrefix(R.string.danmaku_auto_matched))
         fixture.checkVisible()
     }
 }

@@ -36,6 +36,7 @@ internal class DanmakuPlayerFlowServer : AutoCloseable {
         Thread.sleep(250)
         val decoded = URLDecoder.decode(path, "UTF-8")
         val (status, body) = when {
+            path == "/plugin" -> 200 to """<i><d p="1,1,25,16777215,0,0,user,1">Plugin one</d><d p="2,1,25,16777215,0,0,user,2">Plugin two</d></i>"""
             "/match" in path -> if (matchBody == null) 404 to "{}" else 200 to checkNotNull(matchBody)
             "/search/anime" in path -> 200 to search(if ("S01E02" in decoded) emptyList() else listOf("A", "B"))
             "/bangumi/" in path -> 200 to details(path.substringAfterLast('/'))

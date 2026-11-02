@@ -44,7 +44,7 @@ internal class DanmakuRepositoryTest(private val context: Context) {
             val repository = DanmakuRepository(services, store)
             val media = media(socket.localPort)
             pluginPriority(repository, media)
-            pluginOverridesSavedMatch(repository, media, services)
+            savedMatchOverridesPlugin(repository, media, services)
             manualAndCache(repository, media, services)
             identityAndRecovery(repository, media, services)
             automaticValidation(repository, media)
@@ -59,28 +59,28 @@ internal class DanmakuRepositoryTest(private val context: Context) {
         }
     }
 
-    private suspend fun pluginOverridesSavedMatch(repository: DanmakuRepository, media: DanmakuMedia, services: DanmakuServices) {
+    private suspend fun savedMatchOverridesPlugin(repository: DanmakuRepository, media: DanmakuMedia, services: DanmakuServices) {
         val source = DanmakuChoice(DanmakuSourceKind.CUSTOM, services.endpoint.identity)
         val anime = repository.details(source, repository.search(source, "show").first())
         store.remember(media.key, DanmakuMatch(source, anime, anime.episodes.first(), 2023, 1, 1))
         store.clearCache(); paths.clear()
-        val loaded = repository.load(media) as DanmakuLoad.Loaded
-        check(loaded.source.kind == DanmakuSourceKind.SERVER && loaded.comments.single().text == "plugin")
-        check(paths.size == 1 && paths.single().startsWith("/plugin"))
-        check(store.match(media.key, source.identity) != null)
+        val reopened = DanmakuStore(context, "danmaku-repository-test")
+        val replay = DanmakuRepository(services, reopened)
+        val loaded = replay.load(media) as DanmakuLoad.Loaded
+        check(loaded.source == source && !loaded.automatic && loaded.comments.single().text == "online")
+        check(paths.none { it.startsWith("/plugin") })
+        check(reopened.match(media.key, source.identity)?.episode?.id == anime.episodes.first().id)
         paths.clear()
-        check((repository.load(media) as DanmakuLoad.Loaded).source.kind == DanmakuSourceKind.SERVER)
-        check(paths.isEmpty())
-        check((repository.load(media, force = true) as DanmakuLoad.Loaded).source.kind == DanmakuSourceKind.SERVER)
+        check((replay.load(media, force = true) as DanmakuLoad.Loaded).source == source)
+        check(paths.none { it.startsWith("/plugin") } && paths.any { "/comment/" in it })
+        stale = true
+        check(replay.load(media) is DanmakuLoad.NeedsMatch)
+        check(reopened.match(media.key, source.identity) != null); stale = false
+        reopened.restoreAuto(media.key); paths.clear()
+        check((replay.load(media, force = true) as DanmakuLoad.Loaded).source.kind == DanmakuSourceKind.SERVER)
         check(paths.size == 1 && paths.single().startsWith("/plugin"))
-        pluginBody = "<i/>"; paths.clear()
-        val fallback = repository.load(media, force = true) as DanmakuLoad.Loaded
-        check(fallback.source == source && !fallback.automatic)
-        check(paths.first().startsWith("/plugin") && paths.any { "/comment/" in it })
-        pluginBody = XML
-        store.restoreAuto(media.key); store.clearCache(); paths.clear()
+        store.clearCache(); paths.clear()
     }
-
     private suspend fun pluginPriority(repository: DanmakuRepository, media: DanmakuMedia) {
         val plugin = repository.load(media) as DanmakuLoad.Loaded
         check(plugin.match == null && !plugin.automatic)

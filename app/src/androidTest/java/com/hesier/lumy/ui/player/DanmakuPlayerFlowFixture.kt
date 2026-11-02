@@ -43,12 +43,14 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
     private lateinit var actionButton: View
     private var clockMs = 2_000L
     private var menuClicks = 0
+    private var pluginEndpoint: String? = null
     val toasts = CopyOnWriteArrayList<String>()
     private val resultField = PlayerDanmaku::class.java.getDeclaredField("result").apply { isAccessible = true }
     private val mediaField = PlayerDanmaku::class.java.getDeclaredField("media").apply { isAccessible = true }
     private val overlayField = PlayerDanmaku::class.java.getDeclaredField("overlay").apply { isAccessible = true }
 
-    fun open(endpoint: String?) {
+    fun open(endpoint: String?, withPlugin: Boolean = false) {
+        pluginEndpoint = endpoint.takeIf { withPlugin }
         check(preferences.edit().clear().commit())
         store.clearMatches(); store.clearCache()
         val source = DanmakuSourceSettings(preferences)
@@ -96,7 +98,9 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
         val server = Proxy.newProxyInstance(MediaServer::class.java.classLoader, arrayOf(MediaServer::class.java)) { _, method, _ ->
             when (method.name) {
                 "getSession" -> ServerSession(ServerKind.PLEX, "flow", "fixture", "http://127.0.0.1", "")
-                "danmakuResource" -> null
+                "danmakuResource" -> pluginEndpoint?.let {
+                    com.hesier.lumy.core.ServerDanmaku("$it/plugin", emptyMap(), com.hesier.lumy.core.ServerDanmakuFormat.XML)
+                }
                 else -> error("Unexpected server call: ${method.name}")
             }
         } as MediaServer
@@ -105,6 +109,14 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
         val version = MediaVersion("local", 0, "mkv", null, null, emptyList(), emptyList(),
             listOf(MediaPart("part", "local", "mkv", null, 60_000)))
         controller.bind(server, MediaDetail(item, versions = listOf(version)), version, "flow-only")
+    }
+
+    fun reopenController() = main {
+        controller.release()
+        controller = PlayerDanmaku(activity, binding.playerView, bundle.player, positionMs = { clockMs },
+            preferences = context.getSharedPreferences("danmaku-player-flow-test", Context.MODE_PRIVATE),
+            store = DanmakuStore(context, "danmaku-player-flow-test"))
+        bind()
     }
 
     fun result(): DanmakuLoad? = main { resultField.get(controller) as? DanmakuLoad }

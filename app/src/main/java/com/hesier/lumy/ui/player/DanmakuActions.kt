@@ -25,7 +25,7 @@ internal class DanmakuActions(
             text(R.string.danmaku_search_hint), text(R.string.danmaku_search)) { keyword ->
             if (!sameMedia(target.first, serial)) return@InputPanel
             run {
-                val source = if (target.second.kind == DanmakuSourceKind.SERVER) online() else target.second
+                val source = if (target.second.kind == DanmakuSourceKind.SERVER) repository.onlineChoice() else target.second
                 val matches = repository.search(source, keyword.trim())
                 if (sameMedia(target.first, serial)) showAnimes(target.first, source, matches, serial)
             }
@@ -55,10 +55,6 @@ internal class DanmakuActions(
         }.show()
     }
 
-    private fun online(): DanmakuChoice {
-        val endpoint = DanmakuServices(activity).endpoint
-        return DanmakuChoice(if (endpoint.official) DanmakuSourceKind.OFFICIAL else DanmakuSourceKind.CUSTOM, endpoint.identity)
-    }
     private fun sameMedia(media: DanmakuMedia, serial: Int) = current()?.first?.key == media.key && revision() == serial
     private fun text(id: Int) = activity.getString(id)
 }
