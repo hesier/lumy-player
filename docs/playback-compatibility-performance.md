@@ -349,3 +349,18 @@ Explicit instrumentation modes `danmaku_flow_only`, `danmaku_flow_live`, and `da
 
 
 Final validation passed: 83 net JVM tests and Debug/AndroidTest/Release builds. Emulator API regression and two owned-loopback full UI runs covered match success/search fallback, a 1.5-second source offset and actual visible frames after cache settling. The deployed service passed automatic `三体 S01E01`, manual work/episode-two selection, saved match, reload and rematch through the production controller. Actual PlayerActivity passed button ordering, left/right navigation, panel focus return, More separation and synthetic-to-production handoff. Isolated storage/local video or a strict server proxy kept original global settings, track memory and session unchanged/restored. A long-running emulator previously developed system input timeouts; restarting the same test emulator with its data preserved allowed final verification without weaker assertions.
+
+
+### 2026-11-03 deployed server plugins and highest priority
+
+Loading now tries valid Jellyfin/Emby plugin data before the configured online service’s saved correction or automatic match. Saved online corrections no longer bypass plugins; empty/missing/authentication/other failed plugin reads retain existing fallback rules and preserve online records. Cached loads and explicit reloads follow the same order. Display filtering to zero does not trigger fallback.
+
+Existing adapters read Jellyfin raw XML through `GET /api/danmu/{itemId}/raw` with login Authorization, and Emby JSON through `GET /api/danmu/{itemId}?option=GetJsonById` with X-Emby-Token. Each uses its own parser. ASS and a web player are unnecessary; plugin search/download/refresh administration APIs are not called.
+
+Read-only deployed checks returned HTTP 200 with 961,105 bytes and 8,540 raw scrolling records for Jellyfin’s first Three-Body episode. An existing Emby episode returned HTTP 200 with `data: []`; no comments had been downloaded, so this does not establish nonempty Emby JSON deployment acceptance. Application validation below covers real XML rendering and empty-JSON fallback separately.
+
+
+Explicit deployed instrumentation accepts `danmaku_plugin_kind=JELLYFIN|EMBY` and `danmaku_plugin_item=<media-id>`, using a corresponding login already saved on the device. Jellyfin mode deliberately stores an isolated online manual match and verifies plugin-only loading. Emby mode expects an item with no downloaded comments, then validates empty-JSON fallback to an owned online fixture and media-header isolation. Downloaded comments reach the formal Overlay over a local 320×180 video, checking paused initial/seek visibility after cache settling, clear and release. No remote video, watch-progress writes, current-server changes or user-preference changes are involved. This is not 4K performance acceptance for plugin data.
+
+
+Final validation passed 83 network and 26 Jellyfin/Emby JVM tests plus Debug/AndroidTest/Release builds. Repository regression covers plugin priority despite saved online corrections, cache reuse/forced reload, empty data and classified 401/403/404 fallback. The deployed Jellyfin plugin produced 8,536 normalized/deduplicated comments, with 2/7 visible after paused initial/seek cache settling, SERVER source and zero online requests. Emby empty JSON parsed successfully and fell back to the owned online fixture with actual visible text; nonempty downloaded Emby data remains unverified. Global settings and sessions remained unchanged. Raw XML counts come from a separate read-only endpoint check; application-chain instrumentation does not pre-read the body, preserving the production compressed-stream path.

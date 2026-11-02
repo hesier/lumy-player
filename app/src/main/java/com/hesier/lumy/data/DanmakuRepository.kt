@@ -19,7 +19,6 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
         val manual = configured != null && store.match(media.key, configured.identity) != null
         try {
             serverFailure = null
-            if (manual) return@withContext online(media, checkNotNull(configured), force)
             if (media.plugin != null) {
                 try {
                     val plugin = plugin(media, force)
@@ -27,6 +26,7 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (error: DanmakuException) { serverFailure = error.reason }
             }
+            // Saved online corrections apply only after the server plugin has no usable data.
             online(media, configured ?: services.endpoint, force)
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (error: DanmakuException) { DanmakuLoad.Failed(error.reason, manual) }

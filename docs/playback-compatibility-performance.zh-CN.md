@@ -365,3 +365,27 @@ adb -s <device> shell am instrument -w \
 
 
 本轮最终验证：83 个 net JVM 测试通过，Debug／AndroidTest／Release 构建通过。模拟器 API 回归通过；自有回环的 match 成功／搜索兜底两轮完整 UI 流程通过，包含 1.5 秒来源偏移与缓存后的实际可见帧；真实自部署“三体 S01E01”的自动、手动选作品／第 2 集、保存、重新下载与重新自动匹配完整流程通过。真实 PlayerActivity 的按钮顺序、左右导航、面板返回焦点、“更多”分离和 debug 生成器切回正式来源通过。测试使用自有视频／隔离存储或严格代理，原全局设置、轨道记忆与会话均已恢复或验证不变。旧模拟器长运行期间曾发生系统输入超时；重启同一测试模拟器、保留数据后完成上述最终验证，未放宽断言。
+
+
+### 2026-11-03 服务器插件实测与最高优先级
+
+来源规则调整为：Jellyfin／Emby 插件有效数据 → 当前在线来源已保存匹配 → 在线自动匹配。已保存的在线手动匹配不再绕过插件；插件为空、未找到、鉴权或其他读取失败时仍按原错误规则回退，在线手动记录保留。缓存重用和“重新加载”均按同一优先级执行。只有原始有效输入为空才回退，不因显示过滤后的数量为零而换源。
+
+现有服务适配直接复用：Jellyfin `GET /api/danmu/{itemId}/raw` 使用登录 Authorization 读取 XML，Emby `GET /api/danmu/{itemId}?option=GetJsonById` 使用 X-Emby-Token 读取 JSON，分别交给对应解析器。不需要开启 ASS 或网页播放器，不调用插件的搜索、下载、刷新管理接口。
+
+部署只读抽查：Jellyfin《三体》第一集 HTTP 200、961,105 字节 XML，共 8,540 条滚动原始记录；Emby 一个已存在剧集的 HTTP 200 响应为 `data: []`，当前没有已下载弹幕，不能视为实际非空 JSON 已验收。下面的应用内验证分别覆盖真实 XML 显示和空 JSON 的在线回退。
+
+
+显式联调入口需要设备已保存对应 Jellyfin／Emby 登录，媒体 ID 由调用方提供：
+
+```bash
+adb -s <device> shell am instrument -w \
+  -e danmaku_plugin_kind JELLYFIN \
+  -e danmaku_plugin_item <media-id> \
+  com.hesier.lumy.debug.test/com.hesier.lumy.ui.player.PgsInstrumentation
+```
+
+Jellyfin 模式故意预存一条隔离的在线手动匹配，检查仍只读取插件、不访问在线来源；Emby 模式针对没有已下载弹幕的媒体，检查空 JSON 后回退自有在线服务，并验证媒体登录头不传给在线来源。下载结果交给正式 Overlay 和本地 320×180 视频，检查暂停首屏、seek、缓存稳定后可见、clear 和释放。此测试不播放真实远程视频，不写观看进度，不改当前服务器或用户偏好，不构成插件弹幕下的 4K 性能验收。
+
+
+最终验证：网络层 83 项和 Jellyfin／Emby 模块 26 项 JVM 测试通过，Debug／AndroidTest／Release 构建通过。来源层回归通过，覆盖已有在线手动记录时的插件最高优先、缓存重用／强制重载、空数据回退，以及 401／403／404 分类回退。模拟器真实 Jellyfin 插件归一化并去重后为 8,536 条，暂停首屏／跳转后分别 2／7 条可见，来源 SERVER，且在线请求数为 0；Emby 空 JSON 成功解析后回退自有在线 fixture，首屏／跳转均有实际文字，不代表 Emby 已下载非空数据联调成功。测试结束全局设置和会话保持不变。仅在独立只读接口抽查统计原始 XML 条数，应用链路测试不提前读取或统计响应体，以保持与生产相同的压缩流读取路径。
