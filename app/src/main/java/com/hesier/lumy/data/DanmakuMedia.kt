@@ -14,7 +14,7 @@ import java.security.MessageDigest
 internal enum class DanmakuSourceKind { SERVER, OFFICIAL, CUSTOM }
 internal data class DanmakuChoice(val kind: DanmakuSourceKind, val identity: String)
 internal data class DanmakuMatch(val choice: DanmakuChoice, val anime: DanmakuAnime, val episode: DanmakuEpisode,
-    val year: Int?, val season: Int?, val number: Int?)
+    val year: Int?, val season: Int?, val number: Int?, val sourceOffsetMs: Long = 0)
 
 internal data class DanmakuMedia(
     val key: String, val serverKey: String, val title: String, val originalTitle: String?,
@@ -33,7 +33,7 @@ internal data class DanmakuMedia(
 
 internal sealed interface DanmakuLoad {
     data class Loaded(val comments: List<DanmakuComment>, val source: DanmakuChoice,
-        val match: DanmakuMatch? = null, val automatic: Boolean = false) : DanmakuLoad
+        val match: DanmakuMatch? = null, val automatic: Boolean = false, val sourceOffsetMs: Long = 0) : DanmakuLoad
     data class NeedsMatch(val source: DanmakuChoice) : DanmakuLoad
     data class Empty(val source: DanmakuChoice) : DanmakuLoad
     data class Failed(val reason: DanmakuFailure, val manual: Boolean = false) : DanmakuLoad

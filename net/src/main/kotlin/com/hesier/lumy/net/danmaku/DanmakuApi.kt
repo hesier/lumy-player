@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.booleanOrNull
@@ -16,6 +17,7 @@ import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okio.ByteString.Companion.toByteString
 import java.security.MessageDigest
+import java.math.RoundingMode
 
 class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
     private val transport = DanmakuTransport(http)
@@ -37,16 +39,17 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
         }.toString()
         val bytes = transport.postJson(url.toString(), body, headers(url)) ?: return@withContext null
         val root = parseResponse(bytes)
-        root.field("isMatched")?.let { flag ->
-            if ((flag as? JsonPrimitive)?.booleanOrNull == null)
-                throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
+        val matched = root.field("isMatched")?.let { flag ->
+            (flag as? JsonPrimitive)?.booleanOrNull ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
         }
-        val matches = root.field("matches") as? JsonArray ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
+        val candidates = root.field("matches")
+        if ((candidates == null || candidates == JsonNull) && matched != true) return@withContext null
+        val matches = candidates as? JsonArray ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
         if (matches.isEmpty()) return@withContext null
         val first = matches.first() as? JsonObject ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
         DanmakuMatchCandidate(first.field("animeId")?.remoteId()
             ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE), first.field("episodeId")?.remoteId()
-            ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE))
+            ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE), first.shiftMillis())
     }
 
     suspend fun details(animeId: String): DanmakuAnime = withContext(Dispatchers.IO) {
@@ -93,6 +96,15 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
         return mapOf("Accept" to "application/json", "X-AppId" to auth.appId,
             "X-Timestamp" to timestamp, "X-Signature" to signature)
     }
+}
+
+private fun JsonObject.shiftMillis(): Long {
+    val value = field("shift") ?: return 0
+    if (value == JsonNull) return 0
+    val number = (value as? JsonPrimitive)?.takeUnless { it.isString }?.content?.toBigDecimalOrNull()
+        ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
+    return try { number.movePointRight(3).setScale(0, RoundingMode.HALF_UP).longValueExact() }
+    catch (error: ArithmeticException) { throw DanmakuException(DanmakuFailure.INVALID_RESPONSE, error) }
 }
 
 private fun JsonObject.anime(): DanmakuAnime? {

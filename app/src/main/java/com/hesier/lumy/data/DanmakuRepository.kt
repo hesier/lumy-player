@@ -78,7 +78,7 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
         if (force) store.invalidate(key)
         val comments = store.cached(key) ?: api.comments(selected.episode.id).also { if (it.isNotEmpty()) store.cache(key, it) }
         return if (comments.isEmpty()) DanmakuLoad.Empty(choice)
-            else DanmakuLoad.Loaded(comments, choice, selected, automatic = saved == null)
+            else DanmakuLoad.Loaded(comments, choice, selected, automatic = saved == null, sourceOffsetMs = selected.sourceOffsetMs)
     }
 
     private suspend fun automaticMatch(api: DanmakuApi, media: DanmakuMedia, choice: DanmakuChoice): DanmakuMatch? {
@@ -88,10 +88,8 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
         if (candidate != null) {
             val details = api.details(candidate.animeId)
             val episode = details.episodes.firstOrNull { it.id == candidate.episodeId } ?: return null
-            val number = episode.number
-            if (media.type == MediaType.EPISODE && number != null &&
-                number.trim().toDoubleOrNull() != media.number?.toDouble()) return null
-            return DanmakuMatch(choice, details, episode, media.year, media.season, media.number)
+            // A service may map split seasons or remembered episode offsets to different numbering.
+            return DanmakuMatch(choice, details, episode, media.year, media.season, media.number, candidate.shiftMs)
         }
         val anime = automaticAnime(api, media) ?: return null
         val details = api.details(anime.id)

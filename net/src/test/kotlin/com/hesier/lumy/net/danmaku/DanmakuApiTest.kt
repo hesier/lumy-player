@@ -102,6 +102,25 @@ class DanmakuApiTest {
         assertEquals("/prefix/api/v2/bangumi/2452047", server.takeRequest().path)
     }
 
+    @Test fun matchConvertsOptionalSignedFractionalShiftToMilliseconds() = runBlocking {
+        mapOf<String?, Long>(null to 0, "null" to 0, "0" to 0, "1.5" to 1500, "-0.5" to -500,
+            "0.0005" to 1, "-0.0005" to -1, "9223372036854775.807" to Long.MAX_VALUE,
+            "-9223372036854775.808" to Long.MIN_VALUE).forEach { (shift, expected) ->
+            val extra = shift?.let { ",\"shift\":$it" }.orEmpty()
+            server.enqueue(MockResponse().setBody("""{"success":true,"matches":[{"animeId":1,"episodeId":2$extra}]}"""))
+            assertEquals(DanmakuMatchCandidate("1", "2", expected), api().match("show S01E01"))
+        }
+    }
+
+    @Test fun matchRejectsInvalidNonFiniteAndOverflowingShift() = runBlocking {
+        listOf("\"1.5\"", "true", "{}", "[]", "NaN", "Infinity", "1e309",
+            "9223372036854775.808", "-9223372036854775.809").forEach { shift ->
+            server.enqueue(MockResponse().setBody("""{"matches":[{"animeId":1,"episodeId":2,"shift":$shift}]}"""))
+            val error = runCatching { api().match("show S01E01") }.exceptionOrNull() as DanmakuException
+            assertEquals(DanmakuFailure.INVALID_RESPONSE, error.reason)
+        }
+    }
+
     @Test fun inexactMatchStillReturnsTheFirstCandidate() = runBlocking {
         server.enqueue(MockResponse().setBody("""{"success":true,"isMatched":false,"matches":[
             {"animeId":"first-anime","episodeId":"first-episode"},
@@ -121,6 +140,9 @@ class DanmakuApiTest {
 
     @Test fun matchReturnsNullForNoMatchAndOptionalUnsupportedStatuses() = runBlocking {
         listOf("""{"success":true,"isMatched":false,"matches":[]}""",
+            """{"success":true,"isMatched":false,"matches":null}""",
+            """{"success":true,"isMatched":false}""", """{"success":true}""",
+            """{"success":true,"matches":null}""",
             """{"success":true,"isMatched":true,"matches":[]}""").forEach { body ->
             server.enqueue(MockResponse().setBody(body))
             assertNull(api().match("show S01E01"))
@@ -137,7 +159,8 @@ class DanmakuApiTest {
             """{"matches":[{"animeId":1,"episodeId":1.5}]}""",
             """{"matches":[{"animeId":"","episodeId":2}]}""", """{"matches":{}}""",
             """{"isMatched":"invalid","matches":[{"animeId":1,"episodeId":2}]}""",
-            """{"success":true,"isMatched":false}""", "not JSON").forEach { body ->
+            """{"success":true,"isMatched":true}""", """{"success":true,"isMatched":true,"matches":null}""",
+            """{"success":true,"isMatched":false,"matches":{}}""", "not JSON").forEach { body ->
             server.enqueue(MockResponse().setBody(body))
             val error = runCatching { api().match("show S01E01") }.exceptionOrNull() as DanmakuException
             assertEquals(DanmakuFailure.INVALID_RESPONSE, error.reason)
