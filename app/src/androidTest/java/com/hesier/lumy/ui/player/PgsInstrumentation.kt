@@ -8,6 +8,11 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
+    private var danmakuSourcesUiOnly = false
+    private var danmakuLiveUrl: String? = null
+    private var danmakuLiveAnime: String? = null
+    private var danmakuApiOnly = false
+    private var danmakuOverlayOnly = false
     private var danmakuSettingsOnly = false
     private var danmakuOnly = false
     private var cardRefreshOnly = false
@@ -26,6 +31,11 @@ class PgsInstrumentation : Instrumentation() {
 
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        danmakuSourcesUiOnly = arguments?.getString("danmaku_sources_ui_only") == "true"
+        danmakuLiveUrl = arguments?.getString("danmaku_live_url")
+        danmakuLiveAnime = arguments?.getString("danmaku_live_anime")
+        danmakuApiOnly = arguments?.getString("danmaku_api_only") == "true"
+        danmakuOverlayOnly = arguments?.getString("danmaku_overlay_only") == "true"
         danmakuSettingsOnly = arguments?.getString("danmaku_settings_only") == "true"
         danmakuOnly = arguments?.getString("danmaku_only") == "true"
         cardRefreshOnly = arguments?.getString("card_refresh_only") == "true"
@@ -47,9 +57,33 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (danmakuSourcesUiOnly) {
+                com.hesier.lumy.ui.settings.DanmakuSourcesUiTest(this).runAll()
+                result.putString("stream", "Danmaku source D-pad settings checks passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (danmakuLiveUrl != null && danmakuLiveAnime != null) {
+                result.putString("stream", DanmakuLiveOverlayTest(this).runAll(danmakuLiveUrl!!, danmakuLiveAnime!!) + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (danmakuApiOnly) {
+                com.hesier.lumy.data.DanmakuMatcherTest.runAll()
+                result.putString("stream", com.hesier.lumy.data.DanmakuRepositoryTest(targetContext).runAll() + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (danmakuOverlayOnly) {
+                result.putString("stream", DanmakuOverlayTest(this).runAll() + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (danmakuSettingsOnly) {
                 com.hesier.lumy.data.DanmakuPreferencesTest().runAll(targetContext)
+                com.hesier.lumy.data.DanmakuSourcesPreferencesTest().runAll(targetContext)
                 com.hesier.lumy.ui.settings.DanmakuSettingsUiTest(this).runAll()
+                com.hesier.lumy.ui.settings.DanmakuSourcesUiTest(this).runAll()
                 result.putString("stream", "Danmaku defaults, persistence, backup validation, reset and D-pad settings checks passed\n")
                 finish(Activity.RESULT_OK, result)
                 return

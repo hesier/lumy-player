@@ -1,9 +1,9 @@
-# AkDanmaku debug performance probe
+# AkDanmaku bounded runtime
 
-The debug build uses `akdanmaku-1.0.3+1-lumy1.aar`, based on
+The shared production/debug renderer uses `akdanmaku-1.0.3+1-lumy1.aar`, based on
 [`com.kuaishou:akdanmaku:1.0.3`](https://github.com/KwaiAppTeam/AkDanmaku).
-Release builds do not include this library, libGDX, the fixture or the test menu.
-The upstream MIT notice is bundled in debug assets at
+Release builds include the runtime and libGDX, while generated fixtures and the test menu remain debug-only.
+The upstream MIT notice is bundled in main assets at
 `third-party/AkDanmaku-LICENSE.txt`.
 
 ## Release waiter fix
@@ -21,13 +21,17 @@ at the end of `DanmakuEngine.release()`.
 
 ## Bounded scheduling and cache work
 
-The debug controller drives the existing engine in its upstream manual mode.
+The production and debug controllers drive the existing engine in its upstream manual mode.
 `DanmakuFrameDriver` owns one serial worker and its Choreographer. Pausing stops
 continuous callbacks while retaining draw snapshots and text caches. Seeking,
 layout changes and cache completion request coalesced, finite updates. The UI
 acknowledges snapshot consumption before the next update may recycle it. All Ak
-instances in this debug probe use manual mode; this process-wide upstream flag is
+instances in this app use manual mode; this process-wide upstream flag is
 not suitable for mixing unrelated automatic/manual Ak players.
+
+Paused cache refreshes invalidate both layout and its retainer: upstream clears
+visibility before re-layout, and reusing old retainer entries can otherwise keep
+previously visible comments hidden. Runtime density changes use the same rule.
 
 `AkDanmakuAccess.java` uses the published JVM names of version-pinned internal
 APIs without reflection. An Ak version upgrade must revisit this bridge.

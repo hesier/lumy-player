@@ -73,6 +73,7 @@ internal class DanmakuFrameDriver(
             if (filter.divisor == divisor) return@post
             filter.divisor = divisor
             config.updateFilter()
+            config.updateRetainer()
             config.updateLayout()
             comments.updateConfig(config)
             requestFrame()

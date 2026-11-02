@@ -21,7 +21,8 @@ final class AkDanmakuAccess {
         DanmakuEngine engine = player.getEngine$library_release();
         LumyCacheBudget.beginBatch(cacheManager(player));
         if (paused) {
-            // Cache completion must rerun paused layout, without advancing media time.
+            // 上游重排先清 visibility；必须同时清占位，避免 retainer 复用 false 隐藏已有弹幕。
+            engine.getContext$library_release().getConfig().updateRetainer();
             engine.getContext$library_release().getConfig().updateLayout();
             engine.getContext$library_release().getConfig().updateRender();
         }

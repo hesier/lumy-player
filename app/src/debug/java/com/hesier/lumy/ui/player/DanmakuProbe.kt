@@ -31,6 +31,7 @@ internal class DanmakuProbe(
     private val host: PlayerView,
     private val player: Player,
     preferences: SharedPreferences = host.context.getSharedPreferences("settings", Context.MODE_PRIVATE),
+    private val onProfileChanged: () -> Unit = {},
     private val positionMs: () -> Long,
 ) : Player.Listener {
     private val session = DanmakuTestSession(preferences, host, ::refreshSettings)
@@ -82,6 +83,7 @@ internal class DanmakuProbe(
         require(value in labels.indices)
         reset()
         profile = value
+        onProfileChanged()
         metrics = DanmakuMetrics()
         if (value == 0) return
         refreshSettings()

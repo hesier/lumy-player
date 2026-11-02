@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import com.hesier.lumy.R
@@ -38,13 +39,16 @@ class InputPanel(
         b.input.setSelection(initial.length)
         b.input.hint = hint
         b.save.text = actionLabel
+        b.input.enableDpadNavigation { direction ->
+            if (direction == View.FOCUS_DOWN) b.save else b.input
+        }
+        b.save.nextFocusUpId = b.input.id
         val submit = {
             dismiss()
             onSubmit(b.input.text.toString())
         }
         b.input.setOnEditorActionListener { _, action, _ ->
-            if (action == EditorInfo.IME_ACTION_DONE) submit()
-            false
+            if (action == EditorInfo.IME_ACTION_DONE) { submit(); true } else false
         }
         b.save.setOnClickListener { submit() }
         b.input.requestFocus()

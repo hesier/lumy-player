@@ -233,13 +233,7 @@ class DanmakuProbeTest(private val instrumentation: Instrumentation) {
         results += "Off removes overlay; release is idempotent"
     }
 
-    private fun screenshot() {
-        val image = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-        File(instrumentation.targetContext.cacheDir, "danmaku-probe.png").outputStream().use {
-            image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
-        image.recycle()
-    }
+    private fun screenshot() { captureDanmakuTest(instrumentation, "danmaku-probe.png") }
 
     private fun main(action: () -> Unit) {
         var result: Result<Unit>? = null

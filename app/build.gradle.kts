@@ -46,6 +46,12 @@ android {
         targetSdk = 35
         versionCode = 11
         versionName = "0.5.1"
+        // Optional official API credentials come from the build environment, never source control.
+        listOf("DANDANPLAY_APP_ID", "DANDANPLAY_APP_SECRET").forEach { key ->
+            val value = providers.environmentVariable(key).orNull.orEmpty()
+            val literal = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
+            buildConfigField("String", key, literal)
+        }
         // 电视盒子/投影仪都是 ARM，去掉 x86 的 FFmpeg 库减小体积
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }
@@ -121,11 +127,11 @@ androidComponents {
 }
 
 dependencies {
-    // Debug-only performance probe; the local patch wakes a blocked render worker on release.
-    debugImplementation(files(rootProject.file("third_party/akdanmaku/akdanmaku-1.0.3+1-lumy1.aar")))
-    debugImplementation("com.badlogicgames.gdx:gdx:1.10.0")
-    debugImplementation("com.badlogicgames.gdx:gdx-backend-android:1.10.0")
-    debugImplementation("com.badlogicgames.ashley:ashley:1.7.3")
+    // Shared renderer; the local patch bounds cache work and fixes worker shutdown.
+    implementation(files(rootProject.file("third_party/akdanmaku/akdanmaku-1.0.3+1-lumy1.aar")))
+    implementation("com.badlogicgames.gdx:gdx:1.10.0")
+    implementation("com.badlogicgames.gdx:gdx-backend-android:1.10.0")
+    implementation("com.badlogicgames.ashley:ashley:1.7.3")
     implementation(project(":net"))
     implementation(project(":server-plex"))
     implementation(project(":server-jellyfin"))

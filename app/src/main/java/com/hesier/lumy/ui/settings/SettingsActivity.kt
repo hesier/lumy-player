@@ -330,7 +330,8 @@ class SettingsActivity : ThemedActivity() {
                 Toast.makeText(this, R.string.track_memory_cleared, Toast.LENGTH_SHORT).show()
             },
             ),
-            DanmakuSettingsSection(this, settings.danmaku, ::render).rows(),
+            DanmakuSettingsSection(this, settings.danmaku, ::render).rows() +
+                DanmakuSourcesSection(this, settings.danmakuSource, ::render).rows(),
             listOfNotNull(
             Row(getString(R.string.settings_allow_transcode), onOff(settings.allowTranscode(entryId)),
                 serverSettingDetail(getString(R.string.settings_allow_transcode_detail))) {

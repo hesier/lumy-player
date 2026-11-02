@@ -1,5 +1,7 @@
 package com.hesier.lumy.data.backup
 
+import com.hesier.lumy.data.DanmakuOnlineSource
+import com.hesier.lumy.data.DanmakuSourceSettings
 import com.hesier.lumy.data.DanmakuDensity
 import com.hesier.lumy.data.DanmakuSettings
 import com.hesier.lumy.data.DanmakuSize
@@ -25,6 +27,7 @@ internal object BackupSettings {
         "language" to setOf("SYSTEM", "ENGLISH", "SIMPLIFIED_CHINESE", "TRADITIONAL_CHINESE"),
         "subtitle_mode" to setOf("SERVER", "LANGUAGE", "FORCED_ONLY", "OFF"),
         "skip_intro" to setOf("OFF", "BUTTON", "AUTO"), "skip_credits" to setOf("OFF", "BUTTON", "AUTO"),
+        DanmakuSourceSettings.SOURCE_KEY to DanmakuOnlineSource.entries.map { it.name }.toSet(),
         "danmaku_density" to DanmakuDensity.entries.map { it.name }.toSet(),
         "danmaku_size" to DanmakuSize.entries.map { it.name }.toSet(),
         "danmaku_speed" to DanmakuSpeed.entries.map { it.name }.toSet(),
@@ -35,7 +38,7 @@ internal object BackupSettings {
     private val floats = setOf("hold_speed", "subtitle_scale", "secondary_subtitle_scale", "ui_scale")
     private val strings = setOf("audio_language", "subtitle_language", "update_mirror_url", "sidebar_order")
     val globalKeys = booleans + enums.keys + integers + floats + strings +
-        setOf("audio_delay_ms", "danmaku_offset_ms") - serverKeys
+        setOf("audio_delay_ms", "danmaku_offset_ms") + DanmakuSourceSettings.KEYS - serverKeys
 
     fun read(key: String, value: Any): Any {
         val valid = when (key) {
@@ -49,11 +52,14 @@ internal object BackupSettings {
             }
             "hidden_sidebar" -> value is JSONArray && value.length() <= 1000 &&
                 (0 until value.length()).all { value.get(it) is String && value.getString(it).length <= 1024 }
+            DanmakuSourceSettings.URL_KEY -> value is String &&
+                runCatching { DanmakuSourceSettings.normalizeUrl(value) }.isSuccess
             in strings -> value is String && value.length <= 8192
             else -> false
         }
         require(valid) { "Invalid setting: $key" }
         return when (key) {
+            DanmakuSourceSettings.URL_KEY -> DanmakuSourceSettings.normalizeUrl(value as String)
             in integers -> (value as Number).toInt()
             in floats -> (value as Number).toFloat()
             "audio_delay_ms", "danmaku_offset_ms" -> (value as Number).toLong()

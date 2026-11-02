@@ -129,6 +129,8 @@ class DanmakuSettingsUiTest(private val instrumentation: Instrumentation) {
         assertFocus(R.string.danmaku_offset)
         focus(R.string.danmaku_restore_defaults, KeyEvent.KEYCODE_DPAD_DOWN)
         key(KeyEvent.KEYCODE_DPAD_DOWN)
+        assertFocus(R.string.danmaku_source_title)
+        key(KeyEvent.KEYCODE_DPAD_UP)
         assertFocus(R.string.danmaku_restore_defaults)
         key(KeyEvent.KEYCODE_BACK)
         assertFocus(R.string.settings_section_danmaku)

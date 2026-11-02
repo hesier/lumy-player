@@ -227,7 +227,7 @@ Added 2026-11-02, debug only. During playback, press Menu and select More → Da
 
 Enable Settings → Danmaku first. Both profiles follow all saved preferences without overlap. Normal/stress generate candidates every 100/25 ms; both admit at most 1/2/4 comments per sliding 500 ms for few/standard/more. Area defaults to the upper 50%; size, opacity, outline, speed and types follow settings. The text cache pool budget remains 8 MiB (not a total memory limit). Fixtures cover twelve seconds before the comment position and five minutes after it; leaving the window regenerates the fixture. Record those rebuilds during long runs. Synchronization uses the player's absolute media time, including seeks and transcoding offsets. The existing video SurfaceView is retained.
 
-`LumyDanmaku` logs position, visible comment count and UI dimensions every ten seconds. Video counters remain in `LumyPlayer`. Release excludes the menu, fixture resources, AkDanmaku and libGDX. See [the dependency patch](../third_party/akdanmaku/README.md) for the upstream worker-release fix and reproducible build.
+`LumyDanmaku` logs position, visible comment count and UI dimensions every ten seconds. Video counters remain in `LumyPlayer`. Release excludes the synthetic menu and fixture resources. Production source support now includes the shared AkDanmaku/libGDX runtime. See [the dependency patch](../third_party/akdanmaku/README.md) for the upstream worker-release fix and reproducible build.
 
 After installing the Debug and AndroidTest APKs:
 
@@ -269,4 +269,24 @@ Automatic reduction samples at most once per second against the display refresh 
 
 Targeted checks cover master/type switches, all types off, extreme sizes, area, opacity, outline pixels, rolling duration, signed offsets, defaults, adaptive reduction/recovery and preference preservation. Historical fixed-density measurements above cannot be directly compared with the current preference-controlled load.
 
-The API 31 ARM64 TV emulator regression passed using the 1920×1080 UI and 320×180 synthetic video, including preference binding, delayed origin, pause/seek/speed and worker shutdown. Adaptive policy, filtering and recovery use deterministic samples and verify that saved density stays unchanged; thresholds still need sustained low-end 4K hardware validation. Debug, AndroidTest and Release builds passed; the Release APK contained no AkDanmaku/libGDX package references.
+The API 31 ARM64 TV emulator regression passed using the 1920×1080 UI and 320×180 synthetic video, including preference binding, delayed origin, pause/seek/speed and worker shutdown. Adaptive policy, filtering and recovery use deterministic samples and verify that saved density stays unchanged; thresholds still need sustained low-end 4K hardware validation. Debug, AndroidTest and Release builds passed; that historical Release APK contained no AkDanmaku/libGDX package references; production source integration now excludes only the synthetic menu/data.
+
+
+### 2026-11-02 production sources and rendering
+
+The shared online client implements search, details and full-episode comments. Custom services explicitly request JSON; official signing and related comments are restricted to the official origin. Optional `DANDANPLAY_APP_ID` / `DANDANPLAY_APP_SECRET` build environment variables enable official access; missing credentials report unavailable.
+
+Jellyfin XML and Emby grouped JSON use separate parsers and current server authentication. Media headers never reach online sources. Authentication failures remain distinct; missing sidecars do not disable the plugin for other items. No refresh/download administration endpoint is called. Plugin lookup uses the library item ID; independent cuts and sidecar selection need deployment validation.
+
+Requests with the same client, URL and effective headers share in-flight work. The last consumer cancels body reading; cross-origin redirects strip private headers. Bounds are 8 MiB decoded responses, 100,000 raw entries and 80 code points per text. Automatic matching is conservative; ambiguous platforms, missing seasons and specials require explicit selection. The first release does not fetch video hashes or call optional match endpoints.
+
+Manual corrections are isolated by local server/account, media ID and service identity, with descriptive metadata checked when IDs expire or are reused. Normalized unfiltered comments cache for six hours within 64 MiB total/16 MiB per file, keyed by service and work/episode fingerprint. Only twelve seconds before and sixty seconds after the current comment clock enter the renderer. Seeking reuses downloaded data. The 8 MiB bitmap pool remains a pool budget, not a total-memory limit.
+
+The production runtime shares pause/sync/load bounds and adaptive density with debug. Item changes, master off and exit cancel loading/search; old selection panels validate the playback generation. Synthetic fixtures/menu/strings remain debug-only.
+
+Instrumentation modes: `danmaku_api_only` for owned loopback priority/correction/cache checks; `danmaku_overlay_only` for production rendering; `danmaku_settings_only` for persistence/backups/D-pad. Explicit `danmaku_live_url` and `danmaku_live_anime` arguments exercise real details→episode one→download→Overlay without storing private endpoints in source.
+
+
+Final validation: 197 JVM tests passed, including 67 network tests. Debug/AndroidTest/Release builds passed. Emulator checks covered source preferences/backups, real D-pad URL entry/save, plugin priority/fallback, pinned choices, expired/reused IDs, cache isolation, production windows and the original probe. A deployed custom service returned 6,631 normalized comments; paused initial/seek samples showed 4/9 visible comments, confirmed by screenshots. Video remained the local 320×180 synthetic fixture, so this is not real 4K performance acceptance. Official access and actual server plugins remain untested against deployments.
+
+Real-data validation exposed a paused refresh bug: changing layout generation cleared visibility while the old retainer reused it. Paused cache refreshes and runtime density changes now invalidate the retainer together with layout. Regression checks include near-origin positive/negative IDs, all three modes, density recovery and visibility after cache settling. Global admission is cached by density/types so overlapping windows retain the same IDs. A long-running emulator developed input/frame scheduling delays; after restarting the task-owned emulator, the original speed checks passed without relaxed thresholds.
