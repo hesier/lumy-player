@@ -27,6 +27,7 @@ enum class AppLanguage(val locale: Locale?) {
 /** 用户偏好设置，播放器每次起播时读取 */
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    val danmaku = DanmakuSettings(prefs)
 
     /** 把 AC3/DTS 等原始码流交给功放；正在直通的音轨无法倍速 */
     var passthrough: Boolean

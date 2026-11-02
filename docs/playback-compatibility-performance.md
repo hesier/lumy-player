@@ -219,3 +219,54 @@ Implementation references:
 - [PGS snapshot format](../app/src/main/java/com/hesier/lumy/ui/player/PgsSnapshotCodec.kt), [PGS rendering and history budgets](../app/src/main/java/com/hesier/lumy/ui/player/PgsSnapshotRenderer.kt).
 
 Future updates should record the date, code baseline, anonymous sample ID, full format combination, device/ABI, settings, metric start/end events, repetition count, observation length and validation limits. Regression and new-format checks should include an independent same-type sample. Mark old results as historical baselines rather than mixing them into a current success rate. Public documentation must not link private logs, screenshots, inventories or credential files containing media titles or secrets.
+
+
+## 12. Danmaku performance probe
+
+Added 2026-11-02, debug only. During playback, press Menu and select More → Danmaku performance test: Off, Follows settings or Stress input. Off is the default; selection is not persisted and resets when changing media or file versions. All comments are synthetic and no media metadata is sent to external services.
+
+Enable Settings → Danmaku first. Both profiles follow all saved preferences without overlap. Normal/stress generate candidates every 100/25 ms; both admit at most 1/2/4 comments per sliding 500 ms for few/standard/more. Area defaults to the upper 50%; size, opacity, outline, speed and types follow settings. The text cache pool budget remains 8 MiB (not a total memory limit). Fixtures cover twelve seconds before the comment position and five minutes after it; leaving the window regenerates the fixture. Record those rebuilds during long runs. Synchronization uses the player's absolute media time, including seeks and transcoding offsets. The existing video SurfaceView is retained.
+
+`LumyDanmaku` logs position, visible comment count and UI dimensions every ten seconds. Video counters remain in `LumyPlayer`. Release excludes the menu, fixture resources, AkDanmaku and libGDX. See [the dependency patch](../third_party/akdanmaku/README.md) for the upstream worker-release fix and reproducible build.
+
+After installing the Debug and AndroidTest APKs:
+
+```bash
+adb -s <device> shell am instrument -w -e danmaku_only true \
+  com.hesier.lumy.debug.test/com.hesier.lumy.ui.player.PgsInstrumentation
+adb -s <device> logcat -s LumyDanmaku LumyPlayer
+```
+
+The smoke check loops the existing synthetic 320×180 H.264/subtitle fixture without network access or server progress writes. It covers D-pad density selection, focus restoration, absolute timeline offsets, paused seeking, 2x speed, stop/restart and worker shutdown. `uiDraws` counts View-tree draws, not presented frames or smooth movement.
+
+Low-end hardware acceptance remains pending. Compare all three profiles on the same media, start position, subtitles, quality and display refresh rate. Warm up, observe at least five minutes and repeat; cover 4K SDR/HDR, dual subtitles, seeks and sustained playback. Record video dropped frames, UI/GPU frame times and interval distributions, CPU, PSS, GC, thermal state and visible scrolling uniformity. Use Perfetto to inspect SurfaceFlinger/HWC composition where needed. Neither video drop counters nor View draw counts alone establish smoothness, and emulator results do not establish low-end box performance.
+
+Historical pre-optimization baseline (2026-11-02): the API 31 ARM64 TV emulator smoke check passed. With a 1920×1080 UI and 320×180 synthetic video, separate five-second normal/stress samples recorded 299/299 View-tree draws, 11/85 visible comments at the end and zero video drops in both samples. Off produced no continuing UI draws over 500 ms and no detected surviving comment workers. These are not 4K performance or presented-FPS results. An initial cold-start attempt ended in an Activity input timeout; subsequent checks passed.
+
+
+### 2026-11-02 scheduling and load bounds
+
+The strategy was reviewed against [blbl's frame and load budgets](https://github.com/cat3399/blbl/tree/cd09bd903e6d0c22f5986580c2105796d8df6471/app/src/main/java/blbl/cat3399/feature/player/danmaku). The adapter is independently implemented; no blbl source is copied, and Ak layout/rendering algorithms remain in use.
+
+- All debug Ak instances use upstream manual mode, driven by one serial worker and its Choreographer. Paused/buffering playback retains snapshots and caches without continuous updates. Seeks, size changes and asynchronous cache completion coalesce finite refreshes. UI consumption provides backpressure before render snapshots can be recycled. Do not mix automatic/manual Ak players in this debug process.
+- State and speed commands are deduplicated. Initialization/discontinuity seeks immediately; periodic correction requires three consecutive one-second drift samples over 300 ms, with a ten-second correction cooldown. Paused playback is not periodically corrected.
+- The earlier sliding 500 ms admission window allowed one normal or six stress comments; the current limit follows saved density as described above, with 80 Unicode code points per text. Fixture generation/sorting/filtering happens off the UI thread, entity creation uses the worker, and the next window is prepared 30 seconds early. Cancelled results cannot install after close/profile changes.
+- Each update admits up to eight measure/cache tasks. The waiting queue is capped at 64, plus one active task. Rejection/cancellation restores retryable transient states. Rejection counters include repeated attempts, not unique dropped comments.
+- Logs report update/draw/interval count and rolling 256-sample p95/max, cache hits, queue depth/peak/rejections, work elapsed time, Java/native heaps and sync command counts. Update/draw are wall-clock durations of CPU paths; draw covers UI recording of the comment subtree. Intervals are submission intervals, not GPU time or presented FPS. Heap figures are not PSS; use system tools for GPU, GC, PSS, composition and thermal measurements.
+
+The targeted instrumentation additionally checks that paused update/draw counters remain unchanged over 2.2 seconds, paused seeking changes actual visible IDs and then settles, heartbeat commands are deduplicated, and sliding-window boundaries, Unicode length, cache limits and cancellation/retry behave correctly. Use the same `-e danmaku_only true` command. Existing shutdown fixes remain; see [the patch instructions](../third_party/akdanmaku/README.md). Tests still use a small synthetic video and do not establish low-end 4K performance.
+
+The historical final run before settings binding on the API 31 ARM64 TV emulator used host GPU mode and the same 1920×1080 UI/320×180 synthetic H.264 fixture. Separate five-second normal/stress samples recorded 291/248 UI draws and zero video drops; update p95 was 0.88/2.34 ms, comment UI recording p95 was 0.26/0.60 ms, and submission interval p95 was 20.92/31.28 ms. Stress still has interval spikes; this does not demonstrate stable 60 FPS. Observed waiting queue peaks were eight in both profiles (hard bounds are tested separately). Off stopped drawing and left no workers. These single-run smoke figures are not a controlled before/after speedup comparison.
+
+
+### 2026-11-02 preference binding for test comments
+
+Profile selection is still transient, while style and behavior read Settings → Danmaku. Master off or all three types off removes the engine; enabling restores the selected test input. Changes coalesce and rebuild the current window, including paused refreshes. Font sizes map to 14/18/22/26/32 sp; slow/standard/fast rolling durations are 10/8/6 seconds. Outline off skips outline drawing. The adapter distinguishes pending/current Ak configs and restores the selected duration after viewport changes.
+
+Positive offsets delay comments: the comment clock is `max(absolute media position - offset, 0)`. Synthetic types rotate after admission limiting so the stress input stride cannot exclude an enabled type.
+
+Automatic reduction samples at most once per second against the display refresh budget. Pressure means the sum of rolling 256-sample update/draw p95 exceeds 60% of a frame budget, or submission interval p95 exceeds 1.5 budgets. Three consecutive pressure samples halve the stable-ID subset, down to one quarter; twenty healthy samples restore one level. Changes have a five-second cooldown. Pause/buffering clears consecutive counts; disabling automatic reduction restores selected density. Saved density is never changed. Submission intervals cannot identify the source of pressure and are not GPU presentation timings.
+
+Targeted checks cover master/type switches, all types off, extreme sizes, area, opacity, outline pixels, rolling duration, signed offsets, defaults, adaptive reduction/recovery and preference preservation. Historical fixed-density measurements above cannot be directly compared with the current preference-controlled load.
+
+The API 31 ARM64 TV emulator regression passed using the 1920×1080 UI and 320×180 synthetic video, including preference binding, delayed origin, pause/seek/speed and worker shutdown. Adaptive policy, filtering and recovery use deterministic samples and verify that saved density stays unchanged; thresholds still need sustained low-end 4K hardware validation. Debug, AndroidTest and Release builds passed; the Release APK contained no AkDanmaku/libGDX package references.

@@ -1,5 +1,10 @@
 package com.hesier.lumy.data.backup
 
+import com.hesier.lumy.data.DanmakuDensity
+import com.hesier.lumy.data.DanmakuSettings
+import com.hesier.lumy.data.DanmakuSize
+import com.hesier.lumy.data.DanmakuSpeed
+import com.hesier.lumy.data.DanmakuStroke
 import com.hesier.lumy.data.Settings
 import org.json.JSONArray
 import org.json.JSONObject
@@ -12,19 +17,25 @@ internal object BackupSettings {
         "secondary_subtitle_background", "allow_transcode", "allow_software_video_decoding",
         "display_supports_hdr", "allow_subtitle_burn", "detail_show_cast", "detail_show_similar",
         "detail_show_file_info", "match_frame_rate", "auto_play_next", "remember_audio_selection",
-        "remember_subtitle_selection", "auto_check_updates", "use_update_mirror")
+        "remember_subtitle_selection", "auto_check_updates", "use_update_mirror", "danmaku_enabled",
+        "danmaku_rolling", "danmaku_top", "danmaku_bottom", "danmaku_auto_reduce")
     private val enums = mapOf(
         "video_scale" to setOf("FIT", "ZOOM", "FILL"),
         "theme" to setOf("DARK", "LIGHT", "SYSTEM"),
         "language" to setOf("SYSTEM", "ENGLISH", "SIMPLIFIED_CHINESE", "TRADITIONAL_CHINESE"),
         "subtitle_mode" to setOf("SERVER", "LANGUAGE", "FORCED_ONLY", "OFF"),
         "skip_intro" to setOf("OFF", "BUTTON", "AUTO"), "skip_credits" to setOf("OFF", "BUTTON", "AUTO"),
+        "danmaku_density" to DanmakuDensity.entries.map { it.name }.toSet(),
+        "danmaku_size" to DanmakuSize.entries.map { it.name }.toSet(),
+        "danmaku_speed" to DanmakuSpeed.entries.map { it.name }.toSet(),
+        "danmaku_stroke" to DanmakuStroke.entries.map { it.name }.toSet(),
     )
     private val integers = setOf("default_quality", "seek_forward_seconds", "seek_back_seconds",
-        "subtitle_position", "secondary_subtitle_color", "bandwidth_mbps")
+        "subtitle_position", "secondary_subtitle_color", "bandwidth_mbps", "danmaku_area_percent", "danmaku_opacity_percent")
     private val floats = setOf("hold_speed", "subtitle_scale", "secondary_subtitle_scale", "ui_scale")
     private val strings = setOf("audio_language", "subtitle_language", "update_mirror_url", "sidebar_order")
-    val globalKeys = booleans + enums.keys + integers + floats + strings + "audio_delay_ms" - serverKeys
+    val globalKeys = booleans + enums.keys + integers + floats + strings +
+        setOf("audio_delay_ms", "danmaku_offset_ms") - serverKeys
 
     fun read(key: String, value: Any): Any {
         val valid = when (key) {
@@ -33,6 +44,9 @@ internal object BackupSettings {
             in integers -> isInteger(value) && validInteger(key, (value as Number).toLong())
             in floats -> value is Number && validFloat(key, value.toDouble())
             "audio_delay_ms" -> isInteger(value) && (value as Number).toLong() in -86_400_000L..86_400_000L
+            "danmaku_offset_ms" -> isInteger(value) && (value as Number).toLong().let {
+                it in DanmakuSettings.OFFSET_RANGE && it % DanmakuSettings.OFFSET_STEP_MS == 0L
+            }
             "hidden_sidebar" -> value is JSONArray && value.length() <= 1000 &&
                 (0 until value.length()).all { value.get(it) is String && value.getString(it).length <= 1024 }
             in strings -> value is String && value.length <= 8192
@@ -42,7 +56,7 @@ internal object BackupSettings {
         return when (key) {
             in integers -> (value as Number).toInt()
             in floats -> (value as Number).toFloat()
-            "audio_delay_ms" -> (value as Number).toLong()
+            "audio_delay_ms", "danmaku_offset_ms" -> (value as Number).toLong()
             "hidden_sidebar" -> (value as JSONArray).let { a -> (0 until a.length()).map { a.getString(it) }.toSet() }
             else -> value
         }
@@ -53,6 +67,8 @@ internal object BackupSettings {
         "seek_forward_seconds", "seek_back_seconds" -> value in Settings.SEEK_INTERVALS.map(Int::toLong)
         "subtitle_position" -> value in 0L..3L
         "bandwidth_mbps" -> value in Settings.BANDWIDTH_OPTIONS.map(Int::toLong)
+        "danmaku_area_percent" -> value in DanmakuSettings.AREA_OPTIONS.map(Int::toLong)
+        "danmaku_opacity_percent" -> value in DanmakuSettings.OPACITY_OPTIONS.map(Int::toLong)
         else -> value in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()
     }
 

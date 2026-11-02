@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="danmaku_probe_title">Danmaku performance test</string>
+    <string name="danmaku_probe_off">Off</string>
+    <string name="danmaku_probe_normal">Follows settings · sample data</string>
+    <string name="danmaku_probe_stress">Stress input · follows settings</string>
+    <string name="danmaku_probe_sample">Danmaku performance sample %1$d</string>
+    <string name="danmaku_probe_settings_off">Disabled in danmaku settings</string>
+</resources>

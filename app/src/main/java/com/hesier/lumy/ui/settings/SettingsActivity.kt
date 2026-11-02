@@ -54,7 +54,7 @@ import com.hesier.lumy.ui.player.formatDelay
 
 class SettingsActivity : ThemedActivity() {
 
-    private data class Row(val label: String, val value: String, val detail: String? = null, val icon: Int? = null, val onClick: () -> Unit)
+    internal data class Row(val label: String, val value: String, val detail: String? = null, val icon: Int? = null, val onClick: () -> Unit)
 
     private lateinit var binding: ActivitySettingsBinding
     private val app get() = LumyApp.instance
@@ -330,6 +330,7 @@ class SettingsActivity : ThemedActivity() {
                 Toast.makeText(this, R.string.track_memory_cleared, Toast.LENGTH_SHORT).show()
             },
             ),
+            DanmakuSettingsSection(this, settings.danmaku, ::render).rows(),
             listOfNotNull(
             Row(getString(R.string.settings_allow_transcode), onOff(settings.allowTranscode(entryId)),
                 serverSettingDetail(getString(R.string.settings_allow_transcode_detail))) {
@@ -636,6 +637,7 @@ class SettingsActivity : ThemedActivity() {
             R.string.settings_section_playback,
             R.string.settings_section_audio,
             R.string.settings_section_subtitles,
+            R.string.settings_section_danmaku,
             R.string.settings_section_compatibility,
             R.string.settings_section_servers,
             R.string.settings_section_about,

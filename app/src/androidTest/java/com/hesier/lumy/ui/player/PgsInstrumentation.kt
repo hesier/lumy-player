@@ -8,6 +8,8 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
+    private var danmakuSettingsOnly = false
+    private var danmakuOnly = false
     private var cardRefreshOnly = false
     private var benchmark = false
     private var dualSubtitlesOnly = false
@@ -24,6 +26,8 @@ class PgsInstrumentation : Instrumentation() {
 
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        danmakuSettingsOnly = arguments?.getString("danmaku_settings_only") == "true"
+        danmakuOnly = arguments?.getString("danmaku_only") == "true"
         cardRefreshOnly = arguments?.getString("card_refresh_only") == "true"
         benchmark = arguments?.getString("benchmark_sup") == "true"
         dualSubtitlesOnly = arguments?.getString("dual_subtitles_only") == "true"
@@ -43,6 +47,18 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (danmakuSettingsOnly) {
+                com.hesier.lumy.data.DanmakuPreferencesTest().runAll(targetContext)
+                com.hesier.lumy.ui.settings.DanmakuSettingsUiTest(this).runAll()
+                result.putString("stream", "Danmaku defaults, persistence, backup validation, reset and D-pad settings checks passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (danmakuOnly) {
+                result.putString("stream", DanmakuProbeTest(this).runAll() + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (backupOnly) {
                 com.hesier.lumy.data.backup.BackupStoreTest(targetContext).runAll()
                 com.hesier.lumy.ui.backup.BackupDocumentsTest(this).runAll()

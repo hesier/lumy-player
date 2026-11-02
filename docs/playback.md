@@ -121,3 +121,12 @@ The table does not override the HDR setting: when **TV supports HDR** is off and
   ```bash
   adb shell run-as com.hesier.lumy.debug cat files/debug.log
   ```
+
+
+## Danmaku preferences
+
+Settings → Danmaku provides enablement, density, display area, font size, opacity, scrolling speed, outline, three independently enabled comment types, timing offset, automatic reduction and reset. Defaults are off, few, top 50%, standard size, 80% opacity, standard speed, thin outline, scrolling/top fixed on, bottom fixed off, zero offset and automatic reduction on.
+
+Timing supports ±60 seconds in 0.5-second steps, positive for later and negative for earlier, with a separate reset to zero. Restore defaults affects only danmaku preferences. These global preferences are included in settings backups. Automatic reduction temporarily lowers the actual count under sustained pressure and gradually recovers to the selected level without changing saved density.
+
+The debug performance probe now follows these preferences, including extra-small text, type filters, outline and timing offset. Enable Settings → Danmaku, then select More → Danmaku performance test → Follows settings or Stress input. Both synthetic inputs respect the selected density; stress does not force a higher displayed count. Preference changes are reapplied during playback. Real comment sources/APIs remain unconnected, and release does not display test comments.

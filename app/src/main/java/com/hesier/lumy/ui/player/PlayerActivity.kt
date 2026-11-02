@@ -89,6 +89,7 @@ class PlayerActivity : ThemedActivity() {
 
     private lateinit var binding: ActivityPlayerBinding
     private lateinit var server: MediaServer
+    private lateinit var danmakuProbe: DanmakuProbe
     private lateinit var player: ExoPlayer
     private lateinit var ass: AssHandler
     private lateinit var bitmapSubtitles: BitmapSubtitleOverlay
@@ -218,6 +219,7 @@ class PlayerActivity : ThemedActivity() {
         dualSubtitles = DualSubtitleOverlay(binding.playerView, settings, secondaryAss)
         subtitleSelector.onCues = dualSubtitles::onSecondaryCues
         player.addListener(dualSubtitles)
+        danmakuProbe = DanmakuProbe(binding.playerView, player) { positionMs }
         binding.controls.visibility = View.GONE
         binding.upNextFrame.clipToRoundedBackground()
         binding.upNextPlay.setOnClickListener { playNext() }
@@ -323,6 +325,7 @@ class PlayerActivity : ThemedActivity() {
 
     /** 在同一个播放器里换成另一集（下一集 / 从剧集行选的） */
     private fun switchTo(next: MediaItem, startMs: Long) {
+        danmakuProbe.reset()
         startJob?.cancel()
         report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
@@ -356,6 +359,7 @@ class PlayerActivity : ThemedActivity() {
      * 某一级没有符合的轨道时交给下一级。
      */
     private fun selectVersion(v: MediaVersion) {
+        danmakuProbe.reset()
         secondarySubtitle = null
         subtitleSelector.selectSecondary(null)
         dualSubtitles.clear()
@@ -1429,6 +1433,7 @@ class PlayerActivity : ThemedActivity() {
             }
             add(Option(getString(R.string.subtitle_delay), formatDelay(this@PlayerActivity, offsets.subtitleDelayMs)) to ::adjustSubtitleDelay)
             add(Option(getString(R.string.audio_delay), formatDelay(this@PlayerActivity, offsets.audioDelayMs)) to ::adjustAudioDelay)
+            danmakuProbe.menuOption()?.let { add(it) }
             val infoLabel = if (binding.info.visibility == View.VISIBLE) R.string.info_hide else R.string.info_show
             add(Option(getString(infoLabel)) to ::toggleInfo)
         }
@@ -1657,6 +1662,7 @@ class PlayerActivity : ThemedActivity() {
         if (::detail.isInitialized) report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
         request = null
+        if (::danmakuProbe.isInitialized) danmakuProbe.release()
         player.release()
         subtitleSelector.onCues = null
         ass.release()

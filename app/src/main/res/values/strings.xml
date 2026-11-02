@@ -491,4 +491,41 @@
     <string name="backup_saved">Backup saved.</string>
     <string name="backup_working">Processing backup…</string>
     <string name="backup_password_required">Enter the password for this encrypted backup.</string>
+
+    <!-- 弹幕偏好 -->
+    <string name="settings_section_danmaku">Danmaku</string>
+    <string name="danmaku_enabled">Enable danmaku</string>
+    <string name="danmaku_density">Comment density</string>
+    <string name="danmaku_density_low">Few</string>
+    <string name="danmaku_density_high">More</string>
+    <string name="danmaku_standard">Standard</string>
+    <string name="danmaku_area">Display area</string>
+    <string name="danmaku_area_top">Top %1$d%%</string>
+    <string name="danmaku_area_full">Full screen</string>
+    <string name="danmaku_size">Font size</string>
+    <string name="danmaku_opacity">Opacity</string>
+    <string name="danmaku_percent">%1$d%%</string>
+    <string name="danmaku_speed">Scroll speed</string>
+    <string name="danmaku_speed_slow">Slow</string>
+    <string name="danmaku_speed_fast">Fast</string>
+    <string name="danmaku_stroke">Text outline</string>
+    <string name="danmaku_stroke_thin">Thin</string>
+    <string name="danmaku_stroke_thick">Thick</string>
+    <string name="danmaku_types">Comment types</string>
+    <string name="danmaku_type_rolling">Scrolling</string>
+    <string name="danmaku_type_top">Fixed at top</string>
+    <string name="danmaku_type_bottom">Fixed at bottom</string>
+    <string name="danmaku_offset">Timing offset</string>
+    <string name="danmaku_offset_adjust">Adjust timing</string>
+    <string name="danmaku_offset_reset">Reset to zero</string>
+    <string name="danmaku_offset_signed">%1$+.1f s</string>
+    <string name="danmaku_offset_zero">0 seconds</string>
+    <string name="danmaku_offset_earlier">%1$.1f seconds earlier</string>
+    <string name="danmaku_offset_later">%1$.1f seconds later</string>
+    <string name="danmaku_offset_hint">Left / down: 0.5 seconds earlier\nRight / up: 0.5 seconds later\nRange: ±60 seconds. Press OK or Back to close.</string>
+    <string name="danmaku_auto_reduce">Automatically reduce density</string>
+    <string name="danmaku_auto_reduce_detail">Temporarily show fewer comments under sustained load, then gradually recover. Your selected density stays unchanged.</string>
+    <string name="danmaku_restore_defaults">Restore danmaku defaults</string>
+    <string name="danmaku_restore_detail">Reset danmaku preferences only.</string>
+    <string name="danmaku_restore_confirm">Restore defaults</string>
 </resources>

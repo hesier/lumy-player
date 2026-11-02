@@ -121,6 +121,11 @@ androidComponents {
 }
 
 dependencies {
+    // Debug-only performance probe; the local patch wakes a blocked render worker on release.
+    debugImplementation(files(rootProject.file("third_party/akdanmaku/akdanmaku-1.0.3+1-lumy1.aar")))
+    debugImplementation("com.badlogicgames.gdx:gdx:1.10.0")
+    debugImplementation("com.badlogicgames.gdx:gdx-backend-android:1.10.0")
+    debugImplementation("com.badlogicgames.ashley:ashley:1.7.3")
     implementation(project(":net"))
     implementation(project(":server-plex"))
     implementation(project(":server-jellyfin"))

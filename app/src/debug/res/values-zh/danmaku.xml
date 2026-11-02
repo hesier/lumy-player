@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="danmaku_probe_title">弹幕性能测试</string>
+    <string name="danmaku_probe_off">关闭</string>
+    <string name="danmaku_probe_normal">跟随设置 · 测试数据</string>
+    <string name="danmaku_probe_stress">压力输入 · 跟随设置</string>
+    <string name="danmaku_probe_sample">弹幕流畅度测试样例 %1$d</string>
+    <string name="danmaku_probe_settings_off">已在弹幕设置中关闭</string>
+</resources>

@@ -475,4 +475,41 @@
     <string name="backup_saved">备份已保存。</string>
     <string name="backup_working">正在处理备份…</string>
     <string name="backup_password_required">请输入此加密备份的密码。</string>
+
+    <!-- 弹幕偏好 -->
+    <string name="settings_section_danmaku">弹幕</string>
+    <string name="danmaku_enabled">弹幕开关</string>
+    <string name="danmaku_density">弹幕数量</string>
+    <string name="danmaku_density_low">少量</string>
+    <string name="danmaku_density_high">较多</string>
+    <string name="danmaku_standard">标准</string>
+    <string name="danmaku_area">显示区域</string>
+    <string name="danmaku_area_top">上部 %1$d%%</string>
+    <string name="danmaku_area_full">全屏</string>
+    <string name="danmaku_size">字体大小</string>
+    <string name="danmaku_opacity">不透明度</string>
+    <string name="danmaku_percent">%1$d%%</string>
+    <string name="danmaku_speed">滚动速度</string>
+    <string name="danmaku_speed_slow">慢</string>
+    <string name="danmaku_speed_fast">快</string>
+    <string name="danmaku_stroke">文字描边</string>
+    <string name="danmaku_stroke_thin">细</string>
+    <string name="danmaku_stroke_thick">粗</string>
+    <string name="danmaku_types">弹幕类型</string>
+    <string name="danmaku_type_rolling">滚动</string>
+    <string name="danmaku_type_top">顶部固定</string>
+    <string name="danmaku_type_bottom">底部固定</string>
+    <string name="danmaku_offset">时间偏移</string>
+    <string name="danmaku_offset_adjust">调整时间偏移</string>
+    <string name="danmaku_offset_reset">归零</string>
+    <string name="danmaku_offset_signed">%1$+.1f 秒</string>
+    <string name="danmaku_offset_zero">0 秒</string>
+    <string name="danmaku_offset_earlier">提前 %1$.1f 秒</string>
+    <string name="danmaku_offset_later">延后 %1$.1f 秒</string>
+    <string name="danmaku_offset_hint">左／下：提前 0.5 秒\n右／上：延后 0.5 秒\n范围 ±60 秒，确认或返回关闭。</string>
+    <string name="danmaku_auto_reduce">自动减少弹幕</string>
+    <string name="danmaku_auto_reduce_detail">持续出现性能压力时临时减少实际数量，恢复后逐步还原，不修改已选数量档位。</string>
+    <string name="danmaku_restore_defaults">恢复默认设置</string>
+    <string name="danmaku_restore_detail">仅重置弹幕偏好。</string>
+    <string name="danmaku_restore_confirm">恢复默认</string>
 </resources>
