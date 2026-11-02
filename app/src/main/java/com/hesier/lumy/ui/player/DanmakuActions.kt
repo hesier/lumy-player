@@ -15,7 +15,6 @@ internal class DanmakuActions(
     private val repository: DanmakuRepository,
     private val current: () -> Pair<DanmakuMedia, DanmakuChoice>?,
     private val revision: () -> Int,
-    private val choose: (DanmakuChoice) -> Unit,
     private val selected: (DanmakuAnime, DanmakuEpisode, DanmakuChoice) -> Unit,
     private val run: (suspend () -> Unit) -> Unit,
 ) {
@@ -53,28 +52,6 @@ internal class DanmakuActions(
         }
         OptionsPanel(activity, anime.title, anime.episodes.map { Option(it.title, it.number) }) { index ->
             if (sameMedia(media, serial)) selected(anime, anime.episodes[index], source)
-        }.show()
-    }
-
-    fun sources() {
-        val target = current() ?: return
-        val serial = revision()
-        val services = DanmakuServices(activity)
-        val choices = buildList {
-            if (target.first.plugin != null) add(DanmakuChoice(DanmakuSourceKind.SERVER, "server:${target.first.serverKey}"))
-            add(DanmakuChoice(DanmakuSourceKind.OFFICIAL, "official:dandanplay"))
-            runCatching { services.custom() }.getOrNull()?.let { add(DanmakuChoice(DanmakuSourceKind.CUSTOM, it.identity)) }
-        }
-        val labels = choices.map { choice ->
-            val label = when (choice.kind) {
-                DanmakuSourceKind.SERVER -> R.string.danmaku_source_server
-                DanmakuSourceKind.OFFICIAL -> R.string.danmaku_source_official
-                DanmakuSourceKind.CUSTOM -> R.string.danmaku_source_custom
-            }
-            Option(text(label), selected = choice == target.second)
-        }
-        OptionsPanel(activity, text(R.string.danmaku_switch_source), labels) {
-            if (sameMedia(target.first, serial)) choose(choices[it])
         }.show()
     }
 

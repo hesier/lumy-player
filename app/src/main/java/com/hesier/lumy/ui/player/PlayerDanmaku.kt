@@ -27,14 +27,14 @@ internal class PlayerDanmaku(
     private val host: PlayerView,
     player: Player,
     positionMs: () -> Long,
+    private val preferences: SharedPreferences = activity.getSharedPreferences("settings", Context.MODE_PRIVATE),
+    private val store: DanmakuStore = DanmakuStore(activity),
 ) {
-    private val preferences = activity.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val settings = DanmakuSettings(preferences)
     private val sources = DanmakuSourceSettings(preferences)
-    private val services = DanmakuServices(activity)
-    private val store = DanmakuStore(activity)
+    private val services = DanmakuServices(activity, sources)
     private val repository = DanmakuRepository(services, store)
-    private val overlay = DanmakuOverlay(host, player, positionMs)
+    private val overlay = DanmakuOverlay(host, player, positionMs, preferences)
     private var media: DanmakuMedia? = null
     private var job: Job? = null
     private var actionJob: Job? = null
@@ -43,13 +43,15 @@ internal class PlayerDanmaku(
     private var released = false
     private var result: DanmakuLoad? = null
     private var loading = false
+    private var lastNotice: String? = null
+    private enum class Feedback { AUTOMATIC, REFRESH, MATCH }
     private val refresh = Runnable { reload() }
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key == "danmaku_enabled" || key in DanmakuSourceSettings.KEYS) {
             host.removeCallbacks(refresh); host.post(refresh)
         }
     }
-    private val actions = DanmakuActions(activity, repository, ::current, { generation }, ::choose, ::selected, ::runAction)
+    private val actions = DanmakuActions(activity, repository, ::current, { generation }, ::selected, ::runAction)
 
     init { preferences.registerOnSharedPreferenceChangeListener(listener) }
 
@@ -65,22 +67,25 @@ internal class PlayerDanmaku(
         reload()
     }
 
-    fun menuOption(): Pair<Option, () -> Unit> = Option(activity.getString(R.string.settings_section_danmaku), status()) to {
+    fun showMenu() {
         val entries = buildList<Pair<Option, () -> Unit>> {
             add(Option(activity.getString(R.string.danmaku_enabled), activity.getString(if (settings.enabled) R.string.on else R.string.off)) to {
                 settings.enabled = !settings.enabled
             })
             if (settings.enabled) {
-                add(Option(activity.getString(R.string.danmaku_search)) to { actions.search() })
-                add(Option(activity.getString(R.string.danmaku_switch_source)) to { actions.sources() })
-                add(Option(activity.getString(R.string.danmaku_reload)) to { reload(force = true) })
-                add(Option(activity.getString(R.string.danmaku_restore_auto)) to ::restore)
+                add(Option(activity.getString(R.string.danmaku_manual_match),
+                    (result as? DanmakuLoad.Loaded)?.match?.let(::matchLabel)) to { actions.search() })
+                add(Option(activity.getString(R.string.danmaku_reload), activity.getString(R.string.danmaku_reload_detail)) to {
+                    reload(force = true, feedback = Feedback.REFRESH)
+                })
+                add(Option(activity.getString(R.string.danmaku_restore_auto),
+                    activity.getString(R.string.danmaku_restore_auto_detail)) to ::restore)
             }
         }
         OptionsPanel(activity, status(), entries.map { it.first }) { entries[it].second() }.show()
     }
 
-    private fun reload(force: Boolean = false) {
+    private fun reload(force: Boolean = false, feedback: Feedback = Feedback.AUTOMATIC) {
         generation++
         job?.cancel()
         actionJob?.cancel()
@@ -88,15 +93,17 @@ internal class PlayerDanmaku(
         result = null
         overlay.clear()
         val request = media ?: return
-        if (!settings.enabled || testing || released) return
+        if (!settings.enabled || testing || released) { lastNotice = null; return }
         val version = generation
         loading = true
+        if (feedback != Feedback.AUTOMATIC) toast(activity.getString(R.string.danmaku_loading))
         job = activity.lifecycleScope.launch {
             val loaded = repository.load(request, force)
             if (version != generation || released) return@launch
             loading = false
             result = loaded
-            if (loaded is DanmakuLoad.Loaded) overlay.setComments(loaded.comments)
+            if (loaded is DanmakuLoad.Loaded) overlay.setComments(loaded.comments, loaded.sourceOffsetMs)
+            notifyResult(loaded, feedback)
             repository.serverFailure?.let { DebugLog.i("LumyDanmaku", "server plugin failed: $it") }
         }
     }
@@ -108,38 +115,54 @@ internal class PlayerDanmaku(
             is DanmakuLoad.Loaded -> value.source
             is DanmakuLoad.NeedsMatch -> value.source
             is DanmakuLoad.Empty -> value.source
-            else -> store.choice(item.key) ?: when (sources.onlineSource) {
+            else -> when (sources.onlineSource) {
                 DanmakuOnlineSource.OFFICIAL -> DanmakuChoice(DanmakuSourceKind.OFFICIAL, "official:dandanplay")
                 DanmakuOnlineSource.CUSTOM -> runCatching { DanmakuChoice(DanmakuSourceKind.CUSTOM, services.custom().identity) }
                     .getOrElse { DanmakuChoice(DanmakuSourceKind.CUSTOM, "unconfigured") }
             }
-        } ?: return null
+        }
         return item to source
-    }
-
-    private fun choose(choice: DanmakuChoice) {
-        val request = media ?: return
-        store.choose(request.key, choice)
-        reload()
     }
 
     private fun selected(anime: DanmakuAnime, episode: DanmakuEpisode, choice: DanmakuChoice) {
         val request = media ?: return
         store.remember(request.key, DanmakuMatch(choice, anime, episode, request.year, request.season, request.number))
-        reload()
+        reload(feedback = Feedback.MATCH)
     }
 
-    private fun restore() { media?.let { store.restoreAuto(it.key) }; reload() }
+    private fun restore() {
+        media?.let { store.restoreAuto(it.key) }
+        reload(force = true, feedback = Feedback.MATCH)
+    }
+
+    private fun matchLabel(match: DanmakuMatch): String = listOf(match.anime.title, match.episode.title)
+        .filter { it.isNotBlank() }.distinct().joinToString(" · ")
+
+    private fun notifyResult(loaded: DanmakuLoad, feedback: Feedback) {
+        val match = (loaded as? DanmakuLoad.Loaded)?.match
+        val message = if (loaded is DanmakuLoad.Loaded && match != null && feedback != Feedback.REFRESH) {
+            activity.getString(if (loaded.automatic) R.string.danmaku_auto_matched else R.string.danmaku_match_loaded,
+                matchLabel(match))
+        } else status()
+        val key = "${media?.key}|$message"
+        if (feedback != Feedback.AUTOMATIC || lastNotice != key) toast(message)
+        lastNotice = key
+    }
 
     private fun runAction(block: suspend () -> Unit) {
         if (!settings.enabled || released || testing) return
         actionJob?.cancel()
         val token = generation
+        toast(activity.getString(R.string.danmaku_loading))
         actionJob = activity.lifecycleScope.launch {
             try { if (token == generation) block() }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (error: DanmakuException) { toast(danmakuErrorText(activity, error.reason)) }
-            catch (_: Exception) { toast(activity.getString(R.string.danmaku_status_error)) }
+            catch (error: DanmakuException) {
+                if (token == generation && !released) toast(danmakuErrorText(activity, error.reason))
+            }
+            catch (_: Exception) {
+                if (token == generation && !released) toast(activity.getString(R.string.danmaku_status_error))
+            }
         }
     }
 

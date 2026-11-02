@@ -8,6 +8,9 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
+    private var danmakuFlow = false
+    private var danmakuFlowLive = false
+    private var danmakuControls = false
     private var danmakuSearchKeyword: String? = null
     private var danmakuBenchmarkArguments: Bundle? = null
     private var danmakuSourcesUiOnly = false
@@ -33,6 +36,9 @@ class PgsInstrumentation : Instrumentation() {
 
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        danmakuFlow = arguments?.getString("danmaku_flow_only") == "true"
+        danmakuFlowLive = arguments?.getString("danmaku_flow_live") == "true"
+        danmakuControls = arguments?.getString("danmaku_controls_only") == "true"
         danmakuSearchKeyword = arguments?.getString("danmaku_search_keyword")
         if (arguments?.containsKey("danmaku_benchmark_item") == true) danmakuBenchmarkArguments = Bundle(arguments)
         danmakuSourcesUiOnly = arguments?.getString("danmaku_sources_ui_only") == "true"
@@ -61,6 +67,16 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (danmakuControls) {
+                result.putString("stream", DanmakuControlBarTest(this).runAll() + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (danmakuFlow || danmakuFlowLive) {
+                result.putString("stream", DanmakuPlayerFlowTest(this).runAll(danmakuFlowLive) + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (danmakuSearchKeyword != null) {
                 result.putString("stream", DanmakuLiveSearchTest(this).runAll(danmakuSearchKeyword!!) + "\n")
                 finish(Activity.RESULT_OK, result)

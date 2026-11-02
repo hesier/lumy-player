@@ -220,7 +220,7 @@ class PlayerActivity : ThemedActivity() {
         dualSubtitles = DualSubtitleOverlay(binding.playerView, settings, secondaryAss)
         subtitleSelector.onCues = dualSubtitles::onSecondaryCues
         player.addListener(dualSubtitles)
-        danmaku = PlayerDanmaku(this, binding.playerView, player) { positionMs }
+        danmaku = PlayerDanmaku(this, binding.playerView, player, positionMs = { positionMs })
         danmakuProbe = DanmakuProbe(binding.playerView, player, onProfileChanged = {
             danmaku.setTestActive(danmakuProbe.profile != 0)
         }) { positionMs }
@@ -977,6 +977,10 @@ class PlayerActivity : ThemedActivity() {
         if (version.audio.size > 1) row.addActionButton(R.drawable.ic_audio, getString(R.string.player_audio)) { pickAudio() }
         if (policy.allowTranscode) row.addActionButton(R.drawable.ic_hd, getString(R.string.player_quality)) { pickQuality() }
         row.addActionButton(R.drawable.ic_speed, getString(R.string.player_speed)) { pickSpeed() }
+        row.addActionButton(R.drawable.ic_danmaku, getString(R.string.settings_section_danmaku)) {
+            if (danmakuProbe.profile != 0) { danmakuProbe.reset(); danmaku.setTestActive(false) }
+            danmaku.showMenu()
+        }
         if (detail.chapters.size > 1) row.addActionButton(R.drawable.ic_list, getString(R.string.player_chapters)) { pickChapter() }
         row.addActionButton(R.drawable.ic_more, getString(R.string.player_more)) { showMore() }
         binding.seek.setOnFocusChangeListener { _, hasFocus ->
@@ -1439,7 +1443,6 @@ class PlayerActivity : ThemedActivity() {
             }
             add(Option(getString(R.string.subtitle_delay), formatDelay(this@PlayerActivity, offsets.subtitleDelayMs)) to ::adjustSubtitleDelay)
             add(Option(getString(R.string.audio_delay), formatDelay(this@PlayerActivity, offsets.audioDelayMs)) to ::adjustAudioDelay)
-            add(danmaku.menuOption())
             danmakuProbe.menuOption()?.let { add(it) }
             val infoLabel = if (binding.info.visibility == View.VISIBLE) R.string.info_hide else R.string.info_show
             add(Option(getString(infoLabel)) to ::toggleInfo)
