@@ -31,6 +31,6 @@ class DanmakuServices(context: Context, private val settings: DanmakuSourceSetti
     companion object {
         val http: OkHttpClient = OkHttpClient.Builder().callTimeout(20, TimeUnit.SECONDS)
             .connectTimeout(5, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS)
-            .retryOnConnectionFailure(false).build()
+            .retryOnConnectionFailure(true).build()
     }
 }

@@ -10,6 +10,7 @@ import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
@@ -23,6 +24,28 @@ class DanmakuTransportTest {
     private val second = MockWebServer().apply { start() }
     private val transport = DanmakuTransport(OkHttpClient())
     @After fun close() { first.shutdown(); second.shutdown() }
+
+    @Test fun recoversWhenReusedConnectionClosesWithoutResponse() = runBlocking {
+        first.enqueue(MockResponse().setBody("warm"))
+        assertEquals("warm", transport.get(first.url("/warm").toString()).toString(Charsets.UTF_8))
+        first.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
+        first.enqueue(MockResponse().setBody("recovered"))
+        val result = transport.get(first.url("/search").toString())
+        assertEquals("recovered", result.toString(Charsets.UTF_8))
+        assertEquals("/warm", first.takeRequest().path)
+        assertEquals("/search", first.takeRequest().path)
+        assertEquals("/search", first.takeRequest().path)
+        assertEquals(3, first.requestCount)
+    }
+
+    @Test fun stopsWhenTheReplacementConnectionAlsoFails() = runBlocking {
+        first.enqueue(MockResponse().setBody("warm"))
+        transport.get(first.url("/warm").toString())
+        repeat(2) { first.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)) }
+        val error = runCatching { transport.get(first.url("/search").toString()) }.exceptionOrNull() as DanmakuException
+        assertEquals(DanmakuFailure.CONNECTION, error.reason)
+        assertEquals(3, first.requestCount)
+    }
 
     @Test fun redirectsRemoveEverySensitiveHeaderAcrossOrigins() = runBlocking {
         first.enqueue(MockResponse().setResponseCode(302).setHeader("Location", second.url("/next")))

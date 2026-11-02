@@ -324,3 +324,12 @@ Adaptive density reached one quarter temporarily in both runs; low recovered to 
 Temperature samples spanned about 86–96°C, without establishing throttling. Low/dense recorded 53 / 66 GCs and 4.28 / 7.44 seconds cumulative GC work, with zero blocking-GC counts; cumulative work is not a main-thread pause duration. Startup/cache differences prevent attributing PSS deltas directly to comments, and sampling does not prove peak memory bounds.
 
 Server sessions, all original preferences, track memory and the selected movie's view offset/count were unchanged afterward; test playback was released. Private media/account/log/screenshot artifacts are excluded from commits. The evidence supports low density plus adaptive reduction on this device: no video drops or buffering were observed with 4K SDR, while denser comments increased UI long frames. Other boxes, HDR, dual subtitles and full-length playback remain outside this validation.
+
+
+### 2026-11-02 search connection recovery after idle
+
+An API 31 ARM64 TV emulator reproduced successful consecutive searches but an immediate `CONNECTION / IOException` failure after six seconds idle, followed by a successful next search: five of six attempts passed. The failed request reused a connection and received no response headers, consistent with missing recovery after the server closed an idle pooled socket. Both source client and Transport had forced connection retries off.
+
+The source client now enables OkHttp connection recovery; Transport inherits the caller policy. Original connect/read/call budgets remain 5/15/20 seconds, along with redirect controls, private-header isolation, body bounds and cancellation. MockWebServer regression failed before the fix and now covers successful recovery plus termination when the replacement connection also fails.
+
+The fixed emulator passed six of six identical-keyword searches. Six/fifteen-second idle attempts returned in about 575/676 ms with connection replacement visible in the event trace. Explicit `-e danmaku_search_keyword <keyword>` runs this sequence using current source configuration; output omits keywords, URLs, credentials and response contents. All 69 net tests and Debug/AndroidTest/Release builds passed. The emulator has the fixed APK and its original settings remain unchanged.

@@ -18,9 +18,10 @@ import kotlin.coroutines.resumeWithException
 
 /** 重定向逐跳处理；取消处理一直保持到响应体读完。 */
 class DanmakuTransport(private val http: OkHttpClient) {
+    // Preserve connection recovery for GETs that reuse a pooled socket closed by the server.
     private val client = http.newBuilder().followRedirects(false).followSslRedirects(false)
         .authenticator(Authenticator.NONE).proxyAuthenticator(Authenticator.NONE)
-        .retryOnConnectionFailure(false).build()
+        .build()
 
     suspend fun get(url: String, headers: Map<String, String> = emptyMap()): ByteArray {
         val normalized = checkedUrl(url).toString()

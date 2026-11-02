@@ -8,6 +8,7 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
+    private var danmakuSearchKeyword: String? = null
     private var danmakuBenchmarkArguments: Bundle? = null
     private var danmakuSourcesUiOnly = false
     private var danmakuLiveUrl: String? = null
@@ -32,6 +33,7 @@ class PgsInstrumentation : Instrumentation() {
 
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        danmakuSearchKeyword = arguments?.getString("danmaku_search_keyword")
         if (arguments?.containsKey("danmaku_benchmark_item") == true) danmakuBenchmarkArguments = Bundle(arguments)
         danmakuSourcesUiOnly = arguments?.getString("danmaku_sources_ui_only") == "true"
         danmakuLiveUrl = arguments?.getString("danmaku_live_url")
@@ -59,6 +61,11 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (danmakuSearchKeyword != null) {
+                result.putString("stream", DanmakuLiveSearchTest(this).runAll(danmakuSearchKeyword!!) + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (danmakuBenchmarkArguments != null) {
                 result.putString("stream", DanmakuDeviceBenchmark(this).runAll(danmakuBenchmarkArguments!!) + "\n")
                 finish(Activity.RESULT_OK, result)
