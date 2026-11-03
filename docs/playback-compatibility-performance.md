@@ -394,3 +394,25 @@ Deployment boundary: the custom service currently confirms episode 2 for `三体
 Live official requests using `fileNameOnly` returned business error code 2 when `fileHash` was missing, empty or null; a 32-zero placeholder returned candidates. Official requests now include that placeholder without reading video data or claiming to have computed a real hash. This is observed compatibility, not a documented guarantee. Only official match responses with `success=false` and `errorCode=2` return no match so existing identification continues with search. Other business, authentication and rate-limit failures retain their existing handling; custom requests remain unchanged. Multiple unconfirmed candidates still undergo existing title and season/episode checks.
 
 Live official search, details and comment download through a cross-origin 302 redirect passed HTTP verification. The client change passed net unit tests and App Debug Kotlin compilation; official-source playback on a device has not been verified. Credentials remain in a Git-ignored local file, outside source and test fixtures.
+
+### 2026-11-03 official relay on Cloudflare Workers
+
+The App no longer embeds upstream AppId/AppSecret build variables. Relay URL/token come from environment variables or `.local/danmaku-proxy.properties`; generated source contains Base64 configuration only, which does not protect against APK extraction. Identity remains `official:dandanplay`, preserving match namespaces across relay changes/token rotation. Missing configuration stays unavailable without embedded-key fallback. Custom services and server plugins retain their behavior.
+
+The [Worker guide](../services/danmaku-worker/README.md) covers implementation and private configuration. Only search, details, filename match and comments are exposed. Server-side signing and HTTPS official CDN redirects exclude cross-origin credentials. Successful metadata is cached per location; authentication, limits, cancellation and business-error redaction have coverage. Cloudflare rate limits are approximate per location; a shared token does not attest App identity.
+
+#### Initial local validation (historical)
+
+Initial integration passed 92 net JVM tests, 12 Node Worker tests, Debug/Release APK builds and Wrangler 4.156.2 dry-run. Worker code running in Node successfully fetched live official search, details, 11,172 comments and match candidates. Local workerd returned 401 for unauthorized access, 404 for the first 60 authenticated invalid routes and 429 for the next two, without upstream calls. Build injection round-tripped with no plaintext URL/token in generated source; the default unconfigured state was restored after that phase and source/APKs contained no real credentials. At that point, Cloudflare deployment, production bindings, domain connectivity and device playback were outside the validation scope.
+
+#### First cloud deployment (historical)
+
+Subsequent Cloudflare deployment bound a production custom domain and certificate; API inspection confirmed all three credentials use `secret_text`. Cloudflare and Google public DNS resolved the hostname. Connecting through those public DNS addresses with normal HTTPS certificate verification returned 401 for unauthorized access and 404 for unsupported routes. Search, 15-episode details, 11,172 comments, 19 unconfirmed match candidates and repeated search succeeded. The comment download took about 2.38 seconds in this single run, which does not establish sustained latency or match accuracy. System DNS on the test machine still returned ENOTFOUND; system settings were not changed. Device networks and production rate-limit pressure remain unverified.
+
+After the first deployment, private configuration contained the actual relay URL/token and independent rate-limit namespaces. Regeneration preserves account, name, bindings and token. Debug/Release APKs were rebuilt with matching relay configuration; repository sources contain no actual URL/token and APKs contain no upstream AppId/AppSecret. Builds emitted Kotlin/R8 metadata compatibility warnings; the toolchain was not changed. The new APK has not been installed on a device, so this is not device playback acceptance.
+
+#### Current local fixes and outstanding verification
+
+The local version preserves optional match statuses 405/501 so the client can continue with search. Configuration preparation rejects backslashes in tokens to avoid Java Properties rewriting their values. All 16 Node tests passed after adding regression coverage, along with YAML, document links, diff formatting, private-data scanning and Wrangler dry-run. The earlier 92 JVM tests and Debug/Release builds remain the validation evidence for the corresponding App changes; this fix round did not rebuild them.
+
+GitHub CI configuration adds an independent Node 24 Worker test job without real credentials, official API calls or deployment. Its first GitHub run remains unverified. The first cloud deployment does not include these latest fixes and has not been updated in this round. Device playback through the relay and production rate-limit pressure remain unverified.

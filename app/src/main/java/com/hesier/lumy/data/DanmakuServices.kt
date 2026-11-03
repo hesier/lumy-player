@@ -1,8 +1,8 @@
 package com.hesier.lumy.data
 
 import android.content.Context
+import android.util.Base64
 import com.hesier.lumy.BuildConfig
-import com.hesier.lumy.net.danmaku.DanmakuCredentials
 import com.hesier.lumy.net.danmaku.DanmakuEndpoint
 import com.hesier.lumy.net.danmaku.DanmakuException
 import com.hesier.lumy.net.danmaku.DanmakuFailure
@@ -17,10 +17,14 @@ class DanmakuServices(context: Context, private val settings: DanmakuSourceSetti
     }
 
     fun official(): DanmakuEndpoint {
-        val id = BuildConfig.DANDANPLAY_APP_ID
-        val secret = BuildConfig.DANDANPLAY_APP_SECRET
-        if (id.isBlank() || secret.isBlank()) throw DanmakuException(DanmakuFailure.UNAVAILABLE)
-        return DanmakuEndpoint("https://api.dandanplay.net", true, DanmakuCredentials(id, secret))
+        return try {
+            val config = String(Base64.decode(BuildConfig.DANMAKU_PROXY_CONFIG, Base64.DEFAULT), Charsets.UTF_8)
+                .split('\n')
+            if (config.size != 2) throw DanmakuException(DanmakuFailure.UNAVAILABLE)
+            DanmakuEndpoint(config[0], official = true, proxyToken = config[1])
+        } catch (error: IllegalArgumentException) {
+            throw DanmakuException(DanmakuFailure.UNAVAILABLE)
+        }
     }
 
     fun custom(): DanmakuEndpoint {

@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.util.Base64
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -46,12 +47,21 @@ android {
         targetSdk = 35
         versionCode = 11
         versionName = "0.5.1"
-        // Optional official API credentials come from the build environment, never source control.
-        listOf("DANDANPLAY_APP_ID", "DANDANPLAY_APP_SECRET").forEach { key ->
-            val value = providers.environmentVariable(key).orNull.orEmpty()
-            val literal = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\""
-            buildConfigField("String", key, literal)
+        // Only relay configuration enters the APK; upstream secrets stay on the server.
+        val proxyFile = rootProject.file(".local/danmaku-proxy.properties")
+        val proxyProperties = Properties().apply {
+            if (proxyFile.exists()) proxyFile.inputStream().use(::load)
         }
+        fun proxyValue(key: String) = providers.environmentVariable(key).orNull
+            ?: proxyProperties.getProperty(key).orEmpty()
+        val proxyUrl = proxyValue("DANMAKU_PROXY_URL").trim()
+        val proxyToken = proxyValue("DANMAKU_PROXY_TOKEN").trim()
+        require(proxyUrl.isBlank() == proxyToken.isBlank()) { "Configure both DANMAKU_PROXY_URL and DANMAKU_PROXY_TOKEN" }
+        require(listOf(proxyUrl, proxyToken).none { '\n' in it || '\r' in it }) { "Invalid danmaku proxy configuration" }
+        // Encoding avoids plaintext generated source; it does not protect against APK extraction.
+        val proxyConfig = if (proxyUrl.isBlank()) "" else Base64.getEncoder()
+            .encodeToString("$proxyUrl\n$proxyToken".toByteArray(Charsets.UTF_8))
+        buildConfigField("String", "DANMAKU_PROXY_CONFIG", "\"$proxyConfig\"")
         // 电视盒子/投影仪都是 ARM，去掉 x86 的 FFmpeg 库减小体积
         ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
     }

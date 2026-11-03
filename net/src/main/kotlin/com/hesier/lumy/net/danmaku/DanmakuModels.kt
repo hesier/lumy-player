@@ -16,11 +16,13 @@ data class DanmakuCredentials(val appId: String, val appSecret: String) {
 }
 
 data class DanmakuEndpoint(val baseUrl: String, val official: Boolean = false,
-    val credentials: DanmakuCredentials? = null) {
+    val credentials: DanmakuCredentials? = null, val proxyToken: String? = null) {
     internal val url = baseUrl.trim().toHttpUrlOrNull()?.also {
         require(it.username.isEmpty() && it.password.isEmpty() && it.query == null && it.fragment == null)
         require(!baseUrl.substringAfter("://").substringBefore('/').contains('@'))
-        require(!official || it.toString().trimEnd('/') == OFFICIAL_URL)
+        require(proxyToken == null || (official && credentials == null && it.isHttps &&
+            proxyToken.length in 32..256 && proxyToken.all { char -> char in '!'..'~' }))
+        require(!official || proxyToken != null || it.toString().trimEnd('/') == OFFICIAL_URL)
     }?.let { it.newBuilder().encodedPath(it.encodedPath.trimEnd('/') + "/").build() }
         ?: throw IllegalArgumentException("Invalid danmaku endpoint")
     val identity: String = if (official) "official:dandanplay" else "custom:" + sha256(url.toString())

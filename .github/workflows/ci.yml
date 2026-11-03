@@ -13,6 +13,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  worker-tests:
+    name: Worker tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Test Worker and private configuration preparation
+        run: node --test services/danmaku-worker/test/*.test.mjs
+
   build:
     runs-on: ubuntu-latest
     steps:

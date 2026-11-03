@@ -97,6 +97,7 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
 
     private fun headers(url: HttpUrl): Map<String, String> {
         if (!endpoint.official) return mapOf("Accept" to "application/json")
+        endpoint.proxyToken?.let { return mapOf("Accept" to "application/json", "Authorization" to "Bearer $it") }
         val auth = endpoint.credentials?.takeIf { it.appId.isNotBlank() && it.appSecret.isNotBlank() }
             ?: throw DanmakuException(DanmakuFailure.UNAVAILABLE)
         val timestamp = (System.currentTimeMillis() / 1_000).toString()

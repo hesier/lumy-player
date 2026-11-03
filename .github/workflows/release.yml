@@ -62,6 +62,8 @@ jobs:
 
       - name: Build release APK
         env:
+          DANMAKU_PROXY_URL: ${{ secrets.DANMAKU_PROXY_URL }}
+          DANMAKU_PROXY_TOKEN: ${{ secrets.DANMAKU_PROXY_TOKEN }}
           LUMY_KEYSTORE_FILE: ${{ runner.temp }}/release.jks
           LUMY_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           LUMY_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
