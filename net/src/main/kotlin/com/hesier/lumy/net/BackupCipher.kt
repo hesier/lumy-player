@@ -11,11 +11,12 @@ import javax.crypto.spec.SecretKeySpec
 /**
  * Portable password-encrypted backups; no device-bound keys are used.
  *
- * Version 1 (big endian): magic "LUMYENC\n" (8), version (1), PBKDF2 iteration count
+ * Format (big endian): magic "LUMYENC\n" (8), version (1), PBKDF2 iteration count
  * (4), random salt (16), random GCM nonce (12), ciphertext, GCM tag (16).
- * The entire 41-byte header is authenticated as AAD. Version 1 accepts exactly
- * 600,000 PBKDF2-HMAC-SHA1 iterations and derives a 256-bit AES key. SHA1 PBKDF2
- * is available on Android API 21; a fixed cost prevents attacker-controlled work.
+ * The entire 41-byte header is authenticated as AAD. Version 2 uses 10,000
+ * PBKDF2-HMAC-SHA1 iterations for responsive TV backups; legacy version 1 uses
+ * 600,000. Both derive a 256-bit AES key and work on Android API 21. Only the
+ * fixed version/cost pairs are accepted to prevent attacker-controlled work.
  *
  * Malformed/unsupported envelopes throw [IllegalArgumentException]. Authentication
  * failures (including an incorrect password) throw [java.security.GeneralSecurityException].
@@ -24,8 +25,9 @@ import javax.crypto.spec.SecretKeySpec
 object BackupCipher {
     const val MAX_ENCODED_BYTES = 2 * 1024 * 1024
     private val MAGIC = byteArrayOf(0x4c, 0x55, 0x4d, 0x59, 0x45, 0x4e, 0x43, 0x0a)
-    private const val VERSION = 1
-    private const val ITERATIONS = 600_000
+    private const val VERSION = 2
+    private const val ITERATIONS = 10_000
+    private const val LEGACY_ITERATIONS = 600_000
     private const val SALT_BYTES = 16
     private const val NONCE_BYTES = 12
     private const val TAG_BYTES = 16
@@ -40,7 +42,7 @@ object BackupCipher {
         val nonce = ByteArray(NONCE_BYTES).also(random::nextBytes)
         val header = ByteBuffer.allocate(HEADER_BYTES)
             .put(MAGIC).put(VERSION.toByte()).putInt(ITERATIONS).put(salt).put(nonce).array()
-        val cipher = cipher(Cipher.ENCRYPT_MODE, password, salt, nonce)
+        val cipher = cipher(Cipher.ENCRYPT_MODE, PBEKeySpec(password, salt, ITERATIONS, KEY_BITS), nonce)
         cipher.updateAAD(header)
         return header + cipher.doFinal(plain)
     }
@@ -51,11 +53,15 @@ object BackupCipher {
         require(isEncrypted(encoded)) { "Invalid backup signature" }
         val header = ByteBuffer.wrap(encoded, 0, HEADER_BYTES)
         header.position(MAGIC.size)
-        require(header.get().toInt() == VERSION) { "Unsupported backup version" }
-        require(header.int == ITERATIONS) { "Unsupported backup key derivation cost" }
+        val iterations = when (header.get().toInt()) {
+            1 -> LEGACY_ITERATIONS
+            VERSION -> ITERATIONS
+            else -> throw IllegalArgumentException("Unsupported backup version")
+        }
+        require(header.int == iterations) { "Unsupported backup key derivation cost" }
         val salt = ByteArray(SALT_BYTES).also(header::get)
         val nonce = ByteArray(NONCE_BYTES).also(header::get)
-        val cipher = cipher(Cipher.DECRYPT_MODE, password, salt, nonce)
+        val cipher = cipher(Cipher.DECRYPT_MODE, PBEKeySpec(password, salt, iterations, KEY_BITS), nonce)
         cipher.updateAAD(encoded, 0, HEADER_BYTES)
         return cipher.doFinal(encoded, HEADER_BYTES, encoded.size - HEADER_BYTES)
     }
@@ -64,8 +70,7 @@ object BackupCipher {
     fun isEncrypted(encoded: ByteArray): Boolean =
         encoded.size >= MAGIC.size && MAGIC.indices.all { encoded[it] == MAGIC[it] }
 
-    private fun cipher(mode: Int, password: CharArray, salt: ByteArray, nonce: ByteArray): Cipher {
-        val spec = PBEKeySpec(password, salt, ITERATIONS, KEY_BITS)
+    private fun cipher(mode: Int, spec: PBEKeySpec, nonce: ByteArray): Cipher {
         val key = try {
             SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1").generateSecret(spec).encoded
         } finally {

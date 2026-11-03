@@ -13,6 +13,8 @@ class BackupCipherTest {
         val originalPassword = password.copyOf()
         val encoded = BackupCipher.encrypt(plain, password)
         assertTrue(BackupCipher.isEncrypted(encoded))
+        assertEquals(2, encoded[8].toInt())
+        assertEquals(10_000, ByteBuffer.wrap(encoded).getInt(9))
         assertArrayEquals(plain, BackupCipher.decrypt(encoded, password))
         assertArrayEquals(originalPassword, password)
         assertFalse(String(encoded, Charsets.ISO_8859_1).contains("secret"))
@@ -59,10 +61,11 @@ class BackupCipherTest {
         val badMagic = encoded.copyOf().also { it[0] = 0 }
         assertFalse(BackupCipher.isEncrypted(badMagic))
         assertInvalid(badMagic)
-        val futureVersion = encoded.copyOf().also { it[8] = 2 }
+        val futureVersion = encoded.copyOf().also { it[8] = 3 }
         assertTrue(BackupCipher.isEncrypted(futureVersion))
         assertInvalid(futureVersion)
-        for (cost in listOf(0, -1, 1, 599_999, 600_001, Int.MAX_VALUE)) {
+        assertInvalid(encoded.copyOf().also { it[8] = 1 })
+        for (cost in listOf(0, -1, 1, 9_999, 10_001, 600_000, Int.MAX_VALUE)) {
             assertInvalid(encoded.copyOf().also { ByteBuffer.wrap(it).putInt(9, cost) })
         }
     }
