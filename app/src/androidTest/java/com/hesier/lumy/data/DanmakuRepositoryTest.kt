@@ -74,7 +74,7 @@ internal class DanmakuRepositoryTest(private val context: Context) {
         check((replay.load(media, force = true) as DanmakuLoad.Loaded).source == source)
         check(paths.none { it.startsWith("/plugin") } && paths.any { "/comment/" in it })
         stale = true
-        check(replay.load(media) is DanmakuLoad.NeedsMatch)
+        check(replay.load(media, force = true) is DanmakuLoad.NeedsMatch)
         check(reopened.match(media.key, source.identity) != null); stale = false
         reopened.restoreAuto(media.key); paths.clear()
         check((replay.load(media, force = true) as DanmakuLoad.Loaded).source.kind == DanmakuSourceKind.SERVER)
@@ -94,7 +94,7 @@ internal class DanmakuRepositoryTest(private val context: Context) {
             paths.clear(); pluginStatus = status
             check((repository.load(media) as DanmakuLoad.Loaded).automatic)
             check((if (status == 404) DanmakuFailure.NOT_FOUND else DanmakuFailure.AUTH) == repository.serverFailure)
-            check(paths.any { "/search/anime" in it })
+            check(paths.size == 1 && paths.single().startsWith("/plugin"))
         }
         pluginStatus = 200; pluginBody = XML
         store.restoreAuto(media.key)
@@ -205,7 +205,7 @@ internal class DanmakuRepositoryTest(private val context: Context) {
         detailsOverride = detailsWithEpisodes(trailer, feature).replace("\"year\":2023", "\"year\":2023,\"type\":\"Movie\"")
         check((repository.load(movie) as DanmakuLoad.Loaded).match?.episode?.id == "11")
         detailsOverride = detailsWithEpisodes(trailer)
-        check(repository.load(movie) is DanmakuLoad.NeedsMatch)
+        check(repository.load(movie, force = true) is DanmakuLoad.NeedsMatch)
         detailsOverride = DETAILS.replace("\"year\":2023", "\"year\":2023,\"type\":\"Movie\"")
         queuedSearch.add(SEARCH_EMPTY); queuedSearch.add(SEARCH)
         paths.clear()
@@ -213,7 +213,7 @@ internal class DanmakuRepositoryTest(private val context: Context) {
         check(original.automatic && original.match?.anime?.id == "1")
         check(paths.count { "/search/anime" in it } == 2)
         queuedSearch.add(SEARCH_EMPTY)
-        check(repository.load(movie) is DanmakuLoad.NeedsMatch)
+        check(repository.load(movie, force = true) is DanmakuLoad.NeedsMatch)
         detailsOverride = null
     }
 

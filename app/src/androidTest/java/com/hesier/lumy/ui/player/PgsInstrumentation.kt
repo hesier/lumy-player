@@ -8,6 +8,7 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
+    private var danmakuCacheOnly = false
     private var danmakuOfficialLive: String? = null
     private var danmakuMemoryPhase: String? = null
     private var danmakuPluginArguments: Bundle? = null
@@ -40,6 +41,7 @@ class PgsInstrumentation : Instrumentation() {
 
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        danmakuCacheOnly = arguments?.getString("danmaku_cache_only") == "true"
         danmakuOfficialLive = arguments?.getString("danmaku_official_live")
         if (arguments?.containsKey("danmaku_plugin_item") == true) danmakuPluginArguments = Bundle(arguments)
         danmakuFlowCase = arguments?.getString("danmaku_flow_case")
@@ -75,6 +77,11 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (danmakuCacheOnly) {
+                result.putString("stream", com.hesier.lumy.data.DanmakuCacheTest(targetContext).runAll() + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (danmakuOfficialLive != null) {
                 result.putString("stream", DanmakuOfficialLiveTest(this).run(danmakuOfficialLive!!) + "\n")
                 finish(Activity.RESULT_OK, result)
@@ -128,7 +135,8 @@ class PgsInstrumentation : Instrumentation() {
             }
             if (danmakuApiOnly) {
                 com.hesier.lumy.data.DanmakuMatcherTest.runAll()
-                val matching = com.hesier.lumy.data.DanmakuAutoMatchTest(targetContext).runAll()
+                val cache = com.hesier.lumy.data.DanmakuCacheTest(targetContext).runAll()
+                val matching = cache + "\n" + com.hesier.lumy.data.DanmakuAutoMatchTest(targetContext).runAll()
                 result.putString("stream", matching + "\n" + com.hesier.lumy.data.DanmakuRepositoryTest(targetContext).runAll() + "\n")
                 finish(Activity.RESULT_OK, result)
                 return

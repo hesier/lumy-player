@@ -74,6 +74,13 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
         val choice = DanmakuChoice(if (endpoint.official) DanmakuSourceKind.OFFICIAL else DanmakuSourceKind.CUSTOM, endpoint.identity)
         val api = DanmakuApi(http, endpoint)
         val saved = store.match(media.key, choice.identity)
+        if (!force) {
+            val cachedMatch = saved ?: store.cachedAutomatic(media, choice.identity)
+            if (cachedMatch != null) store.cached(store.contentKey(cachedMatch))?.let { comments ->
+                if (comments.isNotEmpty()) return DanmakuLoad.Loaded(comments, choice, cachedMatch,
+                    automatic = saved == null, sourceOffsetMs = cachedMatch.sourceOffsetMs)
+            }
+        }
         val selected = if (saved != null) resolveSaved(api, saved) else {
             val decision = DanmakuAutoMatch(api).run(media)
             val suggestion = decision.selected ?: return DanmakuLoad.NeedsMatch(choice, decision.reason, decision.suggestions)
@@ -81,12 +88,12 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
                 media.number, suggestion.sourceOffsetMs)
         }
         if (selected == null) return DanmakuLoad.NeedsMatch(choice, DanmakuMatchReason.METADATA)
-        if (saved != null && (saved.anime.id != selected.anime.id || saved.episode.id != selected.episode.id))
+        if (saved != null && (store.contentKey(saved) != store.contentKey(selected) || saved.anime.type != selected.anime.type))
             store.remember(media.key, selected)
-        val key = "${choice.identity}:${selected.episode.id}:" + danmakuHash(
-            "${selected.anime.id}|${selected.anime.title}|${selected.anime.year}|${selected.episode.title}|${selected.episode.number}|${selected.episode.seasonId}")
+        val key = store.contentKey(selected)
         if (force) store.invalidate(key)
         val comments = store.cached(key) ?: api.comments(selected.episode.id).also { if (it.isNotEmpty()) store.cache(key, it) }
+        if (saved == null && comments.isNotEmpty()) store.cacheAutomatic(media, selected)
         return if (comments.isEmpty()) DanmakuLoad.Empty(choice)
             else DanmakuLoad.Loaded(comments, choice, selected, automatic = saved == null, sourceOffsetMs = selected.sourceOffsetMs)
     }

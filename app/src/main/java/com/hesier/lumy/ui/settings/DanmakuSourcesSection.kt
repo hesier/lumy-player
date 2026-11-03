@@ -119,9 +119,12 @@ internal class DanmakuSourcesSection(
         OptionsPanel(activity, text(R.string.danmaku_clear_matches_confirm), listOf(
             Option(text(R.string.cancel), selected = true), Option(text(R.string.danmaku_clear_matches)),
         )) {
-            if (it == 1) {
-                DanmakuStore(activity).clearMatches()
-                toast(R.string.danmaku_cleared)
+            if (it == 1) activity.lifecycleScope.launch {
+                try {
+                    withContext(Dispatchers.IO) { DanmakuStore(activity).clearMatches() }
+                    toast(R.string.danmaku_cleared)
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { toast(R.string.danmaku_status_error) }
             }
         }.show()
     }

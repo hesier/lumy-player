@@ -27,34 +27,43 @@ class DanmakuStore(context: Context, name: String = "danmaku") {
 
     internal fun match(media: String, source: String): DanmakuMatch? = runCatching {
         val data = decode(prefs.getString("match:$media:$source", null)) ?: return null
-        DanmakuMatch(DanmakuChoice(DanmakuSourceKind.valueOf(data.getString("kind")), source),
-            DanmakuAnime(data.getString("animeId"), data.getString("animeTitle"), data.optString("animeType").ifEmpty { null }, data.optionalInt("animeYear")),
-            DanmakuEpisode(data.getString("episodeId"), data.getString("episodeTitle"), data.optString("episodeNumber").ifEmpty { null }, data.optString("episodeSeason").ifEmpty { null }),
-            data.optionalInt("year"), data.optionalInt("season"), data.optionalInt("number"), data.optLong("sourceOffsetMs", 0))
+        readMatch(data, source)
     }.getOrNull()
 
     internal fun remember(media: String, value: DanmakuMatch) {
-        val data = JSONObject().put("kind", value.choice.kind.name).put("animeId", value.anime.id)
-            .put("animeTitle", value.anime.title).put("animeYear", value.anime.year).put("animeType", value.anime.type)
-            .put("episodeId", value.episode.id)
-            .put("episodeTitle", value.episode.title).put("episodeNumber", value.episode.number).put("episodeSeason", value.episode.seasonId)
-            .put("year", value.year).put("season", value.season).put("number", value.number)
-            .put("sourceOffsetMs", value.sourceOffsetMs)
-        prefs.edit().putString("match:$media:${value.choice.identity}", data.toString()).apply()
+        prefs.edit().putString("match:$media:${value.choice.identity}", writeMatch(value).toString()).apply()
         choose(media, value.choice)
     }
+
+    private fun readMatch(data: JSONObject, source: String) = DanmakuMatch(
+        DanmakuChoice(DanmakuSourceKind.valueOf(data.getString("kind")), source),
+        DanmakuAnime(data.getString("animeId"), data.getString("animeTitle"), data.optString("animeType").ifEmpty { null }, data.optionalInt("animeYear")),
+        DanmakuEpisode(data.getString("episodeId"), data.getString("episodeTitle"), data.optString("episodeNumber").ifEmpty { null }, data.optString("episodeSeason").ifEmpty { null }),
+        data.optionalInt("year"), data.optionalInt("season"), data.optionalInt("number"), data.optLong("sourceOffsetMs", 0))
+
+    private fun writeMatch(value: DanmakuMatch) = JSONObject().put("kind", value.choice.kind.name)
+        .put("animeId", value.anime.id).put("animeTitle", value.anime.title)
+        .put("animeYear", value.anime.year).put("animeType", value.anime.type)
+        .put("episodeId", value.episode.id).put("episodeTitle", value.episode.title)
+        .put("episodeNumber", value.episode.number).put("episodeSeason", value.episode.seasonId)
+        .put("year", value.year).put("season", value.season).put("number", value.number)
+        .put("sourceOffsetMs", value.sourceOffsetMs)
 
     internal fun restoreAuto(media: String) {
         val edit = prefs.edit().remove("choice:$media")
         prefs.all.keys.filter { it.startsWith("match:$media:") }.forEach(edit::remove)
         edit.apply()
+        synchronized(cacheLock) { references().filter { it.name.startsWith(danmakuHash(media) + "-") }.forEach { it.delete() } }
     }
 
-    fun clearMatches() { prefs.edit().clear().apply() }
+    fun clearMatches() {
+        prefs.edit().clear().apply()
+        synchronized(cacheLock) { references().forEach { it.delete() } }
+    }
 
     internal fun cached(key: String): List<DanmakuComment>? = synchronized(cacheLock) {
         val file = cacheFile(key)
-        if (!file.exists() || System.currentTimeMillis() - file.lastModified() > CACHE_TTL_MS) return null
+        if (!file.exists()) return null
         runCatching {
             DataInputStream(file.inputStream().buffered()).use { input ->
                 check(input.readInt() == CACHE_VERSION)
@@ -81,6 +90,45 @@ class DanmakuStore(context: Context, name: String = "danmaku") {
         } finally { partial.delete() }
     }
 
+    internal fun contentKey(match: DanmakuMatch) = "${match.choice.identity}:${match.episode.id}:" + danmakuHash(
+        "${match.anime.id}|${match.anime.title}|${match.anime.year}|${match.episode.title}|${match.episode.number}|${match.episode.seasonId}")
+
+    internal fun cachedAutomatic(media: DanmakuMedia, source: String): DanmakuMatch? = synchronized(cacheLock) {
+        runCatching {
+            val data = readReference(referenceFile(media, source)) ?: return null
+            check(data.getString("source") == source)
+            val match = readMatch(data.getJSONObject("match"), source)
+            check(data.getString("cacheKey") == contentKey(match) && cacheFile(contentKey(match)).isFile)
+            match
+        }.getOrNull()
+    }
+
+    internal fun cacheAutomatic(media: DanmakuMedia, match: DanmakuMatch) = synchronized(cacheLock) {
+        val key = contentKey(match)
+        if (!cacheFile(key).isFile) return
+        val data = JSONObject().put("version", REFERENCE_VERSION).put("source", match.choice.identity)
+            .put("cacheKey", key).put("match", writeMatch(match)).toString()
+        if (data.toByteArray(Charsets.UTF_8).size > MAX_REFERENCE_BYTES) return
+        val partial = File.createTempFile("reference-", ".part", directory)
+        try {
+            partial.writeText(data)
+            if (partial.renameTo(referenceFile(media, match.choice.identity))) trim()
+        } finally { partial.delete() }
+    }
+
+    private fun referenceFile(media: DanmakuMedia, source: String): File {
+        val identity = JSONObject().put("media", media.key).put("version", media.versionId)
+            .put("title", media.title).put("original", media.originalTitle).put("type", media.type.name)
+            .put("year", media.year).put("season", media.season).put("number", media.number).put("source", source)
+        return File(directory, "${danmakuHash(media.key)}-${danmakuHash(identity.toString())}.ref")
+    }
+
+    private fun references() = directory.listFiles()?.filter { it.extension == "ref" }.orEmpty()
+    private fun readReference(file: File): JSONObject? = runCatching {
+        check(file.length() in 1..MAX_REFERENCE_BYTES.toLong())
+        JSONObject(file.readText()).also { check(it.getInt("version") == REFERENCE_VERSION) }
+    }.getOrNull()
+
     fun clearCache() = synchronized(cacheLock) { directory.listFiles()?.forEach { it.delete() }; Unit }
     internal fun invalidate(key: String) = synchronized(cacheLock) { cacheFile(key).delete(); Unit }
 
@@ -89,6 +137,10 @@ class DanmakuStore(context: Context, name: String = "danmaku") {
         val files = directory.listFiles()?.sortedByDescending { it.lastModified() }.orEmpty()
         var total = 0L
         files.forEach { total += it.length(); if (total > MAX_CACHE_BYTES) it.delete() }
+        references().forEach { reference ->
+            val key = readReference(reference)?.optString("cacheKey").orEmpty()
+            if (key.isEmpty() || !cacheFile(key).isFile) reference.delete()
+        }
     }
     private fun decode(value: String?) = value?.let { runCatching { JSONObject(it) }.getOrNull() }
     private fun JSONObject.optionalInt(key: String) = if (has(key) && !isNull(key)) getInt(key) else null
@@ -96,7 +148,8 @@ class DanmakuStore(context: Context, name: String = "danmaku") {
     private companion object {
         val cacheLock = Any()
         const val CACHE_VERSION = 1
-        const val CACHE_TTL_MS = 6 * 60 * 60 * 1_000L
+        const val REFERENCE_VERSION = 1
+        const val MAX_REFERENCE_BYTES = 64 * 1024
         const val MAX_FILE_BYTES = 16 * 1024 * 1024L
         const val MAX_CACHE_BYTES = 64 * 1024 * 1024L
     }

@@ -19,6 +19,8 @@ import com.hesier.lumy.ui.widget.OptionsPanel
 import com.hesier.lumy.util.DebugLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
 /** Loading stays independent of video startup; one generation owns each visible result. */
@@ -85,7 +87,7 @@ internal class PlayerDanmaku(
         OptionsPanel(activity, status(), entries.map { it.first }) { entries[it].second() }.show()
     }
 
-    private fun reload(force: Boolean = false, feedback: Feedback = Feedback.AUTOMATIC) {
+    private fun reload(force: Boolean = false, feedback: Feedback = Feedback.AUTOMATIC, resetMatch: Boolean = false) {
         generation++
         actions.invalidate()
         job?.cancel()
@@ -99,7 +101,10 @@ internal class PlayerDanmaku(
         loading = true
         if (feedback != Feedback.AUTOMATIC) toast(activity.getString(R.string.danmaku_loading))
         job = activity.lifecycleScope.launch {
-            val loaded = repository.load(request, force)
+            val loaded = withContext(Dispatchers.IO) {
+                if (resetMatch) store.restoreAuto(request.key)
+                repository.load(request, force)
+            }
             if (version != generation || released) return@launch
             loading = false
             result = loaded
@@ -132,8 +137,7 @@ internal class PlayerDanmaku(
     }
 
     private fun restore() {
-        media?.let { store.restoreAuto(it.key) }
-        reload(force = true, feedback = Feedback.MATCH)
+        reload(force = true, feedback = Feedback.MATCH, resetMatch = true)
     }
 
     private fun matchLabel(match: DanmakuMatch): String = listOf(match.anime.title, match.episode.title)
