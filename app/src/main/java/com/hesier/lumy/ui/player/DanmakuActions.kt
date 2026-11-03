@@ -19,6 +19,7 @@ internal class DanmakuActions(
     private val revision: () -> Int,
     private val selected: (DanmakuAnime, DanmakuEpisode, DanmakuChoice, Long) -> Unit,
     private val run: (suspend () -> Unit) -> Unit,
+    private val returnToMenu: () -> Unit,
 ) {
     private data class Target(val media: DanmakuMedia, val source: DanmakuChoice, val serial: Int, val session: Int)
     private var panel: Dialog? = null
@@ -31,8 +32,12 @@ internal class DanmakuActions(
         session++
         val target = Target(value.first, value.second, revision(), session)
         val suggestions = pending?.takeIf { it.source == target.source }?.suggestions.orEmpty()
-        if (suggestions.isEmpty()) { search(target); return }
-        val options = suggestions.map { suggestion ->
+        if (suggestions.isEmpty()) search(target, onBack = returnToMenu)
+        else showCandidates(target, suggestions)
+    }
+
+    private fun showCandidates(target: Target, suggestions: List<DanmakuSuggestion>, focused: Int = 0) {
+        val options = suggestions.mapIndexed { index, suggestion ->
             val conflictingOffset = suggestions.any { it.anime.id == suggestion.anime.id &&
                 it.episode?.id == suggestion.episode?.id && it.sourceOffsetMs != suggestion.sourceOffsetMs }
             val timing = if (suggestion.sourceOffsetMs != 0L || conflictingOffset) {
@@ -42,55 +47,62 @@ internal class DanmakuActions(
             val details = listOfNotNull(suggestion.anime.year?.toString(), suggestion.anime.type, timing,
                 suggestion.episode?.let { activity.getString(R.string.danmaku_match_recommended, it.title) },
                 text(reasonText(suggestion.reason))).filter { it.isNotBlank() }.joinToString(" · ")
-            Option(suggestion.anime.title, details)
-        } + Option(text(R.string.danmaku_match_search_again))
+            Option(suggestion.anime.title, details, selected = index == focused)
+        } + Option(text(R.string.danmaku_match_search_again), selected = focused == suggestions.size)
         show(OptionsPanel(activity, text(R.string.danmaku_match_candidates), options) { index ->
             if (!valid(target)) return@OptionsPanel
-            if (index == suggestions.size) search(target) else {
+            val back = { showCandidates(target, suggestions, index) }
+            if (index == suggestions.size) search(target, onBack = back) else {
                 val suggestion = suggestions[index]
                 // Complete snapshots may use a canonical ID that is not a query alias.
                 if (suggestion.anime.episodes.isNotEmpty()) {
-                    showEpisodes(target, target.source, suggestion.anime, suggestion)
+                    showEpisodes(target, target.source, suggestion.anime, suggestion, back)
                 } else run {
                     val details = repository.details(target.source, suggestion.anime)
-                    if (valid(target)) showEpisodes(target, target.source, details, suggestion)
+                    if (valid(target)) showEpisodes(target, target.source, details, suggestion, back)
                 }
             }
-        })
+        }, target, returnToMenu)
     }
 
     fun invalidate() {
         session++
-        panel?.dismiss()
+        val previous = panel
         panel = null
+        if (previous?.window?.decorView?.isAttachedToWindow == true) previous.dismiss()
     }
 
-    private fun search(target: Target) {
+    private fun search(target: Target, keyword: String = target.media.title, onBack: () -> Unit) {
         if (!valid(target)) return
-        show(InputPanel(activity, text(R.string.danmaku_search), target.media.title,
-            text(R.string.danmaku_search_hint), text(R.string.danmaku_search)) { keyword ->
+        show(InputPanel(activity, text(R.string.danmaku_search), keyword,
+            text(R.string.danmaku_search_hint), text(R.string.danmaku_search)) { query ->
             if (!valid(target)) return@InputPanel
             run {
                 val source = if (target.source.kind == DanmakuSourceKind.SERVER) repository.onlineChoice() else target.source
-                val matches = repository.search(source, keyword.trim())
-                if (valid(target)) showAnimes(target, source, matches)
+                val matches = repository.search(source, query.trim())
+                if (valid(target)) showAnimes(target, source, matches, onBack = { search(target, query, onBack) })
             }
-        })
+        }, target, onBack)
     }
 
-    private fun showAnimes(target: Target, source: DanmakuChoice, animes: List<DanmakuAnime>) {
-        if (animes.isEmpty()) { noResults(target); return }
-        show(OptionsPanel(activity, text(R.string.danmaku_search), animes.map { Option(it.title, it.type) }) { index ->
+    private fun showAnimes(target: Target, source: DanmakuChoice, animes: List<DanmakuAnime>,
+        focused: Int = 0, onBack: () -> Unit) {
+        if (animes.isEmpty()) { noResults(target, onBack); return }
+        show(OptionsPanel(activity, text(R.string.danmaku_search), animes.mapIndexed { index, anime ->
+            Option(anime.title, anime.type, selected = index == focused)
+        }) { index ->
             if (valid(target)) run {
                 val details = repository.details(source, animes[index])
-                if (valid(target)) showEpisodes(target, source, details)
+                if (valid(target)) showEpisodes(target, source, details, onBack = {
+                    showAnimes(target, source, animes, index, onBack)
+                })
             }
-        })
+        }, target, onBack)
     }
 
     private fun showEpisodes(target: Target, source: DanmakuChoice, anime: DanmakuAnime,
-        suggestion: DanmakuSuggestion? = null) {
-        if (anime.episodes.isEmpty()) { noResults(target); return }
+        suggestion: DanmakuSuggestion? = null, onBack: () -> Unit) {
+        if (anime.episodes.isEmpty()) { noResults(target, onBack) { search(target, onBack = onBack) }; return }
         show(OptionsPanel(activity, anime.title, anime.episodes.map {
             Option(it.title, it.number, selected = it.id == suggestion?.episode?.id)
         }) { index ->
@@ -99,20 +111,22 @@ internal class DanmakuActions(
                 val offset = suggestion?.takeIf { it.episode?.id == episode.id }?.sourceOffsetMs ?: 0L
                 selected(anime, episode, source, offset)
             }
-        })
+        }, target, onBack)
     }
 
-    private fun noResults(target: Target) {
+    private fun noResults(target: Target, onBack: () -> Unit, retry: () -> Unit = onBack) {
         show(OptionsPanel(activity, text(R.string.danmaku_no_results), listOf(Option(text(R.string.danmaku_search)))) {
-            if (valid(target)) search(target)
-        })
+            if (valid(target)) retry()
+        }, target, onBack)
     }
 
-    private fun show(dialog: Dialog) {
+    private fun show(dialog: Dialog, target: Target, onBack: () -> Unit) {
         panel = dialog
+        dialog.setOnDismissListener { if (panel === dialog) panel = null }
         dialog.setOnCancelListener {
-            session++
-            returnFocus?.takeIf { it.isAttachedToWindow }?.requestFocus()
+            panel = null
+            if (valid(target)) onBack()
+            else returnFocus?.takeIf { it.isAttachedToWindow }?.requestFocus()
         }
         dialog.show()
     }

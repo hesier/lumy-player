@@ -12,15 +12,16 @@ internal class SecondarySubtitleStylePanel(
     private val context: Context,
     private val settings: Settings,
     private val onChanged: () -> Unit,
+    private val onBack: () -> Unit = {},
 ) {
-    fun show() {
+    fun show(focused: Int = 0) {
         val colors = colors()
         val colorLabel = colors.firstOrNull { it.first == settings.secondarySubtitleColor }?.second ?: R.string.subtitle_color_white
         val options = listOf(
-            Option(context.getString(R.string.settings_subtitle_size), scaleLabel(settings.secondarySubtitleScale)),
-            Option(context.getString(R.string.subtitle_text_color), context.getString(colorLabel)),
+            Option(context.getString(R.string.settings_subtitle_size), scaleLabel(settings.secondarySubtitleScale), selected = focused == 0),
+            Option(context.getString(R.string.subtitle_text_color), context.getString(colorLabel), selected = focused == 1),
             Option(context.getString(R.string.settings_subtitle_background),
-                context.getString(if (settings.secondarySubtitleBackground) R.string.on else R.string.off)),
+                context.getString(if (settings.secondarySubtitleBackground) R.string.on else R.string.off), selected = focused == 2),
         )
         OptionsPanel(context, context.getString(R.string.player_secondary_subtitle_style), options) { index ->
             when (index) {
@@ -29,10 +30,10 @@ internal class SecondarySubtitleStylePanel(
                 2 -> {
                     settings.secondarySubtitleBackground = !settings.secondarySubtitleBackground
                     onChanged()
-                    show()
+                    show(2)
                 }
             }
-        }.show()
+        }.apply { setOnCancelListener { onBack() } }.show()
     }
 
     private fun chooseScale() {
@@ -41,8 +42,8 @@ internal class SecondarySubtitleStylePanel(
         OptionsPanel(context, context.getString(R.string.settings_subtitle_size), options) {
             settings.secondarySubtitleScale = scales[it]
             onChanged()
-            show()
-        }.show()
+            show(0)
+        }.apply { setOnCancelListener { show(0) } }.show()
     }
 
     private fun chooseColor() {
@@ -51,8 +52,8 @@ internal class SecondarySubtitleStylePanel(
         OptionsPanel(context, context.getString(R.string.subtitle_text_color), options) {
             settings.secondarySubtitleColor = colors[it].first
             onChanged()
-            show()
-        }.show()
+            show(1)
+        }.apply { setOnCancelListener { show(1) } }.show()
     }
 
     private fun colors() = listOf(Color.WHITE to R.string.subtitle_color_white,

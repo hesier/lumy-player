@@ -8,7 +8,7 @@ import com.hesier.lumy.data.DanmakuSourceKind
 /** Runs real PlayerDanmaku menus and storage with an isolated source configuration. */
 class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
     fun runAll(live: Boolean = false): String = if (live) runOne(true, false) else
-        (0..6).joinToString("\n") { runCase(it) }
+        (0..7).joinToString("\n") { runCase(it) }
 
     fun runCase(index: Int): String = when (index) {
         0 -> runOne(false, false)
@@ -18,7 +18,35 @@ class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
         4 -> runConfirmation(-750)
         5 -> runCancelledConfirmation()
         6 -> runMediaSwitches()
+        7 -> runBackNavigation()
         else -> error("Unknown flow case")
+    }
+    private fun runBackNavigation(): String {
+        val server = DanmakuPlayerFlowServer()
+        val fixture = DanmakuPlayerFlowFixture(instrumentation, live = false)
+        try {
+            fixture.open(server.endpoint, withPlugin = true)
+            fixture.awaitLoaded(automatic = false)
+            fixture.openMenu(); fixture.pick(fixture.text(R.string.danmaku_manual_match))
+            fixture.submitSearch(); fixture.pick("Flow B")
+            fixture.await("episodes visible") { fixture.screenTexts().contains("Flow B episode 1") }
+            val searches = server.paths.count { "/search/anime" in it }
+            fixture.key(android.view.KeyEvent.KEYCODE_BACK)
+            fixture.await("back to search results") {
+                val texts = fixture.screenTexts()
+                texts.firstOrNull() == fixture.text(R.string.danmaku_search) && texts.contains("Flow B")
+            }
+            check(searches == server.paths.count { "/search/anime" in it })
+            fixture.key(android.view.KeyEvent.KEYCODE_BACK)
+            fixture.await("back to search input") { fixture.searchInputText() == "Flow Show" }
+            fixture.key(android.view.KeyEvent.KEYCODE_BACK)
+            fixture.await("back to media menu") { fixture.screenTexts().contains(fixture.text(R.string.danmaku_media_enabled)) }
+            fixture.key(android.view.KeyEvent.KEYCODE_BACK)
+            fixture.await("back to player") { fixture.actionHasFocus() && fixture.main { fixture.activity.hasWindowFocus() } }
+            return "Danmaku nested back: episodes, cached results, search input, media menu and player passed"
+        } finally {
+            try { fixture.close() } finally { server.close() }
+        }
     }
 
     private fun runMediaSwitches(): String {
@@ -111,7 +139,11 @@ class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
             fixture.pick("Flow Show")
             fixture.await("episode panel") { fixture.screenTexts().contains("Flow A episode 2") }
             fixture.key(android.view.KeyEvent.KEYCODE_BACK)
-            fixture.await("focus restored") { fixture.actionHasFocus() }
+            fixture.await("back to candidates") { fixture.screenTexts().contains(fixture.text(R.string.danmaku_match_candidates)) }
+            fixture.key(android.view.KeyEvent.KEYCODE_BACK)
+            fixture.await("back to media menu") { fixture.screenTexts().contains(fixture.text(R.string.danmaku_media_enabled)) }
+            fixture.key(android.view.KeyEvent.KEYCODE_BACK)
+            fixture.await("focus restored") { fixture.actionHasFocus() && fixture.main { fixture.activity.hasWindowFocus() } }
             check(fixture.store.match(fixture.mediaKey(), source.identity) == null)
             check(server.commentRequests() == 0)
             fixture.openMenu()
@@ -171,7 +203,7 @@ class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
             if (!live) check(initial.sourceOffsetMs == if (matchAvailable) 1_500L else 0L)
             if (!live) check(initial.match?.episode?.number == "2")
             else check(!initial.match?.episode?.id.isNullOrBlank())
-            fixture.expectToast(fixture.feedbackPrefix(R.string.danmaku_auto_matched))
+            fixture.expectNotice(fixture.feedbackPrefix(R.string.danmaku_auto_matched))
             fixture.checkVisible()
             checkAutomaticQuery(server)
             val manual = manualSelection(fixture)
@@ -196,7 +228,7 @@ class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
     }
 
     private fun manualSelection(fixture: DanmakuPlayerFlowFixture): DanmakuLoad.Loaded {
-        fixture.toasts.clear()
+        fixture.notices.clear()
         fixture.openMenu()
         fixture.pick(fixture.text(R.string.danmaku_manual_match))
         fixture.submitSearch()
@@ -217,8 +249,8 @@ class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
         }
         check(match.episode.number == if (fixture.live) "2" else "3")
         check(fixture.store.match(fixture.mediaKey(), loaded.source.identity)?.episode?.id == match.episode.id)
-        fixture.expectToast(fixture.text(R.string.danmaku_loading))
-        fixture.expectToast(fixture.feedbackPrefix(R.string.danmaku_match_loaded))
+        fixture.expectNotice(fixture.text(R.string.danmaku_loading))
+        fixture.expectNotice(fixture.feedbackPrefix(R.string.danmaku_match_loaded))
         fixture.checkVisible()
         return loaded
     }
@@ -226,31 +258,31 @@ class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
     private fun forceReload(fixture: DanmakuPlayerFlowFixture, server: DanmakuPlayerFlowServer?) {
         val selected = fixture.loaded()
         val before = server?.commentRequests()
-        fixture.toasts.clear()
+        fixture.notices.clear()
         fixture.openMenu()
         fixture.pick(fixture.text(R.string.danmaku_reload))
         fixture.await("new reload result") { fixture.result() is DanmakuLoad.Loaded && fixture.result() !== selected }
         val reloaded = fixture.awaitLoaded(automatic = false)
         check(selected.match?.episode?.id == reloaded.match?.episode?.id)
         if (server != null) check(server.commentRequests() == checkNotNull(before) + 1)
-        fixture.expectToast(fixture.text(R.string.danmaku_loading))
-        fixture.expectToast(fixture.main { fixture.activity.getString(R.string.danmaku_loaded, reloaded.comments.size) })
+        fixture.expectNotice(fixture.text(R.string.danmaku_loading))
+        fixture.expectNotice(fixture.main { fixture.activity.getString(R.string.danmaku_loaded, reloaded.comments.size) })
         fixture.checkVisible()
     }
 
     private fun checkFailedReload(fixture: DanmakuPlayerFlowFixture, server: DanmakuPlayerFlowServer) {
         server.failComments = true
-        fixture.toasts.clear()
+        fixture.notices.clear()
         fixture.openMenu()
         fixture.pick(fixture.text(R.string.danmaku_reload))
         fixture.await("failed reload state") { fixture.result() is DanmakuLoad.Failed }
         check((fixture.result() as DanmakuLoad.Failed).manual)
-        fixture.expectToast(fixture.text(R.string.danmaku_error_unavailable))
+        fixture.expectNotice(fixture.text(R.string.danmaku_error_unavailable))
         server.failComments = false
     }
 
     private fun restoreAutomatic(fixture: DanmakuPlayerFlowFixture, manual: DanmakuLoad.Loaded, withPlugin: Boolean = false) {
-        fixture.toasts.clear()
+        fixture.notices.clear()
         val previous = fixture.result()
         fixture.openMenu()
         fixture.pick(fixture.text(R.string.danmaku_restore_auto))
@@ -260,8 +292,8 @@ class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
         else if (!fixture.live) check(restored.match?.anime?.id == "A" && restored.match?.episode?.number == "2")
         else check(!restored.match?.episode?.id.isNullOrBlank())
         check(fixture.store.match(fixture.mediaKey(), manual.source.identity) == null)
-        fixture.expectToast(fixture.text(R.string.danmaku_loading))
-        fixture.expectToast(if (withPlugin) fixture.text(R.string.danmaku_source_server)
+        fixture.expectNotice(fixture.text(R.string.danmaku_loading))
+        fixture.expectNotice(if (withPlugin) fixture.text(R.string.danmaku_source_server)
             else fixture.feedbackPrefix(R.string.danmaku_auto_matched))
         fixture.checkVisible()
     }

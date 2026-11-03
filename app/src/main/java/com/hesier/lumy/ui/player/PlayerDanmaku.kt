@@ -2,7 +2,6 @@ package com.hesier.lumy.ui.player
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
@@ -32,6 +31,7 @@ internal class PlayerDanmaku(
     private val preferences: SharedPreferences = activity.getSharedPreferences("settings", Context.MODE_PRIVATE),
     private val store: DanmakuStore = DanmakuStore(activity),
     private val onMasterChanged: () -> Unit = {},
+    private val onNotice: (String) -> Unit = {},
 ) {
     private val settings = DanmakuSettings(preferences)
     private val sources = DanmakuSourceSettings(preferences)
@@ -62,7 +62,7 @@ internal class PlayerDanmaku(
             host.removeCallbacks(refresh); host.post(refresh)
         }
     }
-    private val actions = DanmakuActions(activity, repository, ::current, { generation }, ::selected, ::runAction)
+    private val actions = DanmakuActions(activity, repository, ::current, { generation }, ::selected, ::runAction, { showMenu(focusManual = true) })
 
     init { preferences.registerOnSharedPreferenceChangeListener(listener) }
 
@@ -78,7 +78,7 @@ internal class PlayerDanmaku(
         reload()
     }
 
-    fun showMenu() {
+    fun showMenu(focusManual: Boolean = false) {
         if (!settings.enabled || released) return
         val request = media ?: return
         val revision = generation
@@ -89,7 +89,7 @@ internal class PlayerDanmaku(
             })
             if (enabled) {
                 add(Option(activity.getString(R.string.danmaku_manual_match),
-                    (result as? DanmakuLoad.Loaded)?.match?.let(::matchLabel)) to { actions.open(result as? DanmakuLoad.NeedsMatch) })
+                    (result as? DanmakuLoad.Loaded)?.match?.let(::matchLabel), selected = focusManual) to { actions.open(result as? DanmakuLoad.NeedsMatch) })
                 add(Option(activity.getString(R.string.danmaku_reload), activity.getString(R.string.danmaku_reload_detail)) to {
                     reload(force = true, feedback = Feedback.REFRESH)
                 })
@@ -115,7 +115,7 @@ internal class PlayerDanmaku(
         if (!enabled || testing || released) { lastNotice = null; return }
         val version = generation
         loading = true
-        if (feedback != Feedback.AUTOMATIC) toast(activity.getString(R.string.danmaku_loading))
+        if (feedback != Feedback.AUTOMATIC) notice(activity.getString(R.string.danmaku_loading))
         job = activity.lifecycleScope.launch {
             val loaded = withContext(Dispatchers.IO) {
                 if (resetMatch) store.restoreAuto(request.key)
@@ -166,7 +166,7 @@ internal class PlayerDanmaku(
                 matchLabel(match))
         } else status()
         val key = "${media?.key}|$message"
-        if (feedback != Feedback.AUTOMATIC || lastNotice != key) toast(message)
+        if (feedback != Feedback.AUTOMATIC || lastNotice != key) notice(message)
         lastNotice = key
     }
 
@@ -174,15 +174,15 @@ internal class PlayerDanmaku(
         if (!enabled || released || testing) return
         actionJob?.cancel()
         val token = generation
-        toast(activity.getString(R.string.danmaku_loading))
+        notice(activity.getString(R.string.danmaku_loading))
         actionJob = activity.lifecycleScope.launch {
             try { if (token == generation) block() }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (error: DanmakuException) {
-                if (token == generation && !released) toast(danmakuErrorText(activity, error.reason))
+                if (token == generation && !released) notice(danmakuErrorText(activity, error.reason))
             }
             catch (_: Exception) {
-                if (token == generation && !released) toast(activity.getString(R.string.danmaku_status_error))
+                if (token == generation && !released) notice(activity.getString(R.string.danmaku_status_error))
             }
         }
     }
@@ -205,7 +205,7 @@ internal class PlayerDanmaku(
         DanmakuSourceKind.OFFICIAL -> R.string.danmaku_source_official
         DanmakuSourceKind.CUSTOM -> R.string.danmaku_source_custom
     })
-    private fun toast(value: String) = Toast.makeText(activity, value, Toast.LENGTH_LONG).show()
+    private fun notice(value: String) = onNotice(value)
 
     fun clear() {
         generation++; actions.invalidate(); job?.cancel(); actionJob?.cancel(); result = null; media = null; loading = false

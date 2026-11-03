@@ -8,7 +8,6 @@ import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
-import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.media3.common.MediaItem
 import com.hesier.lumy.R
@@ -44,7 +43,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
     private var clockMs = 2_000L
     private var menuClicks = 0
     private var pluginEndpoint: String? = null
-    val toasts = CopyOnWriteArrayList<String>()
+    val notices = CopyOnWriteArrayList<String>()
     private val resultField = PlayerDanmaku::class.java.getDeclaredField("result").apply { isAccessible = true }
     private val mediaField = PlayerDanmaku::class.java.getDeclaredField("media").apply { isAccessible = true }
     private val overlayField = PlayerDanmaku::class.java.getDeclaredField("overlay").apply { isAccessible = true }
@@ -64,10 +63,6 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
             source.customUrl = checkNotNull(endpoint)
         }
         DanmakuSettings(preferences).enabled = true
-        instrumentation.uiAutomation.setOnAccessibilityEventListener { event ->
-            if (event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
-                event.packageName?.toString() == context.packageName) toasts.addAll(event.text.map(CharSequence::toString))
-        }
         activity = instrumentation.startActivitySync(Intent(context, SettingsActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)) as SettingsActivity
         val file = File(context.cacheDir, "danmaku-player-flow-fixture.mkv")
@@ -86,7 +81,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
         bundle = PlayerFactory.create(activity, OkHttpClient(), emptyMap(), SyncOffsets())
         binding.playerView.player = bundle.player
         controller = PlayerDanmaku(activity, binding.playerView, bundle.player, positionMs = { clockMs },
-            preferences = preferences, store = store)
+            preferences = preferences, store = store, onNotice = { notices.add(it) })
         actionButton = binding.root.addActionButton(R.drawable.ic_danmaku, activity.getString(R.string.settings_section_danmaku)) {
             menuClicks++
             controller.showMenu()
@@ -117,7 +112,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
         controller.release()
         controller = PlayerDanmaku(activity, binding.playerView, bundle.player, positionMs = { clockMs },
             preferences = context.getSharedPreferences("danmaku-player-flow-test", Context.MODE_PRIVATE),
-            store = DanmakuStore(context, "danmaku-player-flow-test"))
+            store = DanmakuStore(context, "danmaku-player-flow-test"), onNotice = { notices.add(it) })
         bind()
     }
 
@@ -181,6 +176,15 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
         error("Expected option did not receive remote focus")
     }
 
+    fun searchInputText(): String? {
+        val root = instrumentation.uiAutomation.rootInActiveWindow ?: return null
+        val focus = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        root.recycle()
+        val value = focus?.takeIf { it.className?.toString()?.contains("EditText") == true }?.text?.toString()
+        focus?.recycle()
+        return value
+    }
+
     fun submitSearch() {
         await("search input focus") {
             val root = instrumentation.uiAutomation.rootInActiveWindow
@@ -219,7 +223,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
     fun feedbackPrefix(id: Int): String = main { activity.getString(id, "") }
 
     fun text(id: Int) = main { activity.getString(id) }
-    fun expectToast(text: String) = await("expected feedback toast") { toasts.any { it.contains(text) } }
+    fun expectNotice(text: String) = await("expected player feedback") { notices.any { it.contains(text) } }
     fun key(code: Int) { instrumentation.sendKeyDownUpSync(code); Thread.sleep(60) }
     fun screenTexts(): List<String> = nodeTexts(instrumentation.uiAutomation.rootInActiveWindow)
     private fun focusedTexts(): List<String> {
@@ -255,7 +259,6 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
     }
 
     override fun close() {
-        instrumentation.uiAutomation.setOnAccessibilityEventListener(null)
         if (::activity.isInitialized) main {
             if (::controller.isInitialized) controller.release()
             if (::bundle.isInitialized) {

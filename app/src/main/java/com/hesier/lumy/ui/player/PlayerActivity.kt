@@ -2,6 +2,7 @@
 
 package com.hesier.lumy.ui.player
 
+import android.app.Dialog
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -221,7 +222,7 @@ class PlayerActivity : ThemedActivity() {
         subtitleSelector.onCues = dualSubtitles::onSecondaryCues
         player.addListener(dualSubtitles)
         danmaku = PlayerDanmaku(this, binding.playerView, player, positionMs = { positionMs },
-            onMasterChanged = ::refreshDanmakuControls)
+            onMasterChanged = ::refreshDanmakuControls, onNotice = playbackNotice::showMessage)
         danmakuProbe = DanmakuProbe(binding.playerView, player, onProfileChanged = {
             danmaku.setTestActive(danmakuProbe.profile != 0)
         }) { positionMs }
@@ -330,6 +331,7 @@ class PlayerActivity : ThemedActivity() {
 
     /** 在同一个播放器里换成另一集（下一集 / 从剧集行选的） */
     private fun switchTo(next: MediaItem, startMs: Long) {
+        playbackNotice.clear()
         danmaku.clear()
         danmakuProbe.reset()
         startJob?.cancel()
@@ -365,6 +367,7 @@ class PlayerActivity : ThemedActivity() {
      * 某一级没有符合的轨道时交给下一级。
      */
     private fun selectVersion(v: MediaVersion) {
+        playbackNotice.clear()
         danmakuProbe.reset()
         secondarySubtitle = null
         subtitleSelector.selectSecondary(null)
@@ -842,7 +845,7 @@ class PlayerActivity : ThemedActivity() {
             secondarySubtitle = selected
             dualSubtitles.onSecondaryCues(androidx.media3.common.text.CueGroup(emptyList(), 0))
             if (rebuild) start(positionMs, player.playWhenReady) else applyTrackSelection()
-        }.show()
+        }.returnToMore(R.string.player_secondary_subtitles).show()
     }
 
     /**
@@ -942,7 +945,7 @@ class PlayerActivity : ThemedActivity() {
             val pos = positionMs
             selectVersion(detail.versions[i])
             start(pos)
-        }.show()
+        }.returnToMore(R.string.action_version).show()
     }
 
     private fun pickSpeed() {
@@ -1444,7 +1447,7 @@ class PlayerActivity : ThemedActivity() {
         OptionsPanel(this, getString(R.string.player_chapters), options) { seekTo(chapters[it].startMs) }.show()
     }
 
-    private fun showMore() {
+    private fun showMore(focusedLabel: Int? = null) {
         val actions = buildList<Pair<Option, () -> Unit>> {
             if (detail.versions.size > 1) add(Option(getString(R.string.action_version), version.summary) to ::pickVersion)
             add(Option(getString(R.string.video_scale), videoScaleLabel(this@PlayerActivity, videoScale)) to ::pickVideoScale)
@@ -1452,16 +1455,27 @@ class PlayerActivity : ThemedActivity() {
                 secondarySubtitle?.title ?: getString(R.string.subtitles_off)) to ::pickSecondarySubtitle)
             if (secondarySubtitle?.codec?.lowercase() in setOf("srt", "subrip", "vtt", "webvtt")) {
                 add(Option(getString(R.string.player_secondary_subtitle_style)) to {
-                    SecondarySubtitleStylePanel(this@PlayerActivity, settings, dualSubtitles::refreshStyle).show()
+                    SecondarySubtitleStylePanel(this@PlayerActivity, settings, dualSubtitles::refreshStyle,
+                        onBack = { showMore(R.string.player_secondary_subtitle_style) }).show()
                 })
             }
             add(Option(getString(R.string.subtitle_delay), formatDelay(this@PlayerActivity, offsets.subtitleDelayMs)) to ::adjustSubtitleDelay)
             add(Option(getString(R.string.audio_delay), formatDelay(this@PlayerActivity, offsets.audioDelayMs)) to ::adjustAudioDelay)
-            danmakuProbe.menuOption()?.let { add(it) }
             val infoLabel = if (binding.info.visibility == View.VISIBLE) R.string.info_hide else R.string.info_show
             add(Option(getString(infoLabel)) to ::toggleInfo)
         }
-        OptionsPanel(this, getString(R.string.player_more), actions.map { it.first }) { actions[it].second() }.show()
+        OptionsPanel(this, getString(R.string.player_more), actions.map {
+            it.first.copy(selected = focusedLabel != null && it.first.label == getString(focusedLabel))
+        }) { actions[it].second() }.show()
+    }
+
+    private fun Dialog.returnToMore(label: Int): Dialog {
+        val mediaId = item.id
+        val versionId = version.id
+        setOnCancelListener {
+            if (!isFinishing && !isDestroyed && item.id == mediaId && version.id == versionId) showMore(label)
+        }
+        return this
     }
 
     /** 只对这次播放生效（连播的下一集也沿用），默认值在设置里改 */
@@ -1471,14 +1485,14 @@ class PlayerActivity : ThemedActivity() {
         OptionsPanel(this, getString(R.string.video_scale), options) { i ->
             videoScale = scales[i]
             binding.playerView.resizeMode = videoScale.resizeMode()
-        }.show()
+        }.returnToMore(R.string.video_scale).show()
     }
 
     private fun adjustSubtitleDelay() {
         StepperPanel(
             this, getString(R.string.subtitle_delay), getString(R.string.delay_hint), offsets.subtitleDelayMs,
             100, 1_000, -10_000L..10_000L, { formatDelay(this, it) },
-        ) { offsets.subtitleDelayMs = it }.show()
+        ) { offsets.subtitleDelayMs = it }.returnToMore(R.string.subtitle_delay).show()
     }
 
     /** 音频延迟通常跟输出设备有关，保存到设置里，所有视频生效 */
@@ -1489,7 +1503,7 @@ class PlayerActivity : ThemedActivity() {
         ) {
             offsets.audioDelayMs = it
             settings.audioDelayMs = it
-        }.show()
+        }.returnToMore(R.string.audio_delay).show()
     }
 
     // ---- 跳过片头片尾 / 下一集 ----

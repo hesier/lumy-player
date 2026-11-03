@@ -36,7 +36,9 @@ class PlaybackNoticeTest(private val instrumentation: Instrumentation) {
                 focus = Button(activity).apply { isFocusableInTouchMode = true }
                 binding.root.addView(focus, android.widget.FrameLayout.LayoutParams(100, 60))
                 focus.requestFocus()
-                checkNotices(PlaybackNotice(binding.playbackNotice, scope), binding)
+                val notice = PlaybackNotice(binding.playbackNotice, scope)
+                checkNotices(notice, binding)
+                checkQueue(notice, binding)
             }
             instrumentation.waitForIdleSync()
             for (key in listOf(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_CENTER)) {
@@ -50,6 +52,11 @@ class PlaybackNoticeTest(private val instrumentation: Instrumentation) {
             }
             screenshot.recycle()
             SystemClock.sleep(6500)
+            instrumentation.runOnMainSync {
+                check(binding.playbackNotice.visibility == View.VISIBLE)
+                check(binding.playbackNotice.text.toString() == "latest danmaku result")
+            }
+            SystemClock.sleep(3500)
             instrumentation.runOnMainSync { check(binding.playbackNotice.visibility == View.GONE) }
         } finally {
             scope.cancel()
@@ -87,6 +94,39 @@ class PlaybackNoticeTest(private val instrumentation: Instrumentation) {
         val failed = planner.plan(source.copy(bitrateKbps = 1000), null, null, Quality.Original, policy,
             forceTranscode = true, videoDecodeFailed = true, fallbackReason = PlaybackIssue.Unseekable)
         check(failed.reasons == listOf(PlaybackIssue.VideoDecodeFailed))
+    }
+
+    private fun checkQueue(notice: PlaybackNotice, binding: ActivityPlayerBinding) {
+        val view = binding.playbackNotice
+        val direct = Plan(PlaybackMode.Direct, emptyList())
+        val transcode = Plan(PlaybackMode.Transcode(), listOf(PlaybackIssue.Container("avi")))
+        check(view.compoundDrawablesRelative[0] != null) { "Player feedback needs the app icon" }
+        notice.clear()
+        notice.showMessage("early danmaku result")
+        notice.show("first", direct)
+        notice.show("first", direct)
+        check(view.text.toString() == "early danmaku result" && view.visibility == View.VISIBLE)
+        notice.show("first", transcode)
+        val priorityText = view.text.toString()
+        notice.showMessage("outdated loading result")
+        notice.showMessage("latest danmaku result")
+        check(view.text.toString() == priorityText) { "Danmaku feedback interrupted transcoding" }
+        notice.show("second", direct)
+        check(view.visibility == View.GONE) { "Media switch retained old feedback" }
+        notice.show("second", transcode)
+        notice.showMessage("discard on clear")
+        notice.clear()
+        check(view.visibility == View.GONE)
+        notice.show("second", transcode)
+        notice.show("second", direct)
+        check(view.visibility == View.GONE) { "Clear retained pending feedback" }
+        notice.showMessage("ordinary result")
+        notice.showMessage("new ordinary result")
+        check(view.text.toString() == "new ordinary result")
+        notice.show("second", transcode)
+        notice.showMessage("outdated loading result")
+        notice.showMessage("latest danmaku result")
+        check(view.text.toString() == priorityText)
     }
 
     private fun checkNotices(notice: PlaybackNotice, binding: ActivityPlayerBinding) {

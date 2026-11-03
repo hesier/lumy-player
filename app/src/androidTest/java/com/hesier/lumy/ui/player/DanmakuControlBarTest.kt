@@ -171,18 +171,28 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
 
     private fun checkMoreMenu(index: Int) {
         key(KeyEvent.KEYCODE_DPAD_CENTER)
-        awaitPanel(R.string.player_more)
+        awaitPanel(R.string.player_more, titleOnly = true)
         val texts = screenTexts()
         main {
             listOf(R.string.settings_section_danmaku, R.string.danmaku_manual_match,
-                R.string.danmaku_reload, R.string.danmaku_restore_auto).forEach { check(activity.getString(it) !in texts) }
+                R.string.danmaku_reload, R.string.danmaku_restore_auto, R.string.danmaku_probe_title).forEach { check(activity.getString(it) !in texts) }
         }
+        key(KeyEvent.KEYCODE_DPAD_CENTER)
+        awaitPanel(R.string.video_scale, titleOnly = true)
+        key(KeyEvent.KEYCODE_BACK)
+        awaitPanel(R.string.player_more, titleOnly = true)
+        key(KeyEvent.KEYCODE_DPAD_DOWN); key(KeyEvent.KEYCODE_DPAD_CENTER)
+        awaitPanel(R.string.subtitle_delay, titleOnly = true)
+        key(KeyEvent.KEYCODE_BACK)
+        awaitPanel(R.string.player_more, titleOnly = true)
         key(KeyEvent.KEYCODE_BACK)
         focus(index)
     }
 
-    private fun awaitPanel(label: Int) = await("real controller panel") {
-        main { !activity.hasWindowFocus() } && screenTexts().contains(main { activity.getString(label) })
+    private fun awaitPanel(label: Int, titleOnly: Boolean = false) = await("real controller panel") {
+        val text = main { activity.getString(label) }
+        val texts = screenTexts()
+        main { !activity.hasWindowFocus() } && if (titleOnly) texts.firstOrNull() == text else text in texts
     }
     private fun focus(index: Int) = await("control focus returned") { main {
         activity.hasWindowFocus() && index >= 0 && binding.buttons.getChildAt(index).hasFocus()
