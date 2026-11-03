@@ -39,12 +39,55 @@ class CardRefreshTest {
         holder.bind(item)
         holder.bind(null)
         check(View.GONE == label.visibility && label.text.isEmpty())
+        checkEpisodeTime(holder, item.copy(type = MediaType.EPISODE, durationMs = 2_700_000))
+        checkWatchedBadges(context)
         holder.bind(item.copy(type = MediaType.SHOW))
         check(View.GONE == label.visibility)
         for (style in listOf(HubStyle.POSTER, HubStyle.PERSON)) {
             val other = CardAdapter(server(), style, {}, {}).createViewHolder(parent, style.ordinal)
             other.bind(item)
             check(null == other.itemView.findViewById<TextView>(R.id.playback_position))
+        }
+    }
+
+    private fun checkEpisodeTime(holder: CardAdapter.Holder, episode: MediaItem) {
+        val label = holder.itemView.findViewById<TextView>(R.id.playback_position)
+        holder.bind(episode)
+        check("24:54 / 45:00" == label.text.toString())
+        for (offset in listOf(null, 0L, -1L, 2_700_000L, 3_000_000L)) {
+            holder.bind(episode.copy(viewOffsetMs = offset))
+            check(View.VISIBLE == label.visibility && "45:00" == label.text.toString())
+        }
+        holder.bind(episode.copy(watched = true))
+        check("45:00" == label.text.toString())
+        holder.bind(episode.copy(durationMs = 5_400_000, viewOffsetMs = 3_600_000))
+        check("1:00:00 / 1:30:00" == label.text.toString())
+        holder.bind(null)
+        check(View.GONE == label.visibility && label.text.isEmpty())
+    }
+
+    private fun checkWatchedBadges(context: Context) {
+        for (style in listOf(HubStyle.POSTER, HubStyle.LANDSCAPE)) {
+            val adapter = CardAdapter(server(), style, {}, {})
+            val holder = adapter.createViewHolder(FrameLayout(context), style.ordinal)
+            val watched = holder.itemView.findViewById<View>(R.id.watched_badge)
+            val corner = holder.itemView.findViewById<View>(R.id.unwatched_corner)
+            val progress = holder.itemView.findViewById<View>(R.id.progress)
+            for (type in listOf(MediaType.MOVIE, MediaType.EPISODE, MediaType.SHOW, MediaType.SEASON)) {
+                val item = MediaItem("watched", type, "Watched", watched = true, durationMs = 2_700_000, viewOffsetMs = 1_000)
+                holder.bind(item)
+                check(View.VISIBLE == watched.visibility && View.GONE == corner.visibility)
+                check(View.GONE == progress.visibility)
+                holder.bind(item.copy(watched = false, viewOffsetMs = null))
+                check(View.GONE == watched.visibility)
+                check((if (type == MediaType.MOVIE) View.VISIBLE else View.GONE) == corner.visibility)
+                holder.bind(item.copy(type = MediaType.SHOW, unwatchedCount = 2))
+                check(View.GONE == watched.visibility)
+                val badge = holder.itemView.findViewById<TextView>(R.id.badge)
+                check(View.VISIBLE == badge.visibility && "2" == badge.text.toString())
+                holder.bind(null)
+                check(View.GONE == watched.visibility && View.GONE == corner.visibility)
+            }
         }
     }
 

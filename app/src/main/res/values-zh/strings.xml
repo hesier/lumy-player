@@ -573,4 +573,5 @@
     <string name="danmaku_match_source_offset">来源校时：%s 秒</string>
     <string name="danmaku_media_enabled">当前媒体弹幕</string>
     <string name="danmaku_master_hint">弹幕总开关。关闭后隐藏播放器弹幕入口并停止显示；每部影片或单集的开关另行记忆。</string>
+    <string name="card_playback_time">%1$s / %2$s</string>
 </resources>

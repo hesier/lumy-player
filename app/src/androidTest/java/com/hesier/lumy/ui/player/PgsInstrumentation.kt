@@ -219,7 +219,8 @@ class PgsInstrumentation : Instrumentation() {
                 }
             }
             if (cardRefreshOnly) {
-                result.putString("stream", "Card and hub refresh checks passed\n")
+                com.hesier.lumy.ui.CardPlaybackUiTest(this).runAll()
+                result.putString("stream", "Card and hub refresh, watched badges, episode times and D-pad focus checks passed\n")
                 finish(Activity.RESULT_OK, result)
                 return
             }

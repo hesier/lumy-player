@@ -132,6 +132,7 @@ class CardAdapter(
         private val title: TextView = view.findViewById(R.id.title)
         private val subtitle: TextView = view.findViewById(R.id.subtitle)
         private val corner: View = view.findViewById(R.id.unwatched_corner)
+        private val watched: View = view.findViewById(R.id.watched_badge)
         private val badge: TextView = view.findViewById(R.id.badge)
         private val progress: ProgressLine = view.findViewById(R.id.progress)
         private val playbackPosition: TextView? = view.findViewById(R.id.playback_position)
@@ -178,6 +179,7 @@ class CardAdapter(
                 image.dispose()
                 image.setImageDrawable(null)
                 corner.visibility = View.GONE
+                watched.visibility = View.GONE
                 badge.visibility = View.GONE
                 progress.visibility = View.GONE
                 playbackPosition?.text = null
@@ -206,7 +208,8 @@ class CardAdapter(
             val unwatchedEpisodes = item.unwatchedCount?.takeIf { it > 0 && item.type != MediaType.EPISODE }
             badge.visibility = if (unwatchedEpisodes != null) View.VISIBLE else View.GONE
             badge.text = unwatchedEpisodes?.toString()
-            val inProgress = item.progress?.takeIf { it > 0f }
+            watched.visibility = if (item.watched && unwatchedEpisodes == null && style != HubStyle.PERSON) View.VISIBLE else View.GONE
+            val inProgress = item.progress?.takeIf { it > 0f && !item.watched }
             corner.visibility =
                 if (unwatchedEpisodes == null && !item.watched && inProgress == null && item.type == MediaType.MOVIE) View.VISIBLE else View.GONE
             progress.visibility = if (inProgress != null) View.VISIBLE else View.GONE
@@ -214,8 +217,18 @@ class CardAdapter(
             val position = item.viewOffsetMs?.takeIf {
                 it > 0 && (item.type == MediaType.MOVIE || item.type == MediaType.EPISODE)
             }
-            playbackPosition?.text = position?.let(::formatClock)
-            playbackPosition?.visibility = if (position != null) View.VISIBLE else View.GONE
+            val duration = item.durationMs?.takeIf { it > 0 }
+            val time = when {
+                item.type == MediaType.EPISODE && duration != null -> {
+                    if (!item.watched && position != null && position < duration)
+                        ctx.getString(R.string.card_playback_time, formatClock(position), formatClock(duration))
+                    else formatClock(duration)
+                }
+                !item.watched -> position?.let(::formatClock)
+                else -> null
+            }
+            playbackPosition?.text = time
+            playbackPosition?.visibility = if (time != null) View.VISIBLE else View.GONE
         }
     }
 }

@@ -589,4 +589,5 @@
     <string name="danmaku_match_source_offset">Source timing: %s s</string>
     <string name="danmaku_media_enabled">Danmaku for this media</string>
     <string name="danmaku_master_hint">Master switch. When off, danmaku and its player controls are hidden. Each movie or episode remembers its own switch.</string>
+    <string name="card_playback_time">%1$s / %2$s</string>
 </resources>
