@@ -136,10 +136,12 @@ internal class DanmakuOverlay(
             isClickable = false
             importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
-        val parent = host.subtitleView?.parent as? ViewGroup ?: host
+        // The content frame follows the video aspect ratio; comments use the whole screen.
+        val parent = host
         layer = DanmakuLayer(host.context, metrics).also {
             it.addView(view, ViewGroup.LayoutParams(-1, -1))
-            parent.addView(it, parent.indexOfChild(host.subtitleView).coerceAtLeast(0), ViewGroup.LayoutParams(-1, -1))
+            parent.addView(it, parent.indexOfChild(host.findViewById(androidx.media3.ui.R.id.exo_content_frame)) + 1,
+                ViewGroup.LayoutParams(-1, -1))
         }
         DanmakuPlayer.isManualStep = true
         DanmakuConfig.CACHE_POOL_MAX_MEMORY_SIZE = CACHE_BYTES

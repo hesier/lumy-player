@@ -6,6 +6,7 @@ import android.app.Instrumentation
 import android.graphics.RectF
 import android.os.SystemClock
 import androidx.media3.common.Player
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.kuaishou.akdanmaku.ui.DanmakuPlayer
 
@@ -54,6 +55,45 @@ internal class DanmakuStabilityTest(private val instrumentation: Instrumentation
             }
         }
         checkPausedRefresh(host, overlay)
+    }
+
+    fun checkFullscreen(host: PlayerView) {
+        val content = host.findViewById<AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)
+        val original = content.videoAspectRatioForTest()
+        try {
+            for (ratio in listOf(2.4f, 4f / 3f)) {
+                main { content.setAspectRatio(ratio) }
+                Thread.sleep(200)
+                main {
+                    val layer = findLayer(host) ?: error("Missing comment layer")
+                    check(layer.width == host.width && layer.height == host.height) {
+                        "Comment viewport follows video ratio $ratio: ${layer.width}x${layer.height}"
+                    }
+                    val location = IntArray(2)
+                    val hostLocation = IntArray(2)
+                    layer.getLocationOnScreen(location)
+                    host.getLocationOnScreen(hostLocation)
+                    check(location.contentEquals(hostLocation)) { "Comment viewport is offset by letterboxing" }
+                }
+            }
+        } finally {
+            main { content.setAspectRatio(original) }
+        }
+    }
+
+    private fun AspectRatioFrameLayout.videoAspectRatioForTest(): Float =
+        AspectRatioFrameLayout::class.java.getDeclaredField("videoAspectRatio").run {
+            isAccessible = true
+            getFloat(this@videoAspectRatioForTest)
+        }
+
+    private fun findLayer(group: android.view.ViewGroup): DanmakuLayer? {
+        for (index in 0 until group.childCount) {
+            val child = group.getChildAt(index)
+            if (child is DanmakuLayer) return child
+            if (child is android.view.ViewGroup) findLayer(child)?.let { return it }
+        }
+        return null
     }
 
     private fun snapshot(host: PlayerView, engine: DanmakuPlayer): Map<Long, RectF> =

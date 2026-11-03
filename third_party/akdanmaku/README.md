@@ -34,6 +34,8 @@ Paused cache refreshes invalidate only the render snapshot, preserving existing
 lane assignments and visibility. Seek and runtime density changes invalidate layout
 and its retainer together; upstream clears visibility before re-layout, so retaining
 old lane entries across that invalidation can otherwise hide visible comments.
+The comment layer uses PlayerView's full-screen overlay rather than its
+aspect-ratio-constrained video content frame.
 
 `AkDanmakuAccess.java` uses the published JVM names of version-pinned internal
 APIs without reflection. An Ak version upgrade must revisit this bridge.

@@ -49,6 +49,7 @@ class DanmakuOverlayTest(private val instrumentation: Instrumentation) {
             DanmakuStabilityTest(instrumentation).apply {
                 checkPausedRefresh(binding.playerView, overlay)
                 checkPause(binding.playerView, player, overlay)
+                checkFullscreen(binding.playerView)
             }
             checkSettingsAndOrigin()
             checkReplacementAndClear()
@@ -65,7 +66,7 @@ class DanmakuOverlayTest(private val instrumentation: Instrumentation) {
             }
             check(preferences.edit().clear().commit())
         }
-        return "Real Overlay: bounded admission, pause/seek geometry stability, signed offsets, live settings, replacement, clear and release passed"
+        return "Real Overlay: bounded admission, pause/seek geometry stability, full-screen aspect ratios, signed offsets, live settings, replacement, clear and release passed"
     }
 
     private fun setup(file: File) {
