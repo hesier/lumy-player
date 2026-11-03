@@ -8,6 +8,7 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
+    private var danmakuOfficialLive: String? = null
     private var danmakuMemoryPhase: String? = null
     private var danmakuPluginArguments: Bundle? = null
     private var danmakuFlowCase: String? = null
@@ -39,6 +40,7 @@ class PgsInstrumentation : Instrumentation() {
 
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        danmakuOfficialLive = arguments?.getString("danmaku_official_live")
         if (arguments?.containsKey("danmaku_plugin_item") == true) danmakuPluginArguments = Bundle(arguments)
         danmakuFlowCase = arguments?.getString("danmaku_flow_case")
         danmakuFlow = arguments?.getString("danmaku_flow_only") == "true"
@@ -73,6 +75,11 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (danmakuOfficialLive != null) {
+                result.putString("stream", DanmakuOfficialLiveTest(this).run(danmakuOfficialLive!!) + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (danmakuMemoryPhase != null) {
                 result.putString("stream", com.hesier.lumy.data.DanmakuMatchMemoryTest(targetContext).run(danmakuMemoryPhase!!) + "\n")
                 finish(Activity.RESULT_OK, result)

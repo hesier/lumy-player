@@ -514,6 +514,8 @@
     <string name="danmaku_restore_confirm">恢復預設</string>
     <string name="danmaku_source_title">線上來源</string>
     <string name="danmaku_source_official">彈彈 Play</string>
+    <string name="danmaku_source_official_limited">彈彈 Play（可能會限流）</string>
+    <string name="danmaku_official_quota_hint">API 額度有限，遇到限流請稍後再試或使用自訂 API。</string>
     <string name="danmaku_source_official_pending">彈彈 Play（暫不支援）</string>
     <string name="danmaku_source_custom">自訂</string>
     <string name="danmaku_source_server">伺服器</string>

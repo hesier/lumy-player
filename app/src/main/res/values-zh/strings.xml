@@ -514,6 +514,8 @@
     <string name="danmaku_restore_confirm">恢复默认</string>
     <string name="danmaku_source_title">在线来源</string>
     <string name="danmaku_source_official">弹弹 Play</string>
+    <string name="danmaku_source_official_limited">弹弹 Play（可能会存在限流）</string>
+    <string name="danmaku_official_quota_hint">API 额度有限，遇到限流请稍后重试或使用自定义 API。</string>
     <string name="danmaku_source_official_pending">弹弹 Play（暂不支持）</string>
     <string name="danmaku_source_custom">自定义</string>
     <string name="danmaku_source_server">服务器</string>

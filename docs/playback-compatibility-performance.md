@@ -416,3 +416,14 @@ After the first deployment, private configuration contained the actual relay URL
 The local version preserves optional match statuses 405/501 so the client can continue with search. Configuration preparation rejects backslashes in tokens to avoid Java Properties rewriting their values. All 16 Node tests passed after adding regression coverage, along with YAML, document links, diff formatting, private-data scanning and Wrangler dry-run. The earlier 92 JVM tests and Debug/Release builds remain the validation evidence for the corresponding App changes; this fix round did not rebuild them.
 
 GitHub CI configuration adds an independent Node 24 Worker test job without real credentials, official API calls or deployment. Its first GitHub run remains unverified. The first cloud deployment does not include these latest fixes and has not been updated in this round. Device playback through the relay and production rate-limit pressure remain unverified.
+
+
+### 2026-11-03 lightweight on-device official relay acceptance
+
+Configured builds show “DandanPlay (rate limits may apply)” in the current source and picker, with a quota hint. Unconfigured builds retain the unavailable label. Three locales are synchronized without changing selected sources or saved matches.
+
+Validation passed 92 net JVM tests, 16 Node Worker tests and Debug/AndroidTest/Release builds. HTTP 429 classification and Worker limiting use mocks rather than deliberately exhausting real quota.
+
+An API 31 ARM64 TV emulator explicitly ran `danmaku_official_live=三体` using APK relay configuration, default DNS and normal TLS verification. One request per search/detail/filename-match/comment route produced four App requests, six retained match candidates and 11,172 normalized comments. The production Overlay showed 2/9 visible comments after paused initial/seek settling; clear/release and unchanged global preferences/sessions passed. Requests carried relay Bearer authorization without media-server or upstream signing credentials.
+
+This opt-in entry is for infrequent deployment checks, not batch testing. It accepts no endpoint/token arguments and logs no URLs or credentials. Four App requests do not imply four upstream quota charges because metadata may be cached. No real rate-limit pressure, multiple-network/device comparison or 4K performance acceptance was performed; match candidates do not establish automatic-selection accuracy. The Worker was not redeployed, so basic route success does not verify the local 405/501 patch is live.

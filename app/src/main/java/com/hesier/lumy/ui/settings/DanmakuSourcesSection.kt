@@ -50,7 +50,7 @@ internal class DanmakuSourcesSection(
     private fun sourceLabel(source: DanmakuOnlineSource = settings.onlineSource) = text(when {
         source == DanmakuOnlineSource.CUSTOM -> R.string.danmaku_source_custom
         officialUnavailable() -> R.string.danmaku_source_official_pending
-        else -> R.string.danmaku_source_official
+        else -> R.string.danmaku_source_official_limited
     })
 
     private fun officialUnavailable() = runCatching { DanmakuServices(activity).official() }.isFailure
@@ -58,7 +58,7 @@ internal class DanmakuSourcesSection(
     private fun sourceDetail(): String? {
         if (settings.onlineSource == DanmakuOnlineSource.CUSTOM) return null
         return if (officialUnavailable())
-            text(R.string.danmaku_official_unavailable) else null
+            text(R.string.danmaku_official_unavailable) else text(R.string.danmaku_official_quota_hint)
     }
 
     private fun addressSummary(): String {
