@@ -4,6 +4,25 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.6.1 - 2026-11-03
+
+### Danmaku and cards
+
+- Fixed comments changing lanes or disappearing during paused refreshes and after seeking
+- Danmaku now uses the full player viewport, including black bars around videos with a different aspect ratio, while respecting the configured display area
+- Added round watched checkmarks to cards on Home, in libraries and in episode lists. Watched cards no longer show stale progress bars
+- Episode cards show elapsed / total time while partially watched, and total duration when unwatched or finished
+
+### Backup and restore
+
+- Backup passwords no longer require eight characters. Empty passwords still save without encryption; new passwords may contain up to 32 characters, with a limit message only when exceeded
+- File-picker exports and phone downloads include the device date and time in their filenames
+- Reduced the password derivation cost for new encrypted backups to shorten creation and restore waits on TVs. Existing encrypted backups remain readable with their original derivation cost
+
+### Compatibility
+
+- New encrypted backups require Lumy 0.6.1 or later to restore. Older encrypted backups still take their original processing time; export them again after restoration to use the faster format
+
 ## 0.6.0 - 2026-11-03
 
 ### Danmaku
