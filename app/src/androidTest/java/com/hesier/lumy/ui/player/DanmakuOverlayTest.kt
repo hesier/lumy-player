@@ -46,6 +46,10 @@ class DanmakuOverlayTest(private val instrumentation: Instrumentation) {
             main { baseMs = 0; overlay.setComments(comments()) }
             await("real comments") { overlay.visibleCount > 0 }
             checkSeekAndIdle()
+            DanmakuStabilityTest(instrumentation).apply {
+                checkPausedRefresh(binding.playerView, overlay)
+                checkPause(binding.playerView, player, overlay)
+            }
             checkSettingsAndOrigin()
             checkReplacementAndClear()
         } finally {
@@ -61,7 +65,7 @@ class DanmakuOverlayTest(private val instrumentation: Instrumentation) {
             }
             check(preferences.edit().clear().commit())
         }
-        return "Real Overlay: bounded admission, paused seek/idle, signed offsets, live settings, replacement, clear and release passed"
+        return "Real Overlay: bounded admission, pause/seek geometry stability, signed offsets, live settings, replacement, clear and release passed"
     }
 
     private fun setup(file: File) {
@@ -235,6 +239,13 @@ class DanmakuOverlayTest(private val instrumentation: Instrumentation) {
             if (passed) return
             Thread.sleep(30)
         }
-        error("Timed out: $label")
+        var diagnostic = ""
+        main {
+            val parent = binding.playerView
+            diagnostic = "time=${overlay.currentTimeMs} visible=${overlay.visibleCount} " +
+                "${overlay.metrics.report(null)} host=${parent.width}x${parent.height} " +
+                "shown=${parent.isShown} children=${parent.childCount}"
+        }
+        error("Timed out: $label; $diagnostic")
     }
 }

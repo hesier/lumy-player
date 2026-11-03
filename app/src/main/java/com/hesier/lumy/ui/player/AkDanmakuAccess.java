@@ -21,9 +21,8 @@ final class AkDanmakuAccess {
         DanmakuEngine engine = player.getEngine$library_release();
         LumyCacheBudget.beginBatch(cacheManager(player));
         if (paused) {
-            // 上游重排先清 visibility；必须同时清占位，避免 retainer 复用 false 隐藏已有弹幕。
-            engine.getContext$library_release().getConfig().updateRetainer();
-            engine.getContext$library_release().getConfig().updateLayout();
+            // Cache completion needs a new snapshot, not new lane assignments.
+            // Seek/config changes already invalidate layout when it is actually needed.
             engine.getContext$library_release().getConfig().updateRender();
         }
         engine.step$library_release(null);

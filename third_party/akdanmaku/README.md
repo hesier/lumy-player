@@ -30,9 +30,10 @@ acknowledges snapshot consumption before the next update may recycle it. All Ak
 instances in this app use manual mode; this process-wide upstream flag is
 not suitable for mixing unrelated automatic/manual Ak players.
 
-Paused cache refreshes invalidate both layout and its retainer: upstream clears
-visibility before re-layout, and reusing old retainer entries can otherwise keep
-previously visible comments hidden. Runtime density changes use the same rule.
+Paused cache refreshes invalidate only the render snapshot, preserving existing
+lane assignments and visibility. Seek and runtime density changes invalidate layout
+and its retainer together; upstream clears visibility before re-layout, so retaining
+old lane entries across that invalidation can otherwise hide visible comments.
 
 `AkDanmakuAccess.java` uses the published JVM names of version-pinned internal
 APIs without reflection. An Ak version upgrade must revisit this bridge.
