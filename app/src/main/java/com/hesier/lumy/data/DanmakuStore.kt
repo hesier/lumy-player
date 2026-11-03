@@ -14,6 +14,14 @@ import java.io.IOException
 class DanmakuStore(context: Context, name: String = "danmaku") {
     private val prefs = context.getSharedPreferences("${name}_matches", Context.MODE_PRIVATE)
     private val directory = File(context.cacheDir, name)
+    private val mediaPrefs = context.getSharedPreferences("${name}_media", Context.MODE_PRIVATE)
+
+    internal fun mediaEnabled(media: String): Boolean =
+        runCatching { mediaPrefs.getBoolean(media, true) }.getOrDefault(true)
+
+    internal fun setMediaEnabled(media: String, enabled: Boolean) {
+        mediaPrefs.edit().putBoolean(media, enabled).apply()
+    }
 
     internal fun choice(media: String): DanmakuChoice? = runCatching {
         decode(prefs.getString("choice:$media", null))?.let {

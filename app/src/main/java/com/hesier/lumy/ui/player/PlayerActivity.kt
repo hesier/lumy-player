@@ -220,7 +220,8 @@ class PlayerActivity : ThemedActivity() {
         dualSubtitles = DualSubtitleOverlay(binding.playerView, settings, secondaryAss)
         subtitleSelector.onCues = dualSubtitles::onSecondaryCues
         player.addListener(dualSubtitles)
-        danmaku = PlayerDanmaku(this, binding.playerView, player, positionMs = { positionMs })
+        danmaku = PlayerDanmaku(this, binding.playerView, player, positionMs = { positionMs },
+            onMasterChanged = ::refreshDanmakuControls)
         danmakuProbe = DanmakuProbe(binding.playerView, player, onProfileChanged = {
             danmaku.setTestActive(danmakuProbe.profile != 0)
         }) { positionMs }
@@ -977,7 +978,7 @@ class PlayerActivity : ThemedActivity() {
         if (version.audio.size > 1) row.addActionButton(R.drawable.ic_audio, getString(R.string.player_audio)) { pickAudio() }
         if (policy.allowTranscode) row.addActionButton(R.drawable.ic_hd, getString(R.string.player_quality)) { pickQuality() }
         row.addActionButton(R.drawable.ic_speed, getString(R.string.player_speed)) { pickSpeed() }
-        row.addActionButton(R.drawable.ic_danmaku, getString(R.string.settings_section_danmaku)) {
+        if (settings.danmaku.enabled) row.addActionButton(R.drawable.ic_danmaku, getString(R.string.settings_section_danmaku)) {
             if (danmakuProbe.profile != 0) { danmakuProbe.reset(); danmaku.setTestActive(false) }
             danmaku.showMenu()
         }
@@ -985,6 +986,19 @@ class PlayerActivity : ThemedActivity() {
         row.addActionButton(R.drawable.ic_more, getString(R.string.player_more)) { showMore() }
         binding.seek.setOnFocusChangeListener { _, hasFocus ->
             binding.seekBar.animate().scaleY(if (hasFocus) 1.6f else 1f).setDuration(120).start()
+        }
+    }
+
+    private fun refreshDanmakuControls() {
+        if (!::detail.isInitialized || !::version.isInitialized) return
+        val hadFocus = binding.buttons.hasFocus()
+        val label = binding.buttons.focusedChild?.findViewById<TextView>(R.id.label)?.text
+        setupControls()
+        playPauseIcon?.setImageResource(if (player.isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+        if (hadFocus) {
+            val target = (0 until binding.buttons.childCount).map { binding.buttons.getChildAt(it) }
+                .firstOrNull { it.findViewById<TextView>(R.id.label)?.text == label }
+            (target ?: binding.buttons.getChildAt(0))?.requestFocus()
         }
     }
 

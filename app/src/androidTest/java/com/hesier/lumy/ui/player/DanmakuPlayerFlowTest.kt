@@ -8,7 +8,7 @@ import com.hesier.lumy.data.DanmakuSourceKind
 /** Runs real PlayerDanmaku menus and storage with an isolated source configuration. */
 class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
     fun runAll(live: Boolean = false): String = if (live) runOne(true, false) else
-        (0..5).joinToString("\n") { runCase(it) }
+        (0..6).joinToString("\n") { runCase(it) }
 
     fun runCase(index: Int): String = when (index) {
         0 -> runOne(false, false)
@@ -17,7 +17,51 @@ class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
         3 -> runConfirmation(1_250)
         4 -> runConfirmation(-750)
         5 -> runCancelledConfirmation()
+        6 -> runMediaSwitches()
         else -> error("Unknown flow case")
+    }
+
+    private fun runMediaSwitches(): String {
+        val server = DanmakuPlayerFlowServer()
+        val fixture = DanmakuPlayerFlowFixture(instrumentation, live = false)
+        val master = com.hesier.lumy.data.DanmakuSettings(fixture.preferences)
+        try {
+            fixture.open(server.endpoint, withPlugin = true)
+            fixture.awaitLoaded(automatic = false); fixture.checkVisible()
+            val firstKey = fixture.mediaKey()
+            fixture.openMenu(); fixture.switchEpisode(3)
+            fixture.pick(fixture.text(R.string.danmaku_media_enabled))
+            fixture.awaitLoaded(automatic = false)
+            check(fixture.store.mediaEnabled(firstKey) && fixture.store.mediaEnabled(fixture.mediaKey()))
+            fixture.switchEpisode(2); fixture.awaitLoaded(automatic = false)
+            fixture.openMenu(); fixture.pick(fixture.text(R.string.danmaku_media_enabled))
+            fixture.checkStopped()
+            check(master.enabled && !fixture.store.mediaEnabled(firstKey))
+            val requests = server.paths.size
+            fixture.reopenController(); fixture.checkStopped()
+            check(requests == server.paths.size)
+            fixture.store.clearCache(); fixture.store.clearMatches()
+            check(!fixture.store.mediaEnabled(firstKey))
+            fixture.switchEpisode(3)
+            check(firstKey != fixture.mediaKey())
+            fixture.awaitLoaded(automatic = false); fixture.checkVisible()
+            check(fixture.store.mediaEnabled(fixture.mediaKey()))
+            fixture.main { master.enabled = false }
+            fixture.checkStopped()
+            val stoppedRequests = server.paths.size
+            fixture.switchEpisode(4); fixture.checkStopped()
+            check(stoppedRequests == server.paths.size)
+            fixture.switchEpisode(2); fixture.checkStopped()
+            fixture.main { master.enabled = true }
+            fixture.checkStopped()
+            check(!fixture.store.mediaEnabled(firstKey))
+            fixture.openMenu(); fixture.pick(fixture.text(R.string.danmaku_media_enabled))
+            fixture.awaitLoaded(automatic = false); fixture.checkVisible()
+            check(master.enabled && fixture.store.mediaEnabled(firstKey))
+            return "Master gate, per-media switch persistence, episode isolation, no requests while disabled and cache/match independence passed"
+        } finally {
+            try { fixture.close() } finally { server.close() }
+        }
     }
 
     private fun ambiguousServer(offsetMs: Long = 1_250) = DanmakuPlayerFlowServer().apply {

@@ -31,6 +31,7 @@ internal class PlayerDanmaku(
     positionMs: () -> Long,
     private val preferences: SharedPreferences = activity.getSharedPreferences("settings", Context.MODE_PRIVATE),
     private val store: DanmakuStore = DanmakuStore(activity),
+    private val onMasterChanged: () -> Unit = {},
 ) {
     private val settings = DanmakuSettings(preferences)
     private val sources = DanmakuSourceSettings(preferences)
@@ -47,7 +48,15 @@ internal class PlayerDanmaku(
     private var loading = false
     private var lastNotice: String? = null
     private enum class Feedback { AUTOMATIC, REFRESH, MATCH }
-    private val refresh = Runnable { reload() }
+    private val enabled: Boolean get() = settings.enabled && media?.let { store.mediaEnabled(it.key) } == true
+    private var lastMasterEnabled = settings.enabled
+    private val refresh = Runnable {
+        if (lastMasterEnabled != settings.enabled) {
+            lastMasterEnabled = settings.enabled
+            onMasterChanged()
+        }
+        reload()
+    }
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key == "danmaku_enabled" || key in DanmakuSourceSettings.KEYS) {
             host.removeCallbacks(refresh); host.post(refresh)
@@ -70,11 +79,15 @@ internal class PlayerDanmaku(
     }
 
     fun showMenu() {
+        if (!settings.enabled || released) return
+        val request = media ?: return
+        val revision = generation
         val entries = buildList<Pair<Option, () -> Unit>> {
-            add(Option(activity.getString(R.string.danmaku_enabled), activity.getString(if (settings.enabled) R.string.on else R.string.off)) to {
-                settings.enabled = !settings.enabled
+            add(Option(activity.getString(R.string.danmaku_media_enabled), activity.getString(if (enabled) R.string.on else R.string.off)) to {
+                media?.let { store.setMediaEnabled(it.key, !store.mediaEnabled(it.key)) }
+                reload()
             })
-            if (settings.enabled) {
+            if (enabled) {
                 add(Option(activity.getString(R.string.danmaku_manual_match),
                     (result as? DanmakuLoad.Loaded)?.match?.let(::matchLabel)) to { actions.open(result as? DanmakuLoad.NeedsMatch) })
                 add(Option(activity.getString(R.string.danmaku_reload), activity.getString(R.string.danmaku_reload_detail)) to {
@@ -84,7 +97,10 @@ internal class PlayerDanmaku(
                     activity.getString(R.string.danmaku_restore_auto_detail)) to ::restore)
             }
         }
-        OptionsPanel(activity, status(), entries.map { it.first }) { entries[it].second() }.show()
+        OptionsPanel(activity, status(), entries.map { it.first }) {
+            if (settings.enabled && !released && media?.key == request.key && generation == revision)
+                entries[it].second()
+        }.show()
     }
 
     private fun reload(force: Boolean = false, feedback: Feedback = Feedback.AUTOMATIC, resetMatch: Boolean = false) {
@@ -96,7 +112,7 @@ internal class PlayerDanmaku(
         result = null
         overlay.clear()
         val request = media ?: return
-        if (!settings.enabled || testing || released) { lastNotice = null; return }
+        if (!enabled || testing || released) { lastNotice = null; return }
         val version = generation
         loading = true
         if (feedback != Feedback.AUTOMATIC) toast(activity.getString(R.string.danmaku_loading))
@@ -105,7 +121,7 @@ internal class PlayerDanmaku(
                 if (resetMatch) store.restoreAuto(request.key)
                 repository.load(request, force)
             }
-            if (version != generation || released) return@launch
+            if (version != generation || released || !enabled) return@launch
             loading = false
             result = loaded
             if (loaded is DanmakuLoad.Loaded) overlay.setComments(loaded.comments, loaded.sourceOffsetMs)
@@ -115,7 +131,7 @@ internal class PlayerDanmaku(
     }
 
     private fun current(): Pair<DanmakuMedia, DanmakuChoice>? {
-        if (!settings.enabled || testing || released) return null
+        if (!enabled || testing || released) return null
         val item = media ?: return null
         val source = when (val value = result) {
             is DanmakuLoad.Loaded -> value.source
@@ -155,7 +171,7 @@ internal class PlayerDanmaku(
     }
 
     private fun runAction(block: suspend () -> Unit) {
-        if (!settings.enabled || released || testing) return
+        if (!enabled || released || testing) return
         actionJob?.cancel()
         val token = generation
         toast(activity.getString(R.string.danmaku_loading))
@@ -172,7 +188,7 @@ internal class PlayerDanmaku(
     }
 
     private fun status(): String = when {
-        !settings.enabled -> activity.getString(R.string.off)
+        !enabled -> activity.getString(R.string.off)
         loading -> activity.getString(R.string.danmaku_loading)
         else -> when (val value = result) {
             is DanmakuLoad.Loaded -> "${sourceLabel(value.source)} · ${activity.getString(R.string.danmaku_loaded, value.comments.size)}"

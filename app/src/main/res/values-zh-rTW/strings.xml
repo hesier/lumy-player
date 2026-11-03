@@ -570,4 +570,6 @@
     <string name="danmaku_match_incomplete">配對資訊不完整，請手動確認。</string>
     <string name="danmaku_match_no_match">沒有可靠配對，請手動搜尋。</string>
     <string name="danmaku_match_source_offset">來源校時：%s 秒</string>
+    <string name="danmaku_media_enabled">目前媒體彈幕</string>
+    <string name="danmaku_master_hint">彈幕總開關。關閉後隱藏播放器彈幕入口並停止顯示；每部影片或單集的開關另行記憶。</string>
 </resources>

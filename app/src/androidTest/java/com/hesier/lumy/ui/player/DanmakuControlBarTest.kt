@@ -15,7 +15,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
 import com.hesier.lumy.core.*
+import com.hesier.lumy.data.DanmakuOnlineSource
 import com.hesier.lumy.data.DanmakuSettings
+import com.hesier.lumy.data.DanmakuSourceSettings
 import com.hesier.lumy.databinding.ActivityPlayerBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -51,14 +53,27 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
         instrumentation.context.assets.open("dual-subtitles/fixture.mkv").use { input -> file.outputStream().use { input.copyTo(it) } }
         val proxy = fakeServer(session, file)
         try {
-            main { serverField.set(app, proxy); DanmakuSettings(prefs).enabled = false }
+            main {
+                serverField.set(app, proxy)
+                // An empty custom endpoint keeps master-switch coverage entirely offline.
+                DanmakuSourceSettings(prefs).apply {
+                    onlineSource = DanmakuOnlineSource.CUSTOM
+                    customUrl = ""
+                }
+                DanmakuSettings(prefs).enabled = false
+            }
             instrumentation.setInTouchMode(false)
             activity = instrumentation.startActivitySync(PlayerActivity.intent(context, FIXTURE_ID, 0, 0)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)) as PlayerActivity
             main { binding = field("binding") as ActivityPlayerBinding; player = field("player") as ExoPlayer }
-            await("local PlayerActivity playback") { main { player.isPlaying && binding.buttons.childCount >= 5 } }
+            await("local PlayerActivity playback") { main { player.isPlaying && binding.buttons.childCount >= 4 } }
+            check(!hasDanmakuButton()) { "Disabled master switch still exposes the danmaku entry" }
+            main { DanmakuSettings(prefs).enabled = true }
+            await("master switch adds the danmaku entry") { hasDanmakuButton() }
             verifyControlBar()
-            return "Real PlayerActivity: Speed/Danmaku/Chapters order, D-pad navigation, debug handoff, menu focus return and More separation passed"
+            main { DanmakuSettings(prefs).enabled = false }
+            await("master switch removes the danmaku entry") { !hasDanmakuButton() }
+            return "Real PlayerActivity: master-switch entry visibility, Speed/Danmaku/Chapters order, D-pad navigation, debug handoff, menu focus return and More separation passed"
         } finally {
             try {
                 if (::activity.isInitialized) {
@@ -143,7 +158,7 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
         val controller = main { field("danmaku") as PlayerDanmaku }
         main { probe.setProfile(2); controller.setTestActive(true) }
         key(KeyEvent.KEYCODE_DPAD_CENTER)
-        awaitPanel(R.string.danmaku_enabled)
+        awaitPanel(R.string.danmaku_media_enabled)
         check(!screenTexts().contains(main { activity.getString(R.string.danmaku_switch_source) }))
         main {
             check(probe.profile == 0)
@@ -172,6 +187,10 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
     private fun focus(index: Int) = await("control focus returned") { main {
         activity.hasWindowFocus() && index >= 0 && binding.buttons.getChildAt(index).hasFocus()
     } }
+    private fun hasDanmakuButton(): Boolean = main {
+        val title = activity.getString(R.string.settings_section_danmaku)
+        (0 until binding.buttons.childCount).any { label(binding.buttons.getChildAt(it)) == title }
+    }
     private fun label(view: View): String = view.findViewById<TextView>(R.id.label)?.text?.toString().orEmpty()
     private fun field(name: String): Any? = PlayerActivity::class.java.getDeclaredField(name).apply { isAccessible = true }.get(activity)
     private fun key(code: Int) { instrumentation.sendKeyDownUpSync(code); Thread.sleep(60) }

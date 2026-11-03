@@ -53,6 +53,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
         pluginEndpoint = endpoint.takeIf { withPlugin }
         check(preferences.edit().clear().commit())
         store.clearMatches(); store.clearCache()
+        check(context.getSharedPreferences("danmaku-player-flow-test_media", Context.MODE_PRIVATE).edit().clear().commit())
         val source = DanmakuSourceSettings(preferences)
         if (live) {
             val current = DanmakuSourceSettings(global)
@@ -105,7 +106,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
                 else -> error("Unexpected server call: ${method.name}")
             }
         } as MediaServer
-        val item = com.hesier.lumy.core.MediaItem("flow", MediaType.EPISODE, "Episode", showTitle = if (live) "三体" else "Flow Show",
+        val item = com.hesier.lumy.core.MediaItem("flow-$number", MediaType.EPISODE, "Episode", showTitle = if (live) "三体" else "Flow Show",
             seasonNumber = 1, episodeNumber = number, year = 2023)
         val version = MediaVersion("local", 0, "mkv", null, null, emptyList(), emptyList(),
             listOf(MediaPart("part", "local", "mkv", null, 60_000)))
@@ -130,6 +131,13 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
         await("controller loaded") { (result() as? DanmakuLoad.Loaded)?.automatic == automatic }
         return loaded()
     }
+
+    fun checkStopped() = await("controller and overlay stopped") { main {
+        val overlay = overlayField.get(controller) as DanmakuOverlay
+        val job = PlayerDanmaku::class.java.getDeclaredField("job").apply { isAccessible = true }
+            .get(controller) as? kotlinx.coroutines.Job
+        resultField.get(controller) == null && job?.isActive != true && overlay.visibleCount == 0
+    } }
 
     fun checkVisible() {
         val loaded = loaded()
@@ -160,7 +168,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
     fun openMenu() {
         focusAction()
         key(KeyEvent.KEYCODE_DPAD_CENTER)
-        await("danmaku menu") { screenTexts().contains(text(R.string.danmaku_manual_match)) }
+        await("danmaku menu") { screenTexts().contains(text(R.string.danmaku_media_enabled)) }
         check(!screenTexts().contains(text(R.string.danmaku_switch_source))) { "Removed source action remains visible" }
     }
 
@@ -257,6 +265,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
             activity.finishAndRemoveTask()
         }
         store.clearCache(); store.clearMatches(); check(preferences.edit().clear().commit())
+        check(context.getSharedPreferences("danmaku-player-flow-test_media", Context.MODE_PRIVATE).edit().clear().commit())
         check(originalGlobal == global.all) { "Flow test changed global preferences" }
     }
 }

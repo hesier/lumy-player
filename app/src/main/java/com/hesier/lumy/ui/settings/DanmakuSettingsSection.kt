@@ -20,7 +20,7 @@ internal class DanmakuSettingsSection(
     private val changed: () -> Unit,
 ) {
     fun rows(): List<SettingsActivity.Row> = listOf(
-        toggleRow(R.string.danmaku_enabled, settings::enabled),
+        toggleRow(R.string.danmaku_enabled, settings::enabled, R.string.danmaku_master_hint),
         choiceRow(R.string.danmaku_density, labels(DanmakuDensity.entries,
             listOf(R.string.danmaku_density_low, R.string.danmaku_standard, R.string.danmaku_density_high)), settings::density),
         choiceRow(R.string.danmaku_area, DanmakuSettings.AREA_OPTIONS.map {
