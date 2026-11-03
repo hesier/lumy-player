@@ -513,7 +513,8 @@
     <string name="danmaku_restore_detail">仅重置弹幕偏好。</string>
     <string name="danmaku_restore_confirm">恢复默认</string>
     <string name="danmaku_source_title">在线来源</string>
-    <string name="danmaku_source_official">官方</string>
+    <string name="danmaku_source_official">弹弹 Play</string>
+    <string name="danmaku_source_official_pending">弹弹 Play（暂不支持）</string>
     <string name="danmaku_source_custom">自定义</string>
     <string name="danmaku_source_server">服务器</string>
     <string name="danmaku_loading">正在加载弹幕…</string>
@@ -532,7 +533,7 @@
     <string name="danmaku_search_hint">输入片名搜索</string>
     <string name="danmaku_no_results">没有匹配结果</string>
     <string name="danmaku_match_saved">已保存弹幕匹配</string>
-    <string name="danmaku_official_unavailable">当前构建尚未配置官方来源</string>
+    <string name="danmaku_official_unavailable">弹弹 Play 暂不支持，可使用自定义 API 或服务器插件。</string>
     <string name="danmaku_manual_failed">所选弹幕加载失败</string>
     <string name="danmaku_status_error">弹幕暂不可用</string>
     <string name="danmaku_custom_url">自定义 API 地址</string>

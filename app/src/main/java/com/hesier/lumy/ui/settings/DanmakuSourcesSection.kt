@@ -47,12 +47,17 @@ internal class DanmakuSourcesSection(
         },
     )
 
-    private fun sourceLabel() = text(if (settings.onlineSource == DanmakuOnlineSource.OFFICIAL)
-        R.string.danmaku_source_official else R.string.danmaku_source_custom)
+    private fun sourceLabel(source: DanmakuOnlineSource = settings.onlineSource) = text(when {
+        source == DanmakuOnlineSource.CUSTOM -> R.string.danmaku_source_custom
+        officialUnavailable() -> R.string.danmaku_source_official_pending
+        else -> R.string.danmaku_source_official
+    })
+
+    private fun officialUnavailable() = runCatching { DanmakuServices(activity).official() }.isFailure
 
     private fun sourceDetail(): String? {
         if (settings.onlineSource == DanmakuOnlineSource.CUSTOM) return null
-        return if (runCatching { DanmakuServices(activity).endpoint }.isFailure)
+        return if (officialUnavailable())
             text(R.string.danmaku_official_unavailable) else null
     }
 
@@ -67,8 +72,7 @@ internal class DanmakuSourcesSection(
     private fun chooseSource() {
         val sources = DanmakuOnlineSource.entries
         OptionsPanel(activity, text(R.string.danmaku_source_title), sources.map { source ->
-            Option(text(if (source == DanmakuOnlineSource.OFFICIAL) R.string.danmaku_source_official
-                else R.string.danmaku_source_custom), selected = source == settings.onlineSource)
+            Option(sourceLabel(source), selected = source == settings.onlineSource)
         }) { index ->
             if (sources[index] == DanmakuOnlineSource.CUSTOM && settings.customUrl.isEmpty()) {
                 toast(R.string.danmaku_source_configure_first)
