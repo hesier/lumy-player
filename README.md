@@ -21,6 +21,7 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
   - Add multiple servers (even the same server more than once), switch between them at the top of the sidebar, and rename or remove them in Settings
 - **Browsing**: home hubs (Continue Watching, Recently Added, …), library grids with filters, sorting and an A–Z index, search, collections, playlists, cast filmographies and "More Like This"
 - **Details**: movies, shows, seasons and episodes, version selection, mark as watched / unwatched
+- **Favorites**: server-synced movie, show and episode favorites for Jellyfin, Emby and fnOS Media, with a dedicated sidebar page
 - **Playback** (Media3 / ExoPlayer)
   - Direct play or server-side HLS transcoding based on the device's decoder capabilities, with optional quality / bitrate limits; HDR, Dolby Vision and passthrough support (see [Playback and Decoding](docs/playback.md))
   - FFmpeg audio decoder extension and audio passthrough (AC3 / DTS to your receiver)
@@ -29,7 +30,8 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
   - Multi-part files, chapters, intro skipping, auto-play next episode
   - Audio / subtitle delay adjustment, refresh-rate matching
   - Remembers audio and subtitle choices, reports progress to the server
-- **Settings**: default quality, allow / disallow transcoding, subtitle size, sidebar items and order (saved per server), server management and more
+- **Danmaku**: DandanPlay (requires a configured proxy), custom compatible APIs and Jellyfin / Emby plugins, with automatic / manual matching, remembered choices, offline cache reuse and display settings. Off by default; see [playback guidance](docs/playback.md)
+- **Settings**: default quality, per-server transcoding and available bandwidth, subtitle size, sidebar items and order (saved per server), server management and more
 - **Backup and restore**: Settings › About › Backup and restore saves settings, servers with login sessions, and track selections to a `.lumy` file. Leave the backup password empty to save without encryption, or set a password to encrypt it. Transfer it using a phone on the same LAN or the system file picker / USB drive. Restore is also available on the initial server setup screen. Preview and choose what to replace; device-specific settings are excluded from restoration by default. Keep any password you set: it cannot be recovered. Expired login sessions still require signing in again.
 - **Languages**: English, Simplified Chinese and Traditional Chinese, following the system language or chosen in Settings
 
@@ -131,6 +133,8 @@ Pushing a tag `v<versionName>` (e.g. `v0.1.0`) runs [release.yml](.github/workfl
 | `RELEASE_KEYSTORE_PASSWORD` | keystore password |
 | `RELEASE_KEY_ALIAS` | key alias |
 | `RELEASE_KEY_PASSWORD` | key password |
+
+To enable DandanPlay in the published APK, also configure `DANMAKU_PROXY_URL` and `DANMAKU_PROXY_TOKEN` as repository secrets. The token must match the deployed Worker's `PROXY_TOKEN`; see the [proxy setup and deployment guide](services/danmaku-worker/README.md). Both values must be configured together: omitting both leaves the official source unavailable, while setting only one fails the build. Official AppSecret and Cloudflare deployment credentials stay on the server and are not needed by the app release workflow.
 
 ## Project structure
 

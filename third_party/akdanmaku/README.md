@@ -2,7 +2,8 @@
 
 The shared production/debug renderer uses `akdanmaku-1.0.3+1-lumy1.aar`, based on
 [`com.kuaishou:akdanmaku:1.0.3`](https://github.com/KwaiAppTeam/AkDanmaku).
-Release builds include the runtime and libGDX, while generated fixtures and the test menu remain debug-only.
+Release builds include the runtime and libGDX. The player no longer exposes a performance-test menu;
+generated fixtures remain available only to debug automation.
 The upstream MIT notice is bundled in main assets at
 `third-party/AkDanmaku-LICENSE.txt`.
 

@@ -4,6 +4,38 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.6.0 - 2026-11-03
+
+### Danmaku
+
+- Added playback danmaku, off by default, with DandanPlay, custom compatible APIs and Jellyfin / Emby server plugins. Automatic mode prefers plugin data and falls back to online sources when no valid data is available
+- The Settings danmaku master switch hides the player entry and stops loading and display when off. When enabled, the player can independently toggle danmaku for the current movie / episode, remembered per server and account without changing the master or the whole season; clearing caches or matches preserves these choices
+- Added a danmaku entry to playback controls for manual search and episode selection, reloading and restoring automatic matching. Manual choices are remembered per server, account, movie / episode and source, and take priority on the next playback
+- Automatic matching checks titles, aliases, year, type and season / episode metadata, preserving server-confirmed episode mappings and timing offsets. Uncertain matches ask for manual confirmation without interrupting video
+- Configure density, display area, text size, opacity, scrolling speed, stroke, comment types and a ±60-second timing offset. Sustained performance pressure can temporarily reduce density, then gradually restore it
+- Local danmaku caches have no time expiry and can be reused offline, with a 64 MiB total limit. Cache and match-history clearing are separate actions; cache write failures no longer discard comments already loaded for playback
+
+### Favorites and backup
+
+- Added personal favorites synced with Jellyfin, Emby and fnOS Media. The sidebar page groups movies, shows and episodes; detail pages and card menus can add or remove favorites, and the sidebar entry can be hidden or reordered per server
+- Added Settings → About → Backup and restore. Export app settings, servers and sign-in state, sidebar settings and track memories as a `.lumy` file, with optional password encryption
+- Transfer backups by scanning a QR code on the same LAN, or use the system file picker for files / USB storage. Restore is also available when adding the first server, with a preview and selectable overwrite scopes; device-specific settings are preserved by default
+
+### Playback and navigation
+
+- Allow server transcoding and the new Available server bandwidth setting are saved separately for each server, preserving the previous transcoding preference on upgrade
+- Uses 75% of available bandwidth as the combined audio/video target budget, requesting transcoding when the source exceeds it or its bitrate is unknown. Plex and Jellyfin / Emby reserve audio bandwidth; fnOS selects a server profile within budget. Manual quality limits still apply
+- Starting or switching to server processing shows the transcoding / streaming reasons for about 6 seconds, consistent with playback information. Seeking or reconnecting with the same plan does not repeat the notice
+- Danmaku feedback and transcoding reasons share an in-player notice with the app icon. Transcoding reasons take priority, followed by only the latest danmaku message; switching media or versions clears old notices
+- Danmaku search and episode selection, More submenus and secondary-subtitle styles now return through their parent panels and restore focus. Returning to search results preserves the query and results without another network search
+- Back from the sidebar now directly prompts for a second press to exit, without first returning to Home. Improved D-pad focus and IME completion in input dialogs
+
+### Limitations
+
+- DandanPlay requires proxy configuration at build time and may be rate-limited; custom APIs and server plugins remain available without it. Global danmaku preferences and source URLs are backed up, but per-media switches, comment caches and match records are not. See [danmaku guidance](docs/playback.md)
+- Personal favorites are not provided for Plex. File / USB backup requires a system file picker. Lost backup passwords cannot be recovered, and expired sign-in state still requires signing in again
+- Bandwidth settings are transcoding targets rather than strict network limits, and do not apply when server transcoding is disabled. fnOS audio reservations are estimates. See [server bandwidth](docs/playback.md)
+
 ## 0.5.1 - 2026-11-01
 
 ### Fixes
