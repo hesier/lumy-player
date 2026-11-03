@@ -35,10 +35,18 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
         val url = url("match", query = emptyMap())
         val body = buildJsonObject {
             put("fileName", fileName)
-            if (endpoint.official) put("matchMode", "fileNameOnly")
+            if (endpoint.official) {
+                put("matchMode", "fileNameOnly")
+                // The official API validates hash format even in filename-only mode.
+                put("fileHash", FILENAME_ONLY_HASH_PLACEHOLDER)
+            }
         }.toString()
         val bytes = transport.postJson(url.toString(), body, headers(url)) ?: return@withContext null
         val root = parseResponse(bytes)
+        if (endpoint.official && (root.field("success") as? JsonPrimitive)?.booleanOrNull == false &&
+            (root.field("errorCode") as? JsonPrimitive)?.intOrNull == MATCH_INVALID_PARAMETERS)
+            return@withContext null
+        root.checkBusinessResult()
         val matched = root.field("isMatched")?.let { flag ->
             (flag as? JsonPrimitive)?.booleanOrNull ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
         }
@@ -69,14 +77,13 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
 
     private suspend fun request(vararg path: String, query: Map<String, String> = emptyMap()): JsonObject {
         val url = url(*path, query = query)
-        return parseResponse(transport.get(url.toString(), headers(url)))
+        return parseResponse(transport.get(url.toString(), headers(url))).also { it.checkBusinessResult() }
     }
 
     private fun parseResponse(bytes: ByteArray): JsonObject {
         try {
             val root = Json.parseToJsonElement(bytes.toString(Charsets.UTF_8)) as? JsonObject
                 ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
-            root.checkBusinessResult()
             return root
         } catch (error: DanmakuException) { throw error }
         catch (error: Exception) { throw DanmakuException(DanmakuFailure.INVALID_RESPONSE, error) }
@@ -102,6 +109,8 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
 }
 
 private const val MAX_MATCH_CANDIDATES = 6
+private const val MATCH_INVALID_PARAMETERS = 2
+private const val FILENAME_ONLY_HASH_PLACEHOLDER = "00000000000000000000000000000000"
 
 private fun JsonObject.shiftMillis(): Long {
     val value = field("shift") ?: return 0

@@ -191,7 +191,7 @@ class DanmakuApiTest {
             assertEquals("https://api.dandanplay.net/api/v2/match", request.url.toString())
             val buffer = okio.Buffer()
             request.body!!.writeTo(buffer)
-            assertEquals("""{"fileName":"show S01E01","matchMode":"fileNameOnly"}""", buffer.readUtf8())
+            assertEquals("""{"fileName":"show S01E01","matchMode":"fileNameOnly","fileHash":"00000000000000000000000000000000"}""", buffer.readUtf8())
             val timestamp = request.header("X-Timestamp")!!
             val expected = MessageDigest.getInstance("SHA-256")
                 .digest(("app" + timestamp + "/api/v2/match" + "secret").toByteArray()).toByteString().base64()
