@@ -29,7 +29,8 @@ internal class DanmakuSourcesSection(
     private var testing = false
 
     fun rows(): List<SettingsActivity.Row> = listOf(
-        SettingsActivity.Row(text(R.string.danmaku_source_title), sourceLabel(), sourceDetail()) { chooseSource() },
+        SettingsActivity.Row(text(R.string.danmaku_source_title), sourceLabel(), sourceDetail(),
+            detailMaxLines = Int.MAX_VALUE) { chooseSource() },
         SettingsActivity.Row(text(R.string.danmaku_custom_url), addressSummary(),
             text(R.string.danmaku_custom_url_hint)) { editAddress() },
         SettingsActivity.Row(text(R.string.danmaku_test_api), "", text(R.string.danmaku_test_detail)) { testApi() },
@@ -55,10 +56,13 @@ internal class DanmakuSourcesSection(
 
     private fun officialUnavailable() = runCatching { DanmakuServices(activity).official() }.isFailure
 
-    private fun sourceDetail(): String? {
-        if (settings.onlineSource == DanmakuOnlineSource.CUSTOM) return null
-        return if (officialUnavailable())
-            text(R.string.danmaku_official_unavailable) else text(R.string.danmaku_official_quota_hint)
+    private fun sourceDetail(): String {
+        val officialHint = when {
+            settings.onlineSource == DanmakuOnlineSource.CUSTOM -> null
+            officialUnavailable() -> text(R.string.danmaku_official_unavailable)
+            else -> text(R.string.danmaku_official_quota_hint)
+        }
+        return listOfNotNull(officialHint, text(R.string.danmaku_self_host_hint)).joinToString("\n")
     }
 
     private fun addressSummary(): String {

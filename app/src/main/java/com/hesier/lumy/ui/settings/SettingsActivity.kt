@@ -54,7 +54,8 @@ import com.hesier.lumy.ui.player.formatDelay
 
 class SettingsActivity : ThemedActivity() {
 
-    internal data class Row(val label: String, val value: String, val detail: String? = null, val icon: Int? = null, val onClick: () -> Unit)
+    internal data class Row(val label: String, val value: String, val detail: String? = null, val icon: Int? = null,
+        val detailMaxLines: Int = 2, val onClick: () -> Unit)
 
     private lateinit var binding: ActivitySettingsBinding
     private val app get() = LumyApp.instance
@@ -621,6 +622,7 @@ class SettingsActivity : ThemedActivity() {
             b.label.text = row.label
             b.value.text = row.value
             b.detail.text = row.detail
+            b.detail.maxLines = row.detailMaxLines
             b.detail.visibility = if (row.detail == null) View.GONE else View.VISIBLE
             b.icon.visibility = if (row.icon == null) View.GONE else View.VISIBLE
             row.icon?.let(b.icon::setImageResource)

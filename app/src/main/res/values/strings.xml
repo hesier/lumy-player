@@ -532,6 +532,7 @@
     <string name="danmaku_source_official">DandanPlay</string>
     <string name="danmaku_source_official_limited">DandanPlay (rate limits may apply)</string>
     <string name="danmaku_official_quota_hint">API quota is limited. If rate limited, try again later or use a custom API.</string>
+    <string name="danmaku_self_host_hint">We recommend a self-hosted API service for a more reliable experience.\nhttps://github.com/huangxd-/danmu_api</string>
     <string name="danmaku_source_official_pending">DandanPlay (not yet supported)</string>
     <string name="danmaku_source_custom">Custom</string>
     <string name="danmaku_source_server">Server</string>

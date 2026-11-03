@@ -516,6 +516,7 @@
     <string name="danmaku_source_official">彈彈 Play</string>
     <string name="danmaku_source_official_limited">彈彈 Play（可能會限流）</string>
     <string name="danmaku_official_quota_hint">API 額度有限，遇到限流請稍後再試或使用自訂 API。</string>
+    <string name="danmaku_self_host_hint">建議自架 API 服務，體驗更穩定。\nhttps://github.com/huangxd-/danmu_api</string>
     <string name="danmaku_source_official_pending">彈彈 Play（暫不支援）</string>
     <string name="danmaku_source_custom">自訂</string>
     <string name="danmaku_source_server">伺服器</string>
