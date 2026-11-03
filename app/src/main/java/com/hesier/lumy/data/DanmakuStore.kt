@@ -8,6 +8,7 @@ import org.json.JSONObject
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.File
+import java.io.IOException
 
 /** Raw normalized comments are cached separately from explicit per-item corrections. */
 class DanmakuStore(context: Context, name: String = "danmaku") {
@@ -75,19 +76,21 @@ class DanmakuStore(context: Context, name: String = "danmaku") {
     }
 
     internal fun cache(key: String, comments: List<DanmakuComment>) = synchronized(cacheLock) {
-        directory.mkdirs()
-        val file = cacheFile(key)
-        val partial = File.createTempFile("download-", ".part", directory)
-        try {
-            DataOutputStream(partial.outputStream().buffered()).use { output ->
-                output.writeInt(CACHE_VERSION); output.writeInt(comments.size)
-                comments.forEach { item ->
-                    output.writeLong(item.id); output.writeLong(item.timeMs); output.writeUTF(item.text)
-                    output.writeInt(item.mode); output.writeInt(item.color)
+        writeCache {
+            directory.mkdirs()
+            val file = cacheFile(key)
+            val partial = File.createTempFile("download-", ".part", directory)
+            try {
+                DataOutputStream(partial.outputStream().buffered()).use { output ->
+                    output.writeInt(CACHE_VERSION); output.writeInt(comments.size)
+                    comments.forEach { item ->
+                        output.writeLong(item.id); output.writeLong(item.timeMs); output.writeUTF(item.text)
+                        output.writeInt(item.mode); output.writeInt(item.color)
+                    }
                 }
-            }
-            if (partial.length() <= MAX_FILE_BYTES && partial.renameTo(file)) trim()
-        } finally { partial.delete() }
+                if (partial.length() <= MAX_FILE_BYTES && partial.renameTo(file)) trim()
+            } finally { partial.delete() }
+        }
     }
 
     internal fun contentKey(match: DanmakuMatch) = "${match.choice.identity}:${match.episode.id}:" + danmakuHash(
@@ -104,16 +107,25 @@ class DanmakuStore(context: Context, name: String = "danmaku") {
     }
 
     internal fun cacheAutomatic(media: DanmakuMedia, match: DanmakuMatch) = synchronized(cacheLock) {
-        val key = contentKey(match)
-        if (!cacheFile(key).isFile) return
-        val data = JSONObject().put("version", REFERENCE_VERSION).put("source", match.choice.identity)
-            .put("cacheKey", key).put("match", writeMatch(match)).toString()
-        if (data.toByteArray(Charsets.UTF_8).size > MAX_REFERENCE_BYTES) return
-        val partial = File.createTempFile("reference-", ".part", directory)
-        try {
-            partial.writeText(data)
-            if (partial.renameTo(referenceFile(media, match.choice.identity))) trim()
-        } finally { partial.delete() }
+        writeCache {
+            val key = contentKey(match)
+            if (!cacheFile(key).isFile) return
+            val data = JSONObject().put("version", REFERENCE_VERSION).put("source", match.choice.identity)
+                .put("cacheKey", key).put("match", writeMatch(match)).toString()
+            if (data.toByteArray(Charsets.UTF_8).size > MAX_REFERENCE_BYTES) return
+            val partial = File.createTempFile("reference-", ".part", directory)
+            try {
+                partial.writeText(data)
+                if (partial.renameTo(referenceFile(media, match.choice.identity))) trim()
+            } finally { partial.delete() }
+        }
+    }
+
+    // Disk caching is optional: storage failures must not discard loaded comments.
+    private inline fun writeCache(block: () -> Unit) {
+        try { block() }
+        catch (_: IOException) { }
+        catch (_: SecurityException) { }
     }
 
     private fun referenceFile(media: DanmakuMedia, source: String): File {

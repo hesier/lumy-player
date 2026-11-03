@@ -55,7 +55,8 @@ internal class DanmakuCacheTest(private val context: Context) {
             invalidationAndIsolation()
             manualMetadataRefresh()
             capacityAndDanglingReference()
-            "Permanent offline cache, manual offsets, priority, isolation and 64 MiB eviction passed"
+            failedWritesKeepLoadedComments()
+            "Permanent offline cache, write-failure recovery, manual offsets, priority, isolation and 64 MiB eviction passed"
         } finally {
             store.clearCache(); store.clearMatches()
             preferences.edit().clear().commit()
@@ -183,6 +184,37 @@ internal class DanmakuCacheTest(private val context: Context) {
         requests.clear(); offline = true
         check(repository.load(media) is DanmakuLoad.Failed && requests.isNotEmpty())
         offline = false
+    }
+
+    private suspend fun failedWritesKeepLoadedComments() {
+        store.clearCache(); store.clearMatches()
+        check(directory.delete())
+        directory.writeText("Fixture blocks cache directory creation")
+        try {
+            check(loaded(media).comments.single().text == "online")
+            val plugin = media.copy(plugin = ServerDanmaku("https://danmaku-fixture.invalid/plugin",
+                emptyMap(), ServerDanmakuFormat.XML))
+            requests.clear()
+            check(loaded(plugin).comments.single().text == "plugin")
+            check(listOf("/plugin") == requests)
+        } finally { check(directory.delete()) }
+        val first = loaded(media)
+        val match = checkNotNull(first.match)
+        store.clearMatches()
+        check(directory.setWritable(false, false) && !directory.canWrite())
+        try {
+            requests.clear()
+            check(loaded(media).comments == first.comments)
+            check(requests.any { "/search/anime" in it } && requests.none { "/comment/" in it })
+            check(store.cachedAutomatic(media, match.choice.identity) == null)
+        } finally { check(directory.setWritable(true, false)) }
+        val key = store.contentKey(match)
+        // A serialization I/O failure after opening the temp file must preserve the old entry.
+        store.cache(key, listOf(DanmakuComment(1, 0, "x".repeat(70_000), 1, 0xffffff)))
+        check(first.comments == store.cached(key))
+        check(directory.listFiles().orEmpty().none { it.extension == "part" })
+        check(loaded(media).comments == first.comments)
+        check(store.cachedAutomatic(media, match.choice.identity) != null)
     }
 
     private fun reopen() {
