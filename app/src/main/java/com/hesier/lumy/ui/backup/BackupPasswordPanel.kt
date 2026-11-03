@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import androidx.core.widget.doAfterTextChanged
 import com.hesier.lumy.R
 import com.hesier.lumy.databinding.ViewBackupPasswordBinding
 import com.hesier.lumy.ui.widget.enableDpadNavigation
@@ -38,17 +39,29 @@ internal class BackupPasswordPanel(
                 else if (direction == View.FOCUS_DOWN) fields.getOrNull(index + 1) ?: b.confirm else field
             }
         }
+        val tooLong = {
+            creating && fields.any { it.length() > MAX_PASSWORD_LENGTH }
+        }
+        if (creating) fields.forEach { field ->
+            field.doAfterTextChanged {
+                b.error.setText(R.string.backup_password_too_long)
+                b.error.visibility = if (tooLong()) View.VISIBLE else View.GONE
+            }
+        }
         val submit = {
             val password = CharArray(b.password.length()) { b.password.text[it] }
             val repeated = CharArray(b.repeated.length()) { b.repeated.text[it] }
-            val valid = if (creating) {
-                if (password.all { it.isWhitespace() }) repeated.all { it.isWhitespace() }
-                else password.size >= 8 && password.contentEquals(repeated)
-            } else password.isNotEmpty()
+            val error = when {
+                tooLong() -> R.string.backup_password_too_long
+                creating && !password.contentEquals(repeated) &&
+                    !(password.all { it.isWhitespace() } && repeated.all { it.isWhitespace() }) -> R.string.backup_password_invalid
+                !creating && password.isEmpty() -> R.string.backup_password_required
+                else -> null
+            }
             repeated.fill('\u0000')
-            if (!valid) {
+            if (error != null) {
                 password.fill('\u0000')
-                b.error.setText(if (creating) R.string.backup_password_invalid else R.string.backup_password_required)
+                b.error.setText(error)
                 b.error.visibility = View.VISIBLE
             } else {
                 b.password.text.clear()
@@ -65,5 +78,9 @@ internal class BackupPasswordPanel(
         b.confirm.nextFocusDownId = b.confirm.id
         setOnDismissListener { b.password.text.clear(); b.repeated.text.clear() }
         b.password.requestFocus()
+    }
+
+    private companion object {
+        const val MAX_PASSWORD_LENGTH = 32
     }
 }

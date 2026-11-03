@@ -455,9 +455,10 @@
     <string name="backup_continue">Continue</string>
     <string name="backup_set_password">Set backup password</string>
     <string name="backup_enter_password">Enter backup password</string>
-    <string name="backup_password_hint">Leave both fields empty to save without encryption, including login sessions. To encrypt, use at least 8 characters and keep the password.</string>
+    <string name="backup_password_hint">Set a password to encrypt your backup, or leave it empty to save without encryption. Keep your password safe; it cannot be recovered.</string>
     <string name="backup_decrypt_hint">Enter the password used when this backup was created.</string>
-    <string name="backup_password_invalid">Leave both fields empty, or enter the same password of at least 8 characters twice.</string>
+    <string name="backup_password_invalid">The passwords do not match. Please try again.</string>
+    <string name="backup_password_too_long">Password cannot exceed 32 characters.</string>
     <string name="backup_scan_hint">Scan with a phone on the same local network. Keep this panel open; the link expires in 5 minutes.</string>
     <string name="backup_transfer_expired">This link has expired. Close this panel and try again.</string>
     <string name="backup_download">Download backup</string>

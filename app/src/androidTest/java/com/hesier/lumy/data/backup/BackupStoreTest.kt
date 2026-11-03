@@ -72,7 +72,7 @@ class BackupStoreTest(base: Context) {
         val archive = BackupArchive(context)
         val expected = com.hesier.lumy.data.SessionStore(context).servers
         check(expected.size == 4)
-        for (password in listOf("", "   ", "backup-password")) {
+        for (password in listOf("", "   ", "a", "backup-password")) {
             val chars = password.toCharArray()
             try {
                 val bytes = archive.export(chars)

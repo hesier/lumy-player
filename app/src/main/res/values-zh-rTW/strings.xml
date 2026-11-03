@@ -439,9 +439,10 @@
     <string name="backup_continue">繼續</string>
     <string name="backup_set_password">設定備份密碼</string>
     <string name="backup_enter_password">輸入備份密碼</string>
-    <string name="backup_password_hint">兩欄均可留空，此時備份不加密且包含登入狀態。如需加密，請設定至少 8 個字元的密碼並保存好。</string>
+    <string name="backup_password_hint">設定密碼可加密備份，留空則不加密。請妥善保存密碼，忘記後無法找回。</string>
     <string name="backup_decrypt_hint">輸入建立此備份時設定的密碼。</string>
-    <string name="backup_password_invalid">兩欄均留空，或輸入兩次一致且至少 8 個字元的密碼。</string>
+    <string name="backup_password_invalid">兩次輸入的密碼不一致，請重新輸入。</string>
+    <string name="backup_password_too_long">密碼不能超過 32 個字元。</string>
     <string name="backup_scan_hint">使用同一區域網路內的手機掃碼。請保持此面板開啟，連結 5 分鐘後失效。</string>
     <string name="backup_transfer_expired">連結已失效，請關閉面板後重試。</string>
     <string name="backup_download">下載備份</string>
