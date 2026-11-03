@@ -74,6 +74,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
         main { setup(file) }
         await("local video playing") { main { bundle.player.isPlaying && bundle.player.currentPosition > 500 } }
         main { bundle.player.pause(); bind() }
+        focusAction()
     }
 
     private fun setup(file: File) {
@@ -94,7 +95,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
         bundle.player.prepare(); bundle.player.play()
     }
 
-    private fun bind() {
+    private fun bind(number: Int = if (live) 1 else 2) {
         val server = Proxy.newProxyInstance(MediaServer::class.java.classLoader, arrayOf(MediaServer::class.java)) { _, method, _ ->
             when (method.name) {
                 "getSession" -> ServerSession(ServerKind.PLEX, "flow", "fixture", "http://127.0.0.1", "")
@@ -105,7 +106,7 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
             }
         } as MediaServer
         val item = com.hesier.lumy.core.MediaItem("flow", MediaType.EPISODE, "Episode", showTitle = if (live) "三体" else "Flow Show",
-            seasonNumber = 1, episodeNumber = if (live) 1 else 2, year = 2023)
+            seasonNumber = 1, episodeNumber = number, year = 2023)
         val version = MediaVersion("local", 0, "mkv", null, null, emptyList(), emptyList(),
             listOf(MediaPart("part", "local", "mkv", null, 60_000)))
         controller.bind(server, MediaDetail(item, versions = listOf(version)), version, "flow-only")
@@ -118,6 +119,9 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
             store = DanmakuStore(context, "danmaku-player-flow-test"))
         bind()
     }
+
+    fun switchEpisode(number: Int) = main { bind(number) }
+    fun actionHasFocus() = main { activity.currentFocus === actionButton }
 
     fun result(): DanmakuLoad? = main { resultField.get(controller) as? DanmakuLoad }
     fun mediaKey(): String = main { (mediaField.get(controller) as DanmakuMedia).key }
@@ -144,10 +148,17 @@ internal class DanmakuPlayerFlowFixture(private val instrumentation: Instrumenta
         } }
     }
 
-    fun openMenu() {
+    private fun focusAction() {
         await("focused player window") { main { activity.hasWindowFocus() && actionButton.isShown } }
         instrumentation.setInTouchMode(false)
+        // A native navigation event makes the active window leave touch mode on TV emulators.
+        key(KeyEvent.KEYCODE_DPAD_UP)
+        await("remote navigation mode") { main { !actionButton.isInTouchMode } }
         await("focused danmaku action") { main { actionButton.requestFocus() && activity.currentFocus === actionButton } }
+    }
+
+    fun openMenu() {
+        focusAction()
         key(KeyEvent.KEYCODE_DPAD_CENTER)
         await("danmaku menu") { screenTexts().contains(text(R.string.danmaku_manual_match)) }
         check(!screenTexts().contains(text(R.string.danmaku_switch_source))) { "Removed source action remains visible" }

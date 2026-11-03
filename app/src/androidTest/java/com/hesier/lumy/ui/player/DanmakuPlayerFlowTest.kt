@@ -8,7 +8,86 @@ import com.hesier.lumy.data.DanmakuSourceKind
 /** Runs real PlayerDanmaku menus and storage with an isolated source configuration. */
 class DanmakuPlayerFlowTest(private val instrumentation: Instrumentation) {
     fun runAll(live: Boolean = false): String = if (live) runOne(true, false) else
-        listOf(runOne(false, false), runOne(false, true), runWithPlugin()).joinToString("\n")
+        (0..5).joinToString("\n") { runCase(it) }
+
+    fun runCase(index: Int): String = when (index) {
+        0 -> runOne(false, false)
+        1 -> runOne(false, true)
+        2 -> runWithPlugin()
+        3 -> runConfirmation(1_250)
+        4 -> runConfirmation(-750)
+        5 -> runCancelledConfirmation()
+        else -> error("Unknown flow case")
+    }
+
+    private fun ambiguousServer(offsetMs: Long = 1_250) = DanmakuPlayerFlowServer().apply {
+        ambiguous = true
+        matchBody = """{"success":true,"isMatched":true,"matches":[{"animeId":"A","episodeId":"A2","shift":${offsetMs / 1000.0}},{"animeId":"B","episodeId":"B2"}]}"""
+    }
+
+    private fun runConfirmation(offsetMs: Long): String {
+        val server = ambiguousServer(offsetMs)
+        val fixture = DanmakuPlayerFlowFixture(instrumentation, live = false)
+        try {
+            fixture.open(server.endpoint)
+            fixture.await("ambiguous result") { fixture.result() is DanmakuLoad.NeedsMatch }
+            check(server.commentRequests() == 0)
+            check(fixture.actionHasFocus()) { "Ambiguity opened a panel automatically" }
+            val pending = fixture.result() as DanmakuLoad.NeedsMatch
+            val suggestion = pending.suggestions.first { it.anime.id == "A" }
+            check(suggestion.sourceOffsetMs == offsetMs)
+            fixture.openMenu()
+            fixture.pick(fixture.text(R.string.danmaku_manual_match))
+            val timing = if (offsetMs > 0) "1.25" else "-0.75"
+            fixture.await("candidate source timing visible") { fixture.screenTexts().any { it.contains(timing) } }
+            if (offsetMs > 0) captureDanmakuTest(instrumentation, "danmaku-candidates-confirmation.png")
+            fixture.pick("Flow Show")
+            fixture.pickEpisode("Flow Show", 0)
+            val confirmed = fixture.awaitLoaded(automatic = false)
+            check(confirmed.match?.episode?.id == "A2" && confirmed.sourceOffsetMs == offsetMs)
+            fixture.checkVisible()
+            fixture.reopenController()
+            check(fixture.awaitLoaded(automatic = false).sourceOffsetMs == offsetMs)
+            fixture.checkVisible()
+            return "Player confirmation: candidate shift $offsetMs preserved after explicit selection and store/controller reopen passed"
+        } finally {
+            try { fixture.close() } finally { server.close() }
+        }
+    }
+
+    private fun runCancelledConfirmation(): String {
+        val server = ambiguousServer()
+        val fixture = DanmakuPlayerFlowFixture(instrumentation, live = false)
+        try {
+            fixture.open(server.endpoint)
+            fixture.await("ambiguous result") { fixture.result() is DanmakuLoad.NeedsMatch }
+            val source = (fixture.result() as DanmakuLoad.NeedsMatch).source
+            fixture.openMenu()
+            fixture.pick(fixture.text(R.string.danmaku_manual_match))
+            fixture.pick("Flow Show")
+            fixture.await("episode panel") { fixture.screenTexts().contains("Flow A episode 2") }
+            fixture.key(android.view.KeyEvent.KEYCODE_BACK)
+            fixture.await("focus restored") { fixture.actionHasFocus() }
+            check(fixture.store.match(fixture.mediaKey(), source.identity) == null)
+            check(server.commentRequests() == 0)
+            fixture.openMenu()
+            fixture.pick(fixture.text(R.string.danmaku_manual_match))
+            fixture.pick("Flow Show")
+            fixture.switchEpisode(3)
+            fixture.await("new episode result") { fixture.result() is DanmakuLoad.NeedsMatch }
+            check(!fixture.screenTexts().contains("Flow A episode 2"))
+            check(fixture.store.match(fixture.mediaKey(), source.identity) == null)
+            check(server.commentRequests() == 0)
+            fixture.openMenu()
+            fixture.pick(fixture.text(R.string.danmaku_manual_match))
+            fixture.pick("Flow Show")
+            fixture.pickEpisode("Flow Show", 1)
+            check(fixture.awaitLoaded(automatic = false).sourceOffsetMs == 0L)
+            return "Player confirmation: back restores focus without writes, switching invalidates old panel, another episode resets shift passed"
+        } finally {
+            try { fixture.close() } finally { server.close() }
+        }
+    }
 
     private fun runWithPlugin(): String {
         val server = DanmakuPlayerFlowServer()

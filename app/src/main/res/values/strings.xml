@@ -574,4 +574,12 @@
     <string name="danmaku_error_unavailable">Danmaku source unavailable</string>
     <string name="danmaku_error_too_large">Danmaku response exceeds the limit</string>
     <string name="danmaku_error_rate_limited">Too many requests; try again later</string>
+    <string name="danmaku_match_candidates">Possible matches</string>
+    <string name="danmaku_match_search_again">Search again</string>
+    <string name="danmaku_match_recommended">Recommended: %1$s</string>
+    <string name="danmaku_match_ambiguous">Multiple matches found. Select a match manually.</string>
+    <string name="danmaku_match_metadata">Season or episode information needs confirmation.</string>
+    <string name="danmaku_match_incomplete">Matching is incomplete. Select a match manually.</string>
+    <string name="danmaku_match_no_match">No reliable match. Search manually.</string>
+    <string name="danmaku_match_source_offset">Source timing: %s s</string>
 </resources>

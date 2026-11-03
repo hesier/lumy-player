@@ -8,7 +8,9 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
+    private var danmakuMemoryPhase: String? = null
     private var danmakuPluginArguments: Bundle? = null
+    private var danmakuFlowCase: String? = null
     private var danmakuFlow = false
     private var danmakuFlowLive = false
     private var danmakuControls = false
@@ -38,6 +40,7 @@ class PgsInstrumentation : Instrumentation() {
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
         if (arguments?.containsKey("danmaku_plugin_item") == true) danmakuPluginArguments = Bundle(arguments)
+        danmakuFlowCase = arguments?.getString("danmaku_flow_case")
         danmakuFlow = arguments?.getString("danmaku_flow_only") == "true"
         danmakuFlowLive = arguments?.getString("danmaku_flow_live") == "true"
         danmakuControls = arguments?.getString("danmaku_controls_only") == "true"
@@ -63,12 +66,18 @@ class PgsInstrumentation : Instrumentation() {
         rmFixture = arguments?.getString("rm_fixture")
         softwareFixture = arguments?.getString("software_fixture")
         rmAudioMime = arguments?.getString("rm_audio_mime") ?: "audio/cook"
+        danmakuMemoryPhase = arguments?.getString("danmaku_memory_phase")
         start()
     }
 
     override fun onStart() {
         val result = Bundle()
         try {
+            if (danmakuMemoryPhase != null) {
+                result.putString("stream", com.hesier.lumy.data.DanmakuMatchMemoryTest(targetContext).run(danmakuMemoryPhase!!) + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (danmakuPluginArguments != null) {
                 result.putString("stream", DanmakuPluginLiveTest(this).runAll(danmakuPluginArguments!!) + "\n")
                 finish(Activity.RESULT_OK, result)
@@ -76,6 +85,11 @@ class PgsInstrumentation : Instrumentation() {
             }
             if (danmakuControls) {
                 result.putString("stream", DanmakuControlBarTest(this).runAll() + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (danmakuFlowCase != null) {
+                result.putString("stream", DanmakuPlayerFlowTest(this).runCase(danmakuFlowCase!!.toInt()) + "\n")
                 finish(Activity.RESULT_OK, result)
                 return
             }
@@ -107,7 +121,8 @@ class PgsInstrumentation : Instrumentation() {
             }
             if (danmakuApiOnly) {
                 com.hesier.lumy.data.DanmakuMatcherTest.runAll()
-                result.putString("stream", com.hesier.lumy.data.DanmakuRepositoryTest(targetContext).runAll() + "\n")
+                val matching = com.hesier.lumy.data.DanmakuAutoMatchTest(targetContext).runAll()
+                result.putString("stream", matching + "\n" + com.hesier.lumy.data.DanmakuRepositoryTest(targetContext).runAll() + "\n")
                 finish(Activity.RESULT_OK, result)
                 return
             }

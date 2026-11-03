@@ -558,4 +558,12 @@
     <string name="danmaku_error_unavailable">彈幕來源暫時無法使用</string>
     <string name="danmaku_error_too_large">彈幕回應超過大小限制</string>
     <string name="danmaku_error_rate_limited">請求過於頻繁，請稍後再試</string>
+    <string name="danmaku_match_candidates">候選配對</string>
+    <string name="danmaku_match_search_again">重新搜尋</string>
+    <string name="danmaku_match_recommended">推薦：%1$s</string>
+    <string name="danmaku_match_ambiguous">找到多個配對，請手動確認。</string>
+    <string name="danmaku_match_metadata">季集或作品資訊需要確認。</string>
+    <string name="danmaku_match_incomplete">配對資訊不完整，請手動確認。</string>
+    <string name="danmaku_match_no_match">沒有可靠配對，請手動搜尋。</string>
+    <string name="danmaku_match_source_offset">來源校時：%s 秒</string>
 </resources>

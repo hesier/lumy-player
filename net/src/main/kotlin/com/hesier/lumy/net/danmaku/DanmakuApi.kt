@@ -31,7 +31,7 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
     }
 
     /** Sends a synthetic title only; matching remains an optional server capability. */
-    suspend fun match(fileName: String): DanmakuMatchCandidate? = withContext(Dispatchers.IO) {
+    suspend fun match(fileName: String): DanmakuMatchResponse? = withContext(Dispatchers.IO) {
         val url = url("match", query = emptyMap())
         val body = buildJsonObject {
             put("fileName", fileName)
@@ -46,10 +46,13 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
         if ((candidates == null || candidates == JsonNull) && matched != true) return@withContext null
         val matches = candidates as? JsonArray ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
         if (matches.isEmpty()) return@withContext null
-        val first = matches.first() as? JsonObject ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
-        DanmakuMatchCandidate(first.field("animeId")?.remoteId()
-            ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE), first.field("episodeId")?.remoteId()
-            ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE), first.shiftMillis())
+        val parsed = matches.asSequence().map { element ->
+            val row = element as? JsonObject ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE)
+            DanmakuMatchCandidate(row.field("animeId")?.remoteId()
+                ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE), row.field("episodeId")?.remoteId()
+                ?: throw DanmakuException(DanmakuFailure.INVALID_RESPONSE), row.shiftMillis())
+        }.distinct().take(MAX_MATCH_CANDIDATES + 1).toList()
+        DanmakuMatchResponse(matched, parsed.take(MAX_MATCH_CANDIDATES), parsed.size > MAX_MATCH_CANDIDATES)
     }
 
     suspend fun details(animeId: String): DanmakuAnime = withContext(Dispatchers.IO) {
@@ -97,6 +100,8 @@ class DanmakuApi(http: OkHttpClient, val endpoint: DanmakuEndpoint) {
             "X-Timestamp" to timestamp, "X-Signature" to signature)
     }
 }
+
+private const val MAX_MATCH_CANDIDATES = 6
 
 private fun JsonObject.shiftMillis(): Long {
     val value = field("shift") ?: return 0

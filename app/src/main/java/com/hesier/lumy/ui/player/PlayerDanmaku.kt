@@ -74,7 +74,7 @@ internal class PlayerDanmaku(
             })
             if (settings.enabled) {
                 add(Option(activity.getString(R.string.danmaku_manual_match),
-                    (result as? DanmakuLoad.Loaded)?.match?.let(::matchLabel)) to { actions.search() })
+                    (result as? DanmakuLoad.Loaded)?.match?.let(::matchLabel)) to { actions.open(result as? DanmakuLoad.NeedsMatch) })
                 add(Option(activity.getString(R.string.danmaku_reload), activity.getString(R.string.danmaku_reload_detail)) to {
                     reload(force = true, feedback = Feedback.REFRESH)
                 })
@@ -87,6 +87,7 @@ internal class PlayerDanmaku(
 
     private fun reload(force: Boolean = false, feedback: Feedback = Feedback.AUTOMATIC) {
         generation++
+        actions.invalidate()
         job?.cancel()
         actionJob?.cancel()
         loading = false
@@ -124,9 +125,9 @@ internal class PlayerDanmaku(
         return item to source
     }
 
-    private fun selected(anime: DanmakuAnime, episode: DanmakuEpisode, choice: DanmakuChoice) {
+    private fun selected(anime: DanmakuAnime, episode: DanmakuEpisode, choice: DanmakuChoice, sourceOffsetMs: Long) {
         val request = media ?: return
-        store.remember(request.key, DanmakuMatch(choice, anime, episode, request.year, request.season, request.number))
+        store.remember(request.key, DanmakuMatch(choice, anime, episode, request.year, request.season, request.number, sourceOffsetMs))
         reload(feedback = Feedback.MATCH)
     }
 
@@ -171,7 +172,7 @@ internal class PlayerDanmaku(
         loading -> activity.getString(R.string.danmaku_loading)
         else -> when (val value = result) {
             is DanmakuLoad.Loaded -> "${sourceLabel(value.source)} · ${activity.getString(R.string.danmaku_loaded, value.comments.size)}"
-            is DanmakuLoad.NeedsMatch -> activity.getString(R.string.danmaku_needs_match)
+            is DanmakuLoad.NeedsMatch -> activity.getString(reasonText(value.reason))
             is DanmakuLoad.Empty -> activity.getString(R.string.danmaku_empty)
             is DanmakuLoad.Failed -> if (value.manual) activity.getString(R.string.danmaku_manual_failed) + " · " + danmakuErrorText(activity, value.reason)
                 else danmakuErrorText(activity, value.reason)
@@ -187,7 +188,7 @@ internal class PlayerDanmaku(
     private fun toast(value: String) = Toast.makeText(activity, value, Toast.LENGTH_LONG).show()
 
     fun clear() {
-        generation++; job?.cancel(); actionJob?.cancel(); result = null; media = null; loading = false
+        generation++; actions.invalidate(); job?.cancel(); actionJob?.cancel(); result = null; media = null; loading = false
         overlay.clear()
     }
 

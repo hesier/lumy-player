@@ -1,7 +1,6 @@
 package com.hesier.lumy.data
 
 import com.hesier.lumy.core.ServerDanmakuFormat
-import com.hesier.lumy.core.MediaType
 import com.hesier.lumy.net.danmaku.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -75,8 +74,13 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
         val choice = DanmakuChoice(if (endpoint.official) DanmakuSourceKind.OFFICIAL else DanmakuSourceKind.CUSTOM, endpoint.identity)
         val api = DanmakuApi(http, endpoint)
         val saved = store.match(media.key, choice.identity)
-        val selected = if (saved != null) resolveSaved(api, saved) else automaticMatch(api, media, choice)
-        if (selected == null) return DanmakuLoad.NeedsMatch(choice)
+        val selected = if (saved != null) resolveSaved(api, saved) else {
+            val decision = DanmakuAutoMatch(api).run(media)
+            val suggestion = decision.selected ?: return DanmakuLoad.NeedsMatch(choice, decision.reason, decision.suggestions)
+            DanmakuMatch(choice, suggestion.anime, checkNotNull(suggestion.episode), media.year, media.season,
+                media.number, suggestion.sourceOffsetMs)
+        }
+        if (selected == null) return DanmakuLoad.NeedsMatch(choice, DanmakuMatchReason.METADATA)
         if (saved != null && (saved.anime.id != selected.anime.id || saved.episode.id != selected.episode.id))
             store.remember(media.key, selected)
         val key = "${choice.identity}:${selected.episode.id}:" + danmakuHash(
@@ -85,33 +89,6 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
         val comments = store.cached(key) ?: api.comments(selected.episode.id).also { if (it.isNotEmpty()) store.cache(key, it) }
         return if (comments.isEmpty()) DanmakuLoad.Empty(choice)
             else DanmakuLoad.Loaded(comments, choice, selected, automatic = saved == null, sourceOffsetMs = selected.sourceOffsetMs)
-    }
-
-    private suspend fun automaticMatch(api: DanmakuApi, media: DanmakuMedia, choice: DanmakuChoice): DanmakuMatch? {
-        val keywords = DanmakuMatcher.keywords(media)
-        val canIdentify = media.type == MediaType.MOVIE || keywords.size > 1
-        val candidate = if (canIdentify) api.match(keywords.first()) else null
-        if (candidate != null) {
-            val details = api.details(candidate.animeId)
-            val episode = details.episodes.firstOrNull { it.id == candidate.episodeId } ?: return null
-            // A service may map split seasons or remembered episode offsets to different numbering.
-            return DanmakuMatch(choice, details, episode, media.year, media.season, media.number, candidate.shiftMs)
-        }
-        val anime = automaticAnime(api, media) ?: return null
-        val details = api.details(anime.id)
-        if (details.id != anime.id) return null
-        val episode = DanmakuMatcher.episode(media, details) ?: return null
-        return DanmakuMatch(choice, details, episode, media.year, media.season, media.number)
-    }
-
-    private suspend fun automaticAnime(api: DanmakuApi, media: DanmakuMedia): DanmakuAnime? {
-        val titles = listOfNotNull(media.title, media.originalTitle?.takeUnless { DanmakuMatcher.same(it, media.title) })
-        for (title in titles) {
-            for (keyword in DanmakuMatcher.keywords(media, title)) {
-                DanmakuMatcher.anime(api.search(keyword))?.let { return it }
-            }
-        }
-        return null
     }
 
     private suspend fun resolveSaved(api: DanmakuApi, saved: DanmakuMatch): DanmakuMatch? {
@@ -124,11 +101,20 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
             val episode = details.episodes.singleOrNull { it.id == saved.episode.id && compatibleEpisode(it, saved.episode) }
             if (episode != null) return saved.copy(anime = details, episode = episode)
         }
-        val candidate = api.search(saved.anime.title).filter { compatibleAnime(it, saved.anime) }.singleOrNull() ?: return null
-        val refreshed = api.details(candidate.id)
-        if (!compatibleAnime(refreshed, saved.anime)) return null
-        val episode = refreshed.episodes.filter { compatibleEpisode(it, saved.episode) }.singleOrNull() ?: return null
-        return saved.copy(anime = refreshed, episode = episode)
+        val candidates = api.search(saved.anime.title).filter { compatibleAnime(it, saved.anime) }
+        if (candidates.size > MAX_RECOVERY_CANDIDATES) return null
+        val recovered = candidates.mapNotNull { candidate ->
+            val refreshed = try { api.details(candidate.id) }
+            catch (error: DanmakuException) {
+                if (error.reason != DanmakuFailure.NOT_FOUND) throw error
+                return@mapNotNull null
+            }
+            if (!compatibleAnime(refreshed, saved.anime)) return@mapNotNull null
+            val episode = refreshed.episodes.filter { compatibleEpisode(it, saved.episode) }.distinct().singleOrNull()
+                ?: return@mapNotNull null
+            saved.copy(anime = refreshed, episode = episode)
+        }.distinctBy { it.anime.id to it.episode.id }
+        return recovered.singleOrNull()
     }
 
     private fun compatibleAnime(current: DanmakuAnime, saved: DanmakuAnime) =
@@ -141,6 +127,7 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
             current.seasonId == saved.seasonId
 
     companion object {
+        private const val MAX_RECOVERY_CANDIDATES = 6
         // A missing sidecar (404) never becomes a server-wide negative capability entry.
         private val pluginAvailable = ConcurrentHashMap<String, Boolean>()
     }

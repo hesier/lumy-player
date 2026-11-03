@@ -166,7 +166,7 @@ internal class DanmakuRepositoryTest(private val context: Context) {
     }
 
     private suspend fun automaticValidation(repository: DanmakuRepository, media: DanmakuMedia) {
-        val automatic = media.copy(key = "auto-first", plugin = null, year = null, season = 3)
+        val automatic = media.copy(key = "auto-first", plugin = null, year = null, season = 1)
         val loaded = repository.load(automatic) as DanmakuLoad.Loaded
         check(loaded.automatic && loaded.match?.anime?.id == "1")
         check(store.choice(automatic.key) == null)
@@ -177,20 +177,18 @@ internal class DanmakuRepositoryTest(private val context: Context) {
         check((repository.load(automatic, force = true) as DanmakuLoad.Loaded).automatic)
         check(paths.count { "/comment/" in it } == 1)
         wrongDetails = true
-        val renamed = repository.load(automatic, force = true) as DanmakuLoad.Loaded
-        check(renamed.automatic && renamed.match?.anime?.title == "Other")
+        check(repository.load(automatic, force = true) is DanmakuLoad.NeedsMatch)
         wrongDetails = false
         detailsOverride = DETAILS.replace("\"animeId\":1", "\"animeId\":99")
         paths.clear()
-        check(repository.load(automatic, force = true) is DanmakuLoad.NeedsMatch)
-        check(paths.none { "/comment/" in it })
+        check((repository.load(automatic, force = true) as DanmakuLoad.Loaded).match?.anime?.id == "99")
         detailsOverride = null
     }
 
     private suspend fun automaticEpisodes(repository: DanmakuRepository, media: DanmakuMedia) {
         val current = media.copy(key = "auto-current", plugin = null, number = 2, season = 7)
         check(repository.load(current) is DanmakuLoad.NeedsMatch)
-        detailsOverride = detailsWithEpisodes(DanmakuEpisode("22", "Current", "2", "opaque-season"))
+        detailsOverride = detailsWithEpisodes(DanmakuEpisode("22", "Current", "2", "opaque-season")).replace("Chosen", "Chosen Season 7")
         // JSON numeric episode numbers must work as well as their string representation.
         val root = JSONObject(detailsOverride!!)
         root.getJSONObject("bangumi").getJSONArray("episodes").getJSONObject(0).put("episodeNumber", 2)
@@ -204,18 +202,19 @@ internal class DanmakuRepositoryTest(private val context: Context) {
         val movie = media.copy(key = "auto-movie", type = MediaType.MOVIE, plugin = null)
         val trailer = DanmakuEpisode("10", "Trailer", "0")
         val feature = DanmakuEpisode("11", "Feature", "1", "opaque")
-        detailsOverride = detailsWithEpisodes(trailer, feature)
+        detailsOverride = detailsWithEpisodes(trailer, feature).replace("\"year\":2023", "\"year\":2023,\"type\":\"Movie\"")
         check((repository.load(movie) as DanmakuLoad.Loaded).match?.episode?.id == "11")
         detailsOverride = detailsWithEpisodes(trailer)
-        check((repository.load(movie) as DanmakuLoad.Loaded).match?.episode?.id == "10")
-        detailsOverride = null
+        check(repository.load(movie) is DanmakuLoad.NeedsMatch)
+        detailsOverride = DETAILS.replace("\"year\":2023", "\"year\":2023,\"type\":\"Movie\"")
         queuedSearch.add(SEARCH_EMPTY); queuedSearch.add(SEARCH)
         paths.clear()
-        val original = repository.load(movie.copy(key = "original-fallback", originalTitle = "Original")) as DanmakuLoad.Loaded
+        val original = repository.load(movie.copy(key = "original-fallback", title = "Unknown", originalTitle = "Chosen")) as DanmakuLoad.Loaded
         check(original.automatic && original.match?.anime?.id == "1")
         check(paths.count { "/search/anime" in it } == 2)
         queuedSearch.add(SEARCH_EMPTY)
         check(repository.load(movie) is DanmakuLoad.NeedsMatch)
+        detailsOverride = null
     }
 
     private suspend fun restoreAutomatic(repository: DanmakuRepository, media: DanmakuMedia, services: DanmakuServices) {
@@ -229,27 +228,27 @@ internal class DanmakuRepositoryTest(private val context: Context) {
         check(!pinned.automatic && pinned.match?.anime?.id == "2")
         check(paths.none { "/search/anime" in it })
         store.restoreAuto(movie.key)
-        detailsOverride = null
+        detailsOverride = DETAILS.replace("\"year\":2023", "\"year\":2023,\"type\":\"Movie\"")
         paths.clear()
         val automatic = repository.load(movie) as DanmakuLoad.Loaded
         check(automatic.automatic && automatic.match?.anime?.id == "1")
         check(paths.any { "/search/anime" in it })
+        detailsOverride = null
     }
-
     private suspend fun keywordSequence(repository: DanmakuRepository, media: DanmakuMedia) {
         val current = media.copy(key = "search-sequence", title = "三体", plugin = null)
         queuedSearch.add(SEARCH_EMPTY); queuedSearch.add(SEARCH)
         paths.clear()
-        check((repository.load(current) as DanmakuLoad.Loaded).automatic)
+        check(repository.load(current) is DanmakuLoad.NeedsMatch)
         var searches = paths.filter { "/search/anime" in it }
         fun keyword(path: String) = java.net.URLDecoder.decode(path.substringAfter("keyword="), "UTF-8")
         check(listOf("三体 S01E01", "三体") == searches.map(::keyword))
         check(searches.first().contains("%E4%B8%89%E4%BD%93%20S01E01"))
         repeat(3) { queuedSearch.add(SEARCH_EMPTY) }; queuedSearch.add(SEARCH)
         paths.clear()
-        check(repository.load(current.copy(originalTitle = "Original")) is DanmakuLoad.Loaded)
+        check(repository.load(current.copy(originalTitle = "Chosen")) is DanmakuLoad.Loaded)
         searches = paths.filter { "/search/anime" in it }
-        check(listOf("三体 S01E01", "三体", "Original S01E01", "Original") == searches.map(::keyword))
+        check(listOf("三体 S01E01", "三体", "Chosen S01E01", "Chosen") == searches.map(::keyword))
         searchStatus = 500
         paths.clear()
         val failed = repository.load(current) as DanmakuLoad.Failed
@@ -286,7 +285,7 @@ internal class DanmakuRepositoryTest(private val context: Context) {
         }
     }
 
-    private fun media(port: Int) = DanmakuMedia("item", "server", "Uncertain", null,
+    private fun media(port: Int) = DanmakuMedia("item", "server", "Chosen", null,
         MediaType.EPISODE, 2023, 1, 1, ServerDanmaku("http://127.0.0.1:$port/plugin",
             mapOf("X-Emby-Token" to "media-only"), ServerDanmakuFormat.XML))
 

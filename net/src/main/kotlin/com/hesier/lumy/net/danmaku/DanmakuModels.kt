@@ -6,6 +6,8 @@ import java.security.MessageDigest
 
 data class DanmakuComment(val id: Long, val timeMs: Long, val text: String, val mode: Int, val color: Int)
 data class DanmakuMatchCandidate(val animeId: String, val episodeId: String, val shiftMs: Long = 0)
+data class DanmakuMatchResponse(val isMatched: Boolean?, val candidates: List<DanmakuMatchCandidate>,
+    val truncated: Boolean = false)
 data class DanmakuEpisode(val id: String, val title: String, val number: String? = null, val seasonId: String? = null)
 data class DanmakuAnime(val id: String, val title: String, val type: String? = null,
     val year: Int? = null, val episodes: List<DanmakuEpisode> = emptyList())

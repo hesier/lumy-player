@@ -73,7 +73,7 @@ class DanmakuPluginLiveTest(private val instrumentation: Instrumentation) {
 
     private fun seedManual(media: DanmakuMedia, services: DanmakuServices): DanmakuMatch {
         val choice = DanmakuChoice(DanmakuSourceKind.CUSTOM, services.endpoint.identity)
-        val anime = DanmakuAnime("A", "Flow A", episodes = emptyList())
+        val anime = DanmakuAnime("A", "Flow Show", episodes = emptyList())
         val episode = DanmakuEpisode("A2", "Flow A episode 2", "2", "opaque")
         return DanmakuMatch(choice, anime, episode, media.year, media.season, media.number).also { store.remember(media.key, it) }
     }

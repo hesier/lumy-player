@@ -75,10 +75,10 @@ class DanmakuApiTest {
         assertFalse(failure.stackTraceToString().contains("secret"))
     }
 
-    @Test fun customMatchPreservesPrefixUnicodeBodyAndFirstNumericCandidate() = runBlocking {
+    @Test fun customMatchPreservesPrefixUnicodeBodyAndNumericIds() = runBlocking {
         server.enqueue(MockResponse().setBody("""{"success":true,"isMatched":true,"matches":[
             {"animeId":2452047,"episodeId":11410},{"animeId":9,"episodeId":10}]}"""))
-        assertEquals(DanmakuMatchCandidate("2452047", "11410"), api("/proxy/token/").match("三体 S01E01"))
+        assertEquals(DanmakuMatchCandidate("2452047", "11410"), api("/proxy/token/").firstMatch("三体 S01E01"))
         val request = server.takeRequest()
         assertEquals("POST", request.method)
         assertEquals("/proxy/token/api/v2/match", request.path)
@@ -95,7 +95,7 @@ class DanmakuApiTest {
         server.enqueue(MockResponse().setBody("""{"success":true,"bangumi":{
             "animeId":2452047,"bangumiId":"opaque-bangumi","animeTitle":"show","episodes":[]}}"""))
         val api = api("/prefix/api/v2/")
-        val match = checkNotNull(api.match("show S01E01"))
+        val match = checkNotNull(api.firstMatch("show S01E01"))
         assertEquals(DanmakuMatchCandidate("2452047", "opaque/episode"), match)
         assertEquals("opaque-bangumi", api.details(match.animeId).id)
         assertEquals("/prefix/api/v2/match", server.takeRequest().path)
@@ -108,7 +108,7 @@ class DanmakuApiTest {
             "-9223372036854775.808" to Long.MIN_VALUE).forEach { (shift, expected) ->
             val extra = shift?.let { ",\"shift\":$it" }.orEmpty()
             server.enqueue(MockResponse().setBody("""{"success":true,"matches":[{"animeId":1,"episodeId":2$extra}]}"""))
-            assertEquals(DanmakuMatchCandidate("1", "2", expected), api().match("show S01E01"))
+            assertEquals(DanmakuMatchCandidate("1", "2", expected), api().firstMatch("show S01E01"))
         }
     }
 
@@ -116,23 +116,27 @@ class DanmakuApiTest {
         listOf("\"1.5\"", "true", "{}", "[]", "NaN", "Infinity", "1e309",
             "9223372036854775.808", "-9223372036854775.809").forEach { shift ->
             server.enqueue(MockResponse().setBody("""{"matches":[{"animeId":1,"episodeId":2,"shift":$shift}]}"""))
-            val error = runCatching { api().match("show S01E01") }.exceptionOrNull() as DanmakuException
+            val error = runCatching { api().firstMatch("show S01E01") }.exceptionOrNull() as DanmakuException
             assertEquals(DanmakuFailure.INVALID_RESPONSE, error.reason)
         }
     }
 
-    @Test fun inexactMatchStillReturnsTheFirstCandidate() = runBlocking {
+    @Test fun inexactMatchPreservesAllCandidatesAndConfirmationState() = runBlocking {
         server.enqueue(MockResponse().setBody("""{"success":true,"isMatched":false,"matches":[
             {"animeId":"first-anime","episodeId":"first-episode"},
             {"animeId":"second-anime","episodeId":"second-episode"}]}"""))
-        assertEquals(DanmakuMatchCandidate("first-anime", "first-episode"), api().match("show S01E01"))
+        val response = checkNotNull(api().match("show S01E01"))
+        assertEquals(false, response.isMatched)
+        assertFalse(response.truncated)
+        assertEquals(listOf(DanmakuMatchCandidate("first-anime", "first-episode"),
+            DanmakuMatchCandidate("second-anime", "second-episode")), response.candidates)
     }
 
     @Test fun matchSupportsInt64IdsAndEscapesSyntheticTitle() = runBlocking {
         server.enqueue(MockResponse().setBody("""{"success":true,"isMatched":true,
             "matches":[{"animeId":9223372036854775806,"episodeId":9223372036854775805}]}"""))
         assertEquals(DanmakuMatchCandidate("9223372036854775806", "9223372036854775805"),
-            api().match("三体 \"special\" S01E01"))
+            api().firstMatch("三体 \"special\" S01E01"))
         val json = kotlinx.serialization.json.Json.parseToJsonElement(server.takeRequest().body.readUtf8())
             as kotlinx.serialization.json.JsonObject
         assertEquals("三体 \"special\" S01E01", json.getValue("fileName").text())
@@ -145,11 +149,11 @@ class DanmakuApiTest {
             """{"success":true,"matches":null}""",
             """{"success":true,"isMatched":true,"matches":[]}""").forEach { body ->
             server.enqueue(MockResponse().setBody(body))
-            assertNull(api().match("show S01E01"))
+            assertNull(api().firstMatch("show S01E01"))
         }
         listOf(404, 405, 501).forEach { code ->
             server.enqueue(MockResponse().setResponseCode(code).setBody("not supported"))
-            assertNull(api().match("show S01E01"))
+            assertNull(api().firstMatch("show S01E01"))
         }
     }
 
@@ -162,20 +166,20 @@ class DanmakuApiTest {
             """{"success":true,"isMatched":true}""", """{"success":true,"isMatched":true,"matches":null}""",
             """{"success":true,"isMatched":false,"matches":{}}""", "not JSON").forEach { body ->
             server.enqueue(MockResponse().setBody(body))
-            val error = runCatching { api().match("show S01E01") }.exceptionOrNull() as DanmakuException
+            val error = runCatching { api().firstMatch("show S01E01") }.exceptionOrNull() as DanmakuException
             assertEquals(DanmakuFailure.INVALID_RESPONSE, error.reason)
         }
     }
 
     @Test fun matchRetainsBusinessAndHttpFailuresWithoutLeakingPrivateData() = runBlocking {
         server.enqueue(MockResponse().setBody("""{"success":false,"errorMessage":"private-token","matches":[]}"""))
-        val business = runCatching { api("/private-token/").match("show S01E01") }.exceptionOrNull() as DanmakuException
+        val business = runCatching { api("/private-token/").firstMatch("show S01E01") }.exceptionOrNull() as DanmakuException
         assertEquals(DanmakuFailure.UNAVAILABLE, business.reason)
         assertFalse(business.stackTraceToString().contains("private-token"))
         mapOf(401 to DanmakuFailure.AUTH, 429 to DanmakuFailure.RATE_LIMITED, 500 to DanmakuFailure.UNAVAILABLE)
             .forEach { (code, expected) ->
                 server.enqueue(MockResponse().setResponseCode(code))
-                val failure = runCatching { api().match("show S01E01") }.exceptionOrNull() as DanmakuException
+                val failure = runCatching { api().firstMatch("show S01E01") }.exceptionOrNull() as DanmakuException
                 assertEquals(expected, failure.reason)
             }
     }
@@ -200,7 +204,7 @@ class DanmakuApiTest {
         }.build()
         val official = DanmakuApi(http, DanmakuEndpoint(DanmakuEndpoint.OFFICIAL_URL,
             official = true, DanmakuCredentials("app", "secret")))
-        assertEquals(DanmakuMatchCandidate("1", "2"), official.match("show S01E01"))
+        assertEquals(DanmakuMatchCandidate("1", "2"), official.firstMatch("show S01E01"))
     }
 
     @Test fun officialWithoutCredentialsFailsBeforeNetwork() = runBlocking {
@@ -227,4 +231,22 @@ class DanmakuApiTest {
             official = true, DanmakuCredentials("app", "secret")))
         assertTrue(official.comments("1").isEmpty())
     }
+    @Test fun matchBoundsUniqueMappingsAndRetainsConflictingOffsets() = runBlocking {
+        val rows = (1..8).joinToString(",") { """{"animeId":"a$it","episodeId":"e$it"}""" }
+        server.enqueue(MockResponse().setBody("""{"isMatched":true,"matches":[$rows]}"""))
+        val truncated = checkNotNull(api().match("show"))
+        assertEquals(true, truncated.isMatched)
+        assertEquals(6, truncated.candidates.size)
+        assertTrue(truncated.truncated)
+        server.enqueue(MockResponse().setBody("""{"matches":[
+            {"animeId":1,"episodeId":2,"shift":1.5},{"animeId":1,"episodeId":2,"shift":1.5},
+            {"animeId":1,"episodeId":2,"shift":-0.5}]}"""))
+        val suggestions = checkNotNull(api().match("show"))
+        assertNull(suggestions.isMatched)
+        assertEquals(listOf(1500L, -500L), suggestions.candidates.map { it.shiftMs })
+        assertFalse(suggestions.truncated)
+    }
+
+    private suspend fun DanmakuApi.firstMatch(fileName: String) = match(fileName)?.candidates?.firstOrNull()
+
 }

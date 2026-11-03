@@ -30,7 +30,7 @@ class DanmakuStore(context: Context, name: String = "danmaku") {
         DanmakuMatch(DanmakuChoice(DanmakuSourceKind.valueOf(data.getString("kind")), source),
             DanmakuAnime(data.getString("animeId"), data.getString("animeTitle"), data.optString("animeType").ifEmpty { null }, data.optionalInt("animeYear")),
             DanmakuEpisode(data.getString("episodeId"), data.getString("episodeTitle"), data.optString("episodeNumber").ifEmpty { null }, data.optString("episodeSeason").ifEmpty { null }),
-            data.optionalInt("year"), data.optionalInt("season"), data.optionalInt("number"))
+            data.optionalInt("year"), data.optionalInt("season"), data.optionalInt("number"), data.optLong("sourceOffsetMs", 0))
     }.getOrNull()
 
     internal fun remember(media: String, value: DanmakuMatch) {
@@ -39,6 +39,7 @@ class DanmakuStore(context: Context, name: String = "danmaku") {
             .put("episodeId", value.episode.id)
             .put("episodeTitle", value.episode.title).put("episodeNumber", value.episode.number).put("episodeSeason", value.episode.seasonId)
             .put("year", value.year).put("season", value.season).put("number", value.number)
+            .put("sourceOffsetMs", value.sourceOffsetMs)
         prefs.edit().putString("match:$media:${value.choice.identity}", data.toString()).apply()
         choose(media, value.choice)
     }

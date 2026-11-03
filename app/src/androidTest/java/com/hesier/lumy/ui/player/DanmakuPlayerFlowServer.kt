@@ -15,6 +15,7 @@ internal class DanmakuPlayerFlowServer : AutoCloseable {
     val paths = CopyOnWriteArrayList<String>()
     @Volatile var failComments = false
     @Volatile var matchBody: String? = null
+    @Volatile var ambiguous = false
     private val worker = Thread {
         while (!socket.isClosed) runCatching { socket.accept().use(::respond) }
     }.apply { isDaemon = true; start() }
@@ -52,7 +53,7 @@ internal class DanmakuPlayerFlowServer : AutoCloseable {
 
     private fun search(ids: List<String>): String {
         val rows = JSONArray()
-        ids.forEach { rows.put(JSONObject().put("animeId", it).put("animeTitle", "Flow $it")) }
+        ids.forEach { rows.put(JSONObject().put("animeId", it).put("animeTitle", title(it))) }
         return JSONObject().put("success", true).put("animes", rows).toString()
     }
 
@@ -61,8 +62,10 @@ internal class DanmakuPlayerFlowServer : AutoCloseable {
         for (number in 1..3) episodes.put(JSONObject().put("episodeId", "$id$number")
             .put("episodeTitle", "Flow $id episode $number").put("episodeNumber", number).put("seasonId", "opaque"))
         return JSONObject().put("success", true).put("bangumi", JSONObject()
-            .put("animeId", id).put("animeTitle", "Flow $id").put("episodes", episodes)).toString()
+            .put("animeId", id).put("animeTitle", title(id)).put("episodes", episodes)).toString()
     }
+
+    private fun title(id: String) = if (id == "A" || ambiguous) "Flow Show" else "Flow $id"
 
     private fun comments(id: String): String {
         val rows = JSONArray()
