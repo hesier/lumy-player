@@ -85,7 +85,7 @@ class BackupTransferServerTest {
             assertEquals(200, response.status)
             assertArrayEquals(payload, response.body)
             assertTrue(response.headers.contains("application/octet-stream"))
-            assertTrue(response.headers.contains("filename=\"Lumy-backup.lumy\""))
+            assertTrue(Regex("""filename="Lumy-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.lumy"""").containsMatchIn(response.headers))
             assertTrue(response.headers.contains("Cache-Control: no-store"))
             assertTrue(s.isRunning)
         }

@@ -8,6 +8,8 @@ import java.net.Socket
 import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.Timer
 import java.util.TimerTask
@@ -26,6 +28,7 @@ class BackupTransferServer(
         private const val REQUEST_MILLIS = 5000L
     }
 
+    private val downloadName = "Lumy-backup-${SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(Date())}.lumy"
     private val token = ByteArray(24).also { SecureRandom().nextBytes(it) }
         .joinToString("") { "%02x".format(it.toInt() and 255) }
     private val lifetime = lifetimeMillis.also { require(it >= 0) { "Invalid transfer lifetime" } }
@@ -173,7 +176,7 @@ class BackupTransferServer(
         type: String = "text/plain",
         attachment: Boolean = false,
     ) {
-        val disposition = if (attachment) "Content-Disposition: attachment; filename=\"Lumy-backup.lumy\"\r\n" else ""
+        val disposition = if (attachment) "Content-Disposition: attachment; filename=\"$downloadName\"\r\n" else ""
         val headers = "HTTP/1.1 $status Response\r\nContent-Type: $type\r\nContent-Length: ${bytes.size}\r\n" +
             disposition + "Connection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\n" +
             "X-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\n" +

@@ -23,6 +23,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /** Create during Activity.onCreate so document launchers register before STARTED. */
 internal class BackupController(private val activity: FragmentActivity) : DefaultLifecycleObserver {
@@ -72,7 +75,8 @@ internal class BackupController(private val activity: FragmentActivity) : Defaul
                 if (phone) showTransfer(bytes) {}
                 else {
                     pendingExport = bytes
-                    try { saveFile.launch("Lumy-backup.lumy") } catch (_: ActivityNotFoundException) {
+                    val stamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(Date())
+                    try { saveFile.launch("Lumy-backup-$stamp.lumy") } catch (_: ActivityNotFoundException) {
                         pendingExport = null
                         message(R.string.backup_no_picker)
                     }

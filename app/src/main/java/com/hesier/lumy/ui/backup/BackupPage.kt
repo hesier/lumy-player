@@ -42,7 +42,8 @@ internal fun backupPage(context: Context, downloading: Boolean): String {
             if(!response.ok)throw new Error();
             if(downloading){
               const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');
-              link.href=url;link.download='Lumy-backup.lumy';document.body.appendChild(link);link.click();link.remove();
+              const filename=(response.headers.get('Content-Disposition')||'').match(/filename="([^"]+)"/);
+              link.href=url;link.download=filename?filename[1]:'Lumy-backup.lumy';document.body.appendChild(link);link.click();link.remove();
               setTimeout(()=>URL.revokeObjectURL(url),60000);send.disabled=false;
             }else{form.reset();form.hidden=true;}
             status.textContent=document.getElementById('success').content.textContent;
