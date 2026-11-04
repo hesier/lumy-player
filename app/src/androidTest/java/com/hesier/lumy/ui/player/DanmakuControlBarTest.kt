@@ -34,9 +34,10 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
     private lateinit var binding: ActivityPlayerBinding
     private lateinit var player: ExoPlayer
     private val unexpected = CopyOnWriteArrayList<String>()
+    private val playback = SkipPlaybackProbe()
     private val serverField = LumyApp::class.java.getDeclaredField("server").apply { isAccessible = true }
 
-    fun runAll(): String {
+    fun runAll(skipOnly: Boolean = false): String {
         instrumentation.waitForIdleSync()
         await("application session initialized") { main { runCatching { app.currentEntry != null }.getOrDefault(false) } }
         requireSafeTasks()
@@ -67,6 +68,11 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)) as PlayerActivity
             main { binding = field("binding") as ActivityPlayerBinding; player = field("player") as ExoPlayer }
             await("local PlayerActivity playback") { main { player.isPlaying && binding.buttons.childCount >= 4 } }
+            if (skipOnly) {
+                TranscodeSkipTest(instrumentation, activity, playback).runAll()
+                check(unexpected.isEmpty()) { "Unexpected fixture server calls: $unexpected" }
+                return "Coalesced transcode skips, final target, immediate buffered seeks, explicit seek/version cancellation and late source rejection passed"
+            }
             check(!hasDanmakuButton()) { "Disabled master switch still exposes the danmaku entry" }
             main { DanmakuSettings(prefs).enabled = true }
             await("master switch adds the danmaku entry") { hasDanmakuButton() }
@@ -113,7 +119,9 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
                 "playbackSource" -> {
                     val request = args?.firstOrNull() as PlaybackRequest
                     check(request.item.id == FIXTURE_ID)
-                    PlaybackSource(listOf(file.toURI().toString()), false, emptyList(), 0, request.startMs)
+                    val source = PlaybackSource(listOf(file.toURI().toString()), false, emptyList(), 0, request.startMs)
+                    @Suppress("UNCHECKED_CAST")
+                    playback.source(request, source, args!!.last() as kotlin.coroutines.Continuation<PlaybackSource>)
                 }
                 "playbackHeaders" -> emptyMap<String, String>()
                 "reportProgress", "stopPlayback", "saveStreamSelection" -> Unit

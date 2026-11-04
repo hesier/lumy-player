@@ -35,6 +35,7 @@ class PgsInstrumentation : Instrumentation() {
     private var seekSettingsOnly = false
     private var holdSpeedOnly = false
     private var playerControlsOnly = false
+    private var transcodeSkipOnly = false
     private var sidebarInputOnly = false
     private var rmFixture: String? = null
     private var softwareFixture: String? = null
@@ -64,6 +65,7 @@ class PgsInstrumentation : Instrumentation() {
         trackMemoryOnly = arguments?.getString("track_memory_only") == "true"
         backupOnly = arguments?.getString("backup_only") == "true"
         playerControlsOnly = arguments?.getString("player_controls_only") == "true"
+        transcodeSkipOnly = arguments?.getString("transcode_skip_only") == "true"
         sidebarInputOnly = arguments?.getString("sidebar_input_only") == "true"
         holdSpeedOnly = arguments?.getString("hold_speed_only") == "true"
         playbackNoticeOnly = arguments?.getString("playback_notice_only") == "true"
@@ -177,6 +179,11 @@ class PgsInstrumentation : Instrumentation() {
             }
             if (playerControlsOnly) {
                 result.putString("stream", PlayerControlsPlaybackTest(this).runAll() + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (transcodeSkipOnly) {
+                result.putString("stream", DanmakuControlBarTest(this).runAll(skipOnly = true) + "\n")
                 finish(Activity.RESULT_OK, result)
                 return
             }

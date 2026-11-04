@@ -331,6 +331,7 @@ class PlayerActivity : ThemedActivity() {
 
     /** 在同一个播放器里换成另一集（下一集 / 从剧集行选的） */
     private fun switchTo(next: MediaItem, startMs: Long) {
+        cancelScrub()
         playbackNotice.clear()
         danmaku.clear()
         danmakuProbe.reset()
@@ -367,6 +368,7 @@ class PlayerActivity : ThemedActivity() {
      * 某一级没有符合的轨道时交给下一级。
      */
     private fun selectVersion(v: MediaVersion) {
+        cancelScrub()
         playbackNotice.clear()
         danmakuProbe.reset()
         secondarySubtitle = null
@@ -387,6 +389,7 @@ class PlayerActivity : ThemedActivity() {
     // ---- 起播 ----
 
     private fun start(positionMs: Long, playWhenReady: Boolean = true) {
+        cancelScrub()
         holdSpeedGesture.cancel()
         startJob?.cancel()
         bitmapSubtitles.clear()
@@ -521,26 +524,29 @@ class PlayerActivity : ThemedActivity() {
             ?: (player.duration.takeIf { it != C.TIME_UNSET }?.plus(partBase(player.currentMediaItemIndex)) ?: 0)
 
     private fun seekTo(target: Long) {
+        cancelScrub()
         val t = target.coerceIn(0, (durationMs - 1_000).coerceAtLeast(0))
         val part = version.partAt(t)
         val local = version.localOffset(t, part)
         DebugLog.i(TAG, "seek target=$t part=$part local=$local")
         // 转码流只有已经转好的片段可以直接跳；跨段、跳到缓冲之后、或早于转码起点时，
         // 让服务器从目标位置重新转码（官方客户端也是这么做的），否则会请求到不存在的片段（404）
-        val transcoding = plan?.mode is PlaybackMode.Transcode
-        // 视频已在重新编码时，渲染不了的字幕总是交给服务器烧录（见 PlaybackPlanner）
-        val reencoding = (plan?.mode as? PlaybackMode.Transcode)?.copyVideo == false
-        val outsideTranscoded = part != player.currentMediaItemIndex || t > bufferedMs + 5_000 ||
-            (part == startPart && local < timeBase)
-        // 带内封字幕的 MKV 转码流不能跳转（播放器会退回开头），总是重新起播
-        val embedded = (plan?.mode as? PlaybackMode.Transcode)?.embedSubtitleId != null
-        if (transcoding && (outsideTranscoded || embedded)) {
+        if (needsTranscodeRestart(t)) {
             start(t)
             return
         }
-        if (!transcoding && fallBackIfUnseekable(t)) return
+        if (plan?.mode !is PlaybackMode.Transcode && fallBackIfUnseekable(t)) return
         pendingSeekMs = t
         if (part == startPart) player.seekTo(part, local - timeBase) else player.seekTo(part, local)
+    }
+
+    private fun needsTranscodeRestart(target: Long): Boolean {
+        val mode = plan?.mode as? PlaybackMode.Transcode ?: return false
+        // The player still exposes the old buffer while a replacement source is pending.
+        if (startJob?.isActive == true) return true
+        val part = version.partAt(target)
+        return mode.embedSubtitleId != null || part != player.currentMediaItemIndex || target > bufferedMs + 5_000 ||
+            (part == startPart && version.localOffset(target, part) < timeBase)
     }
 
     /**
@@ -1122,18 +1128,34 @@ class PlayerActivity : ThemedActivity() {
     }
 
     private fun commitScrub() {
-        scrubJob?.cancel()
         val target = scrubTarget ?: return
-        scrubTarget = null
+        cancelScrub()
         seekTo(target)
         updateProgress()
+    }
+
+    private fun cancelScrub() {
+        scrubJob?.cancel()
+        scrubJob = null
+        scrubTarget = null
     }
 
     /** 提示还在显示时连续快进/快退，累计显示总跳转量（按两次右键显示 +60 秒） */
     private var skipTotalMs = 0L
 
     private fun skip(deltaMs: Long) {
-        seekTo(positionMs + deltaMs)
+        val target = ((scrubTarget ?: positionMs) + deltaMs)
+            .coerceIn(0, (durationMs - 1_000).coerceAtLeast(0))
+        cancelScrub()
+        if (needsTranscodeRestart(target)) {
+            // Coalesce remote repeats before replacing a server transcode session.
+            scrubTarget = target
+            scrubJob = lifecycleScope.launch {
+                delay(TRANSCODE_SKIP_DELAY_MS)
+                commitScrub()
+            }
+        } else seekTo(target)
+        updateProgress()
         if (binding.hint.visibility != View.VISIBLE) skipTotalMs = 0
         skipTotalMs += deltaMs
         val total = skipTotalMs
@@ -1694,6 +1716,7 @@ class PlayerActivity : ThemedActivity() {
 
     override fun onStop() {
         super.onStop()
+        cancelScrub()
         holdSpeedGesture.cancel()
         startJob?.cancel()
         // TV 上离开播放页就结束播放：上报停止（服务端据此记录进度/标记已看）并释放转码
@@ -1728,6 +1751,7 @@ class PlayerActivity : ThemedActivity() {
         /** dvhe.07.06 / dvh1.08.06 → 7 / 8 */
         private val DOVI_PROFILE = Regex("""^dv[ah][e1v]\.(\d+)""")
         private const val NETWORK_RETRY_DELAY_MS = 3_000L
+        private const val TRANSCODE_SKIP_DELAY_MS = 300L
         private val SUBTITLE_BACKGROUND = Color.argb(0x99, 0, 0, 0)
         private const val SUBTITLE_PADDING_WITH_CONTROLS = 0.36f
         private val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
