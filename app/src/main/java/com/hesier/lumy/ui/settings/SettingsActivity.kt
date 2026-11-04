@@ -79,11 +79,14 @@ class SettingsActivity : ThemedActivity() {
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.categories.layoutManager = LinearLayoutManager(this)
+        binding.categories.setHasFixedSize(true)
         binding.categories.adapter = categoryAdapter
         binding.categories.keepVerticalFocus = true
         // 从右侧按左键回到当前分类，而不是几何上最近的那一项
         binding.categories.preferredPosition = { category }
         binding.list.layoutManager = LinearLayoutManager(this)
+        binding.list.setHasFixedSize(true)
+        binding.list.itemAnimator = null
         binding.list.adapter = adapter
         binding.list.keepVerticalFocus = true
         binding.list.preferredPosition = { lastFocused[category] }
@@ -577,10 +580,16 @@ class SettingsActivity : ThemedActivity() {
     private inner class Adapter : RecyclerView.Adapter<ItemHolder>() {
         var rows: List<Row> = emptyList()
             set(value) {
-                val sameShape = field.size == value.size
+                val previous = field
                 field = value
-                // 行数不变时逐行刷新，焦点留在原处
-                if (sameShape) notifyItemRangeChanged(0, value.size) else notifyDataSetChanged()
+                // Ignore callback identity: clicks read the current rows without rebinding unchanged text.
+                if (previous.size != value.size) {
+                    notifyDataSetChanged()
+                } else {
+                    value.forEachIndexed { index, row ->
+                        if (!previous[index].hasSameContent(row)) notifyItemChanged(index)
+                    }
+                }
             }
 
         override fun getItemCount() = rows.size
@@ -589,6 +598,9 @@ class SettingsActivity : ThemedActivity() {
             val holder = ItemHolder(ItemSettingBinding.inflate(LayoutInflater.from(parent.context), parent, false))
             holder.itemView.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus && holder.bindingAdapterPosition >= 0) lastFocused[category] = holder.bindingAdapterPosition
+            }
+            holder.itemView.setOnClickListener {
+                rows.getOrNull(holder.bindingAdapterPosition)?.onClick?.invoke()
             }
             return holder
         }
@@ -626,9 +638,12 @@ class SettingsActivity : ThemedActivity() {
             b.detail.visibility = if (row.detail == null) View.GONE else View.VISIBLE
             b.icon.visibility = if (row.icon == null) View.GONE else View.VISIBLE
             row.icon?.let(b.icon::setImageResource)
-            b.root.setOnClickListener { row.onClick() }
         }
     }
+
+    private fun Row.hasSameContent(other: Row): Boolean =
+        label == other.label && value == other.value && detail == other.detail &&
+            icon == other.icon && detailMaxLines == other.detailMaxLines
 
     private companion object {
         const val KEY_CATEGORY = "category"
