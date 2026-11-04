@@ -35,6 +35,7 @@ class PgsInstrumentation : Instrumentation() {
     private var seekSettingsOnly = false
     private var holdSpeedOnly = false
     private var playerControlsOnly = false
+    private var sidebarInputOnly = false
     private var rmFixture: String? = null
     private var softwareFixture: String? = null
     private var rmAudioMime = "audio/cook"
@@ -63,6 +64,7 @@ class PgsInstrumentation : Instrumentation() {
         trackMemoryOnly = arguments?.getString("track_memory_only") == "true"
         backupOnly = arguments?.getString("backup_only") == "true"
         playerControlsOnly = arguments?.getString("player_controls_only") == "true"
+        sidebarInputOnly = arguments?.getString("sidebar_input_only") == "true"
         holdSpeedOnly = arguments?.getString("hold_speed_only") == "true"
         playbackNoticeOnly = arguments?.getString("playback_notice_only") == "true"
         bandwidthSettingsOnly = arguments?.getString("bandwidth_settings_only") == "true"
@@ -77,6 +79,11 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (sidebarInputOnly) {
+                result.putString("stream", com.hesier.lumy.ui.SidebarInputTest(this).runAll() + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (danmakuCacheOnly) {
                 result.putString("stream", com.hesier.lumy.data.DanmakuCacheTest(targetContext).runAll() + "\n")
                 finish(Activity.RESULT_OK, result)

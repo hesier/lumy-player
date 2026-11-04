@@ -146,7 +146,10 @@ class HomeActivity : ThemedActivity(), HomeHost {
             if (inside && (old == null || !old.isInside(binding.sidebar))) {
                 // 从内容区进入侧边栏时，焦点落在当前页面对应的项上
                 navItems.firstOrNull { it.binding.root.isActivated }?.binding?.root
-                    ?.takeIf { it != new }?.let { it.post { it.requestFocus() } }
+                    ?.takeIf { it != new }?.let { target -> target.post {
+                        // Pointer input may leave the rail before its deferred focus restoration runs.
+                        if (currentFocus === new) target.requestFocus()
+                    } }
             }
             setSidebarExpanded(inside)
         }
@@ -242,7 +245,12 @@ class HomeActivity : ThemedActivity(), HomeHost {
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         // 侧边栏展开时点内容区只收起侧边栏，不点到下面的卡片
-        if (sidebarExpanded && ev.actionMasked == MotionEvent.ACTION_DOWN && ev.x > binding.sidebar.width) {
+        // Entering touch mode may clear sidebar focus before this DOWN reaches the Activity.
+        val panelVisible = sidebarExpanded || binding.sidebar.revealedWidth >
+            resources.getDimensionPixelSize(R.dimen.sidebar_collapsed)
+        if (panelVisible && ev.actionMasked == MotionEvent.ACTION_DOWN &&
+            ev.x >= binding.sidebar.left + binding.sidebar.revealedWidth
+        ) {
             setSidebarExpanded(false)
             return true
         }
@@ -275,7 +283,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
         if (expanded == sidebarExpanded) return
         sidebarExpanded = expanded
         val res = resources
-        val from = binding.sidebar.layoutParams.width
+        val from = binding.sidebar.revealedWidth
         val to = res.getDimensionPixelSize(if (expanded) R.dimen.sidebar_expanded else R.dimen.sidebar_collapsed)
         binding.sidebar.background = if (expanded) ContextCompat.getDrawable(this, R.drawable.sidebar_bg) else null
         binding.sidebar.animate().alpha(if (expanded) 1f else SIDEBAR_INACTIVE_ALPHA).setDuration(160).start()
@@ -283,8 +291,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
         sidebarAnimator = ValueAnimator.ofInt(from, to).apply {
             duration = 160
             addUpdateListener {
-                binding.sidebar.layoutParams.width = it.animatedValue as Int
-                binding.sidebar.requestLayout()
+                binding.sidebar.revealedWidth = it.animatedValue as Int
             }
             start()
         }
@@ -296,6 +303,17 @@ class HomeActivity : ThemedActivity(), HomeHost {
 
     private fun android.view.ViewGroup.labels(): List<View> =
         (0 until childCount).mapNotNull { getChildAt(it).findViewById(R.id.label) }
+
+    override fun onDestroy() {
+        sidebarAnimator?.cancel()
+        if (::binding.isInitialized) {
+            binding.sidebar.animate().cancel()
+            (binding.sidebarHeader.labels() + binding.sidebarItems.labels() + binding.sidebarFooter.labels()).forEach {
+                it.animate().cancel()
+            }
+        }
+        super.onDestroy()
+    }
 
     private fun View.isInside(parent: View): Boolean {
         var v: View? = this

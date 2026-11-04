@@ -25,9 +25,9 @@
         android:layout_marginStart="@dimen/sidebar_collapsed" />
 
     <!-- 侧边栏浮在内容上方，获得焦点时展开 -->
-    <LinearLayout
+    <com.hesier.lumy.ui.widget.SidebarLayout
         android:id="@+id/sidebar"
-        android:layout_width="@dimen/sidebar_collapsed"
+        android:layout_width="@dimen/sidebar_expanded"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:paddingStart="12dp"
@@ -76,5 +76,5 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
             android:orientation="vertical" />
-    </LinearLayout>
+    </com.hesier.lumy.ui.widget.SidebarLayout>
 </FrameLayout>
