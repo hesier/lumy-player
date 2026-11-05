@@ -14,6 +14,10 @@ internal class DanmakuAutoMatch(private val api: DanmakuApi, private val timeout
     private var unseenUpperBound = Double.NEGATIVE_INFINITY
 
     suspend fun run(media: DanmakuMedia): DanmakuDecision {
+        return DanmakuDiagnostics.stage(DanmakuStage.IDENTIFY) { identifyWithDeadline(media) }
+    }
+
+    private suspend fun identifyWithDeadline(media: DanmakuMedia): DanmakuDecision {
         val result = withTimeoutOrNull(timeoutMs) { identify(media) }
         if (result != null) return result
         val complete = assessments.any { it.titleScore >= MIN_RELEVANCE && it.suggestion.episode != null }
@@ -24,8 +28,9 @@ internal class DanmakuAutoMatch(private val api: DanmakuApi, private val timeout
 
     private suspend fun identify(media: DanmakuMedia): DanmakuDecision {
         val keywords = DanmakuMatcher.keywords(media)
-        val response = if (keywords.isNotEmpty() && (media.type == MediaType.MOVIE || keywords.size > 1)) api.match(keywords.first()) else null
-        incomplete = response?.truncated == true
+        val response = if (keywords.isNotEmpty() && (media.type == MediaType.MOVIE || keywords.size > 1))
+            bounded("match") { api.match(keywords.first()) } else null
+        incomplete = incomplete || response?.truncated == true
         if (response != null) {
             val direct = inspectMatches(media, response)
             if (direct != null) return direct
@@ -63,7 +68,7 @@ internal class DanmakuAutoMatch(private val api: DanmakuApi, private val timeout
         val keywords = titles.flatMap { DanmakuMatcher.keywords(media, it) }.distinctBy { normalizeKeyword(it) }
         val candidates = linkedMapOf<String, DanmakuAnime>()
         for (keyword in keywords.take(MAX_SEARCH_REQUESTS)) {
-            for (candidate in api.search(keyword)) {
+            for (candidate in bounded("search") { api.search(keyword) }.orEmpty()) {
                 candidates[candidate.id] = candidate
                 if (candidates.size > MAX_SEARCH_CANDIDATES) {
                     val removed = candidates.values.minWithOrNull(compareBy<DanmakuAnime> {
@@ -92,7 +97,7 @@ internal class DanmakuAutoMatch(private val api: DanmakuApi, private val timeout
         if (id in details) return details[id]
         if (requests >= MAX_DETAILS) { incomplete = true; return null }
         requests++
-        val result = try { api.details(id) }
+        val result = try { bounded("details") { api.details(id) } }
         catch (error: DanmakuException) {
             if (error.reason != DanmakuFailure.NOT_FOUND) throw error
             null
@@ -100,6 +105,15 @@ internal class DanmakuAutoMatch(private val api: DanmakuApi, private val timeout
         details[id] = result
         if (result != null) details[result.id] = result
         return result
+    }
+
+    private suspend fun <T> bounded(route: String, request: suspend () -> T): T? = try { request() }
+    catch (error: DanmakuException) {
+        if (error.reason != DanmakuFailure.TOO_LARGE) throw error
+        // An unseen candidate can still outrank the complete suggestions; never auto-select a partial set.
+        incomplete = true
+        DanmakuDiagnostics.oversized(route)
+        null
     }
 
     private fun markUninspected(media: DanmakuMedia, anime: DanmakuAnime) {

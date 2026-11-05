@@ -124,7 +124,9 @@ internal class PlayerDanmaku(
             if (version != generation || released || !enabled) return@launch
             loading = false
             result = loaded
-            if (loaded is DanmakuLoad.Loaded) overlay.setComments(loaded.comments, loaded.sourceOffsetMs)
+            if (loaded is DanmakuLoad.Loaded) DanmakuDiagnostics.stage(DanmakuStage.OVERLAY) {
+                overlay.setComments(loaded.comments, loaded.sourceOffsetMs)
+            }
             notifyResult(loaded, feedback)
             repository.serverFailure?.let { DebugLog.i("LumyDanmaku", "server plugin failed: $it") }
         }

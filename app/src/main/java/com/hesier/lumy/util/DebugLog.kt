@@ -16,11 +16,13 @@ object DebugLog {
     private var file: File? = null
     private val time = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
 
+    @Synchronized
     fun init(context: Context) {
         if (!BuildConfig.DEBUG) return
         file = File(context.filesDir, "debug.log").apply { if (length() > 512 * 1024) delete() }
     }
 
+    @Synchronized
     fun i(tag: String, message: String) {
         Log.i(tag, message)
         val f = file ?: return

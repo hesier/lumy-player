@@ -45,7 +45,7 @@ class PgsInstrumentation : Instrumentation() {
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
         performanceCheck = listOf("settings_frame_probe", "settings_layout_probe", "settings_row_measure_probe",
-            "settings_navigation_only")
+            "settings_navigation_only", "danmaku_oversize_only")
             .firstOrNull { arguments?.getString(it) == "true" }
         danmakuCacheOnly = arguments?.getString("danmaku_cache_only") == "true"
         danmakuOfficialLive = arguments?.getString("danmaku_official_live")
@@ -283,6 +283,7 @@ class PgsInstrumentation : Instrumentation() {
         "settings_layout_probe" -> com.hesier.lumy.ui.settings.SettingsFrameProbe(this).runAll(operations = true)
         "settings_row_measure_probe" -> com.hesier.lumy.ui.settings.SettingsRowMeasureProbe(this).runAll()
         "settings_navigation_only" -> com.hesier.lumy.ui.settings.SettingsNavigationTest(this).runScaledLanguageMatrix()
+        "danmaku_oversize_only" -> com.hesier.lumy.data.DanmakuOversizeTest(targetContext).runAll()
         else -> error("Unknown performance check")
     }
 }

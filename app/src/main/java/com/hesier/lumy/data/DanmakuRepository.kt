@@ -13,17 +13,21 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
     var serverFailure: DanmakuFailure? = null
         private set
 
-    suspend fun load(media: DanmakuMedia, force: Boolean = false): DanmakuLoad = withContext(Dispatchers.IO) {
+    suspend fun load(media: DanmakuMedia, force: Boolean = false): DanmakuLoad = DanmakuDiagnostics.stage(DanmakuStage.LOAD) {
+        withContext(Dispatchers.IO) { loadFromSources(media, force) }
+    }
+
+    private suspend fun loadFromSources(media: DanmakuMedia, force: Boolean): DanmakuLoad {
         val configured = runCatching { services.endpoint }.getOrNull()
         val manual = configured != null && store.match(media.key, configured.identity) != null
-        try {
+        return try {
             serverFailure = null
             // Explicit per-item choices remain active until the user restores automatic matching.
-            if (manual) return@withContext online(media, checkNotNull(configured), force)
+            if (manual) return online(media, checkNotNull(configured), force)
             if (media.plugin != null) {
                 try {
                     val plugin = plugin(media, force)
-                    if (plugin is DanmakuLoad.Loaded) return@withContext plugin
+                    if (plugin is DanmakuLoad.Loaded) return plugin
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (error: DanmakuException) { serverFailure = error.reason }
             }
@@ -59,7 +63,7 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
         val choice = DanmakuChoice(DanmakuSourceKind.SERVER, "server:${media.serverKey}")
         val key = "${choice.identity}:${media.key}:${media.versionId}:${danmakuHash(resource.url)}"
         if (force) store.invalidate(key)
-        val comments = store.cached(key) ?: run {
+        val comments = store.cached(key) ?: DanmakuDiagnostics.stage(DanmakuStage.COMMENTS) {
             val bytes = DanmakuTransport(http).get(resource.url, resource.headers)
             val format = if (resource.format == ServerDanmakuFormat.XML) DanmakuFormat.XML else DanmakuFormat.EMBY_JSON
             DanmakuParser.parse(bytes, format).also {
@@ -81,7 +85,13 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
                     automatic = saved == null, sourceOffsetMs = cachedMatch.sourceOffsetMs)
             }
         }
-        val selected = if (saved != null) resolveSaved(api, saved) else {
+        val selected = if (saved != null) try { resolveSaved(api, saved) }
+        catch (error: DanmakuException) {
+            if (error.reason != DanmakuFailure.TOO_LARGE) throw error
+            // Keep the explicit binding intact, but never replace it from incomplete recovery candidates.
+            DanmakuDiagnostics.oversized("saved_recovery")
+            return DanmakuLoad.NeedsMatch(choice, DanmakuMatchReason.INCOMPLETE)
+        } else {
             val decision = DanmakuAutoMatch(api).run(media)
             val suggestion = decision.selected ?: return DanmakuLoad.NeedsMatch(choice, decision.reason, decision.suggestions)
             DanmakuMatch(choice, suggestion.anime, checkNotNull(suggestion.episode), media.year, media.season,
@@ -92,7 +102,9 @@ internal class DanmakuRepository(private val services: DanmakuServices, private 
             store.remember(media.key, selected)
         val key = store.contentKey(selected)
         if (force) store.invalidate(key)
-        val comments = store.cached(key) ?: api.comments(selected.episode.id).also { if (it.isNotEmpty()) store.cache(key, it) }
+        val comments = store.cached(key) ?: DanmakuDiagnostics.stage(DanmakuStage.COMMENTS) {
+            api.comments(selected.episode.id).also { if (it.isNotEmpty()) store.cache(key, it) }
+        }
         if (saved == null && comments.isNotEmpty()) store.cacheAutomatic(media, selected)
         return if (comments.isEmpty()) DanmakuLoad.Empty(choice)
             else DanmakuLoad.Loaded(comments, choice, selected, automatic = saved == null, sourceOffsetMs = selected.sourceOffsetMs)
