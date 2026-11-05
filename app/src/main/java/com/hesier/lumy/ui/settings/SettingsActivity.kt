@@ -87,6 +87,8 @@ class SettingsActivity : ThemedActivity() {
         binding.list.layoutManager = LinearLayoutManager(this)
         binding.list.setHasFixedSize(true)
         binding.list.itemAnimator = null
+        // The default pool of five discards rows needed again when switching between categories.
+        binding.list.recycledViewPool.setMaxRecycledViews(0, MAX_RECYCLED_SETTING_ROWS)
         binding.list.adapter = adapter
         binding.list.keepVerticalFocus = true
         binding.list.preferredPosition = { lastFocused[category] }
@@ -646,6 +648,7 @@ class SettingsActivity : ThemedActivity() {
             icon == other.icon && detailMaxLines == other.detailMaxLines
 
     private companion object {
+        const val MAX_RECYCLED_SETTING_ROWS = 16
         const val KEY_CATEGORY = "category"
         const val KEY_LAST_FOCUSED = "last_focused"
         const val KEY_IN_LIST = "in_list"

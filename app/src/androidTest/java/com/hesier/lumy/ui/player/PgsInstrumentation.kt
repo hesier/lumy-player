@@ -8,6 +8,7 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
+    private var performanceCheck: String? = null
     private var danmakuCacheOnly = false
     private var danmakuOfficialLive: String? = null
     private var danmakuMemoryPhase: String? = null
@@ -43,6 +44,9 @@ class PgsInstrumentation : Instrumentation() {
 
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        performanceCheck = listOf("settings_frame_probe", "settings_layout_probe", "settings_row_measure_probe",
+            "settings_navigation_only")
+            .firstOrNull { arguments?.getString(it) == "true" }
         danmakuCacheOnly = arguments?.getString("danmaku_cache_only") == "true"
         danmakuOfficialLive = arguments?.getString("danmaku_official_live")
         if (arguments?.containsKey("danmaku_plugin_item") == true) danmakuPluginArguments = Bundle(arguments)
@@ -81,6 +85,11 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            performanceCheck?.let { check ->
+                result.putString("stream", runPerformanceCheck(check) + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (sidebarInputOnly) {
                 result.putString("stream", com.hesier.lumy.ui.SidebarInputTest(this).runAll() + "\n")
                 finish(Activity.RESULT_OK, result)
@@ -267,5 +276,13 @@ class PgsInstrumentation : Instrumentation() {
             result.putString("stream", Log.getStackTraceString(error))
             finish(Activity.RESULT_CANCELED, result)
         }
+    }
+
+    private fun runPerformanceCheck(check: String): String = when (check) {
+        "settings_frame_probe" -> com.hesier.lumy.ui.settings.SettingsFrameProbe(this).runAll()
+        "settings_layout_probe" -> com.hesier.lumy.ui.settings.SettingsFrameProbe(this).runAll(operations = true)
+        "settings_row_measure_probe" -> com.hesier.lumy.ui.settings.SettingsRowMeasureProbe(this).runAll()
+        "settings_navigation_only" -> com.hesier.lumy.ui.settings.SettingsNavigationTest(this).runScaledLanguageMatrix()
+        else -> error("Unknown performance check")
     }
 }
