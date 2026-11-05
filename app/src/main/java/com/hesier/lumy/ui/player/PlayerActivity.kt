@@ -195,11 +195,13 @@ class PlayerActivity : ThemedActivity() {
         planner = PlaybackPlanner(device)
         offsets.audioDelayMs = settings.audioDelayMs
         refreshRate = RefreshRateMatcher(this)
+        val startupTransfer = startupTiming?.let(::PlaybackStartupTimingTransfer)
         val bundle = PlayerFactory.create(
             this, app.plex.http, server.playbackHeaders(), offsets,
             passthrough = settings.passthrough, allowSoftwareVideo = settings.allowSoftwareVideoDecoding,
             seekBackMs = settings.seekBackMs, seekForwardMs = settings.seekForwardMs,
-            transferListener = startupTiming?.let(::PlaybackStartupTimingTransfer),
+            transferListener = startupTransfer,
+            callFactory = startupTransfer?.callFactory(app.plex.http),
         )
         player = bundle.player
         ass = bundle.ass

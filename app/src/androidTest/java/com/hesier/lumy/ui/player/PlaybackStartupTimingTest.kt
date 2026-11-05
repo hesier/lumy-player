@@ -22,6 +22,7 @@ class PlaybackStartupTimingTest(private val instrumentation: Instrumentation) {
             replacedAndCancelledEventsAreIgnored()
             lateRendererTimestampIsIgnored()
             cancelledTransferIsIgnored()
+            interleavedSourcesKeepIndependentCounts()
         }
         return "Startup timing: READY/first frame separation, event timeline attribution, late renderer/transfer cancellation and anonymous logs passed"
     }
@@ -145,6 +146,28 @@ class PlaybackStartupTimingTest(private val instrumentation: Instrumentation) {
         check(lines.count { "stage=HTTP_FIRST_READ" in it } == 1)
         check(lines.single { "stage=HTTP_TRANSFER_END" in it }.contains("bytes=63"))
         check(lines.none { "private-title" in it || "secret" in it || "https://" in it })
+    }
+
+    private fun interleavedSourcesKeepIndependentCounts() {
+        val lines = mutableListOf<String>()
+        val timing = PlaybackStartupTiming(output = lines::add)
+        val listener = PlaybackStartupTimingTransfer(timing)
+        val attempt = timing.begin()
+        val spec = DataSpec.Builder().setUri("https://fixture.invalid").setKey(attempt.key).build()
+        val first = ByteArrayDataSource(byteArrayOf(1))
+        val second = ByteArrayDataSource(byteArrayOf(2))
+        listener.onTransferInitializing(first, spec, true)
+        listener.onTransferInitializing(second, spec, true)
+        listener.onBytesTransferred(first, spec, true, 3)
+        listener.onBytesTransferred(second, spec, true, 5)
+        listener.onBytesTransferred(first, spec, true, 4)
+        listener.onTransferEnd(first, spec, true)
+        listener.onBytesTransferred(second, spec, true, 6)
+        listener.onTransferEnd(second, spec, true)
+        val closed = lines.filter { "phase=transfer_end" in it }
+        check(closed.size == 2)
+        check(closed.single { "http=1 " in it }.contains("deliveredBytes=7"))
+        check(closed.single { "http=2 " in it }.contains("deliveredBytes=11"))
     }
 
     private fun event(attempt: PlaybackStartupTiming.Attempt?, now: Long,

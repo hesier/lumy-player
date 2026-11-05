@@ -14,6 +14,7 @@ internal class PlaybackStartupTiming(
         val key = "lumy-startup-$number"
         internal val stages = mutableMapOf<Stage, Long>()
         internal var completed = false
+        internal var networkRequests = 0
     }
 
     enum class Stage {
@@ -41,6 +42,15 @@ internal class PlaybackStartupTiming(
     @Synchronized fun isActive(attempt: Attempt?): Boolean = attempt != null && attempt === active
 
     @Synchronized fun forKey(key: String?): Attempt? = active?.takeIf { it.key == key }
+
+    @Synchronized fun nextNetwork(attempt: Attempt): Int? {
+        if (!isActive(attempt) || attempt.completed || attempt.networkRequests >= MAX_NETWORK_REQUESTS) return null
+        return ++attempt.networkRequests
+    }
+
+    @Synchronized fun network(attempt: Attempt, number: Int, fields: String) {
+        if (isActive(attempt)) output("attempt=${attempt.number} http=$number $fields")
+    }
 
     @Synchronized fun mark(attempt: Attempt?, stage: Stage, measurement: Measurement = Measurement()) {
         if (!isActive(attempt) || attempt == null || stage in attempt.stages) return
@@ -81,6 +91,7 @@ internal class PlaybackStartupTiming(
     }
 
     private companion object {
+        const val MAX_NETWORK_REQUESTS = 12
         val logHandler by lazy { Handler(Looper.getMainLooper()) }
         val AFTER_FRAME_STAGES = setOf(Stage.READY, Stage.VIDEO_DECODER, Stage.AUDIO_DECODER,
             Stage.HTTP_FIRST_READ, Stage.HTTP_TRANSFER_END, Stage.HTTP_LOAD_COMPLETE)

@@ -9,6 +9,7 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
     private var performanceCheck: String? = null
+    private var startupHttpItem: String? = null
     private var danmakuCacheOnly = false
     private var danmakuOfficialLive: String? = null
     private var danmakuMemoryPhase: String? = null
@@ -44,8 +45,9 @@ class PgsInstrumentation : Instrumentation() {
 
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        startupHttpItem = arguments?.getString("startup_http_item")
         performanceCheck = listOf("settings_frame_probe", "settings_layout_probe", "settings_row_measure_probe",
-            "settings_navigation_only", "danmaku_oversize_only", "playback_startup_timing_only", "buffered_http_only")
+            "settings_navigation_only", "danmaku_oversize_only", "playback_startup_timing_only", "startup_http_timing_only", "buffered_http_only")
             .firstOrNull { arguments?.getString(it) == "true" }
         danmakuCacheOnly = arguments?.getString("danmaku_cache_only") == "true"
         danmakuOfficialLive = arguments?.getString("danmaku_official_live")
@@ -85,6 +87,11 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            startupHttpItem?.let { item ->
+                result.putString("stream", StartupHttpProbe(this).run(item) + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             performanceCheck?.let { check ->
                 result.putString("stream", runPerformanceCheck(check) + "\n")
                 finish(Activity.RESULT_OK, result)
@@ -285,6 +292,7 @@ class PgsInstrumentation : Instrumentation() {
         "settings_navigation_only" -> com.hesier.lumy.ui.settings.SettingsNavigationTest(this).runScaledLanguageMatrix()
         "danmaku_oversize_only" -> com.hesier.lumy.data.DanmakuOversizeTest(targetContext).runAll()
         "playback_startup_timing_only" -> PlaybackStartupTimingTest(this).runAll()
+        "startup_http_timing_only" -> StartupHttpTimingTest(this).runAll()
         "buffered_http_only" -> BufferedHttpDataSourceTest(this).runAll()
         else -> error("Unknown performance check")
     }

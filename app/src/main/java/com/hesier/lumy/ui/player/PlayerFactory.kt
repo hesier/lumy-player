@@ -63,8 +63,9 @@ object PlayerFactory {
         seekBackMs: Long = 10_000,
         seekForwardMs: Long = 30_000,
         transferListener: TransferListener? = null,
+        callFactory: okhttp3.Call.Factory? = null,
     ): PlayerBundle {
-        val network = OkHttpDataSource.Factory(http).setDefaultRequestProperties(headers)
+        val network = OkHttpDataSource.Factory(callFactory ?: http).setDefaultRequestProperties(headers)
         transferListener?.let(network::setTransferListener)
         val upstream = DataSource.Factory { BufferedHttpDataSource(network.createDataSource()) }
         // ASS/SSA 交给 libass 渲染（保留字体、颜色、位置、动画），内封（MKV）和外挂都走这里；
