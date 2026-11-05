@@ -53,6 +53,8 @@ import com.hesier.lumy.core.ServerKind
 import com.hesier.lumy.core.SubtitleStream
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
+import com.hesier.lumy.BuildConfig
+import com.hesier.lumy.ui.player.PlaybackStartupTiming.Stage
 import com.hesier.lumy.data.Settings
 import com.hesier.lumy.data.TrackPreferences
 import com.hesier.lumy.data.VideoScale
@@ -120,6 +122,8 @@ class PlayerActivity : ThemedActivity() {
             onRelease = { endHoldSpeed() },
         )
     }
+
+    private val startupTiming = if (BuildConfig.DEBUG) PlaybackStartupTiming() else null
 
     private var request: PlaybackRequest? = null
     private var startJob: Job? = null
@@ -195,6 +199,7 @@ class PlayerActivity : ThemedActivity() {
             this, app.plex.http, server.playbackHeaders(), offsets,
             passthrough = settings.passthrough, allowSoftwareVideo = settings.allowSoftwareVideoDecoding,
             seekBackMs = settings.seekBackMs, seekForwardMs = settings.seekForwardMs,
+            transferListener = startupTiming?.let(::PlaybackStartupTimingTransfer),
         )
         player = bundle.player
         ass = bundle.ass
@@ -205,6 +210,7 @@ class PlayerActivity : ThemedActivity() {
         quality = Quality.presets.getOrElse(settings.defaultQuality) { Quality.Original }
         player.addListener(playerListener)
         player.addAnalyticsListener(analyticsListener)
+        startupTiming?.let { player.addAnalyticsListener(PlaybackStartupTimingListener(it)) }
         binding.playerView.player = player
         videoScale = settings.videoScale
         binding.playerView.resizeMode = videoScale.resizeMode()
@@ -286,11 +292,13 @@ class PlayerActivity : ThemedActivity() {
     }
 
     private fun load() {
+        val startupAttempt = startupTiming?.begin(withDetail = true)
         lifecycleScope.launch {
             val id = intent.getStringExtra(EXTRA_ID)!!
             detail = attempt { LumyApp.instance.withReconnect { it.detail(id) } }.getOrElse {
                 return@launch showError(it.readableMessage())
             }
+            startupTiming?.mark(startupAttempt, Stage.DETAIL_END)
             LumyApp.instance.currentServer()?.let { server = it }
             val v = detail.versions.getOrNull(intent.getIntExtra(EXTRA_VERSION, 0)) ?: detail.versions.firstOrNull()
                 ?: return@launch showError(getString(R.string.no_playable_file))
@@ -298,7 +306,7 @@ class PlayerActivity : ThemedActivity() {
             doviHevcFallback = intent.getBooleanExtra(EXTRA_DOVI_HEVC, false)
             intent.removeExtra(EXTRA_DOVI_HEVC)
             setupControls()
-            start(intent.getLongExtra(EXTRA_START, 0))
+            start(intent.getLongExtra(EXTRA_START, 0), startupAttempt = startupAttempt)
             if (progressJob == null) startProgressReporting()
             startMarkerWatch()
             loadRowItems()
@@ -331,6 +339,7 @@ class PlayerActivity : ThemedActivity() {
 
     /** 在同一个播放器里换成另一集（下一集 / 从剧集行选的） */
     private fun switchTo(next: MediaItem, startMs: Long) {
+        startupTiming?.end(PlaybackStartupTiming.End.REPLACED)
         cancelScrub()
         playbackNotice.clear()
         danmaku.clear()
@@ -388,7 +397,9 @@ class PlayerActivity : ThemedActivity() {
 
     // ---- 起播 ----
 
-    private fun start(positionMs: Long, playWhenReady: Boolean = true) {
+    private fun start(positionMs: Long, playWhenReady: Boolean = true,
+        startupAttempt: PlaybackStartupTiming.Attempt? = null) {
+        val timingAttempt = startupAttempt?.takeIf { startupTiming?.isActive(it) == true } ?: startupTiming?.begin()
         cancelScrub()
         holdSpeedGesture.cancel()
         startJob?.cancel()
@@ -399,7 +410,9 @@ class PlayerActivity : ThemedActivity() {
         // 换字幕 / 音轨 / 画质等重新起播时，旧会话要先报停止，否则服务端的“正在播放”里会一直留着它
         if (request != null) report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
+        startupTiming?.mark(timingAttempt, Stage.PLAN_BEGIN)
         val p = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed, fallbackReason = fallbackReason)
+        startupTiming?.mark(timingAttempt, Stage.PLAN_END)
         DebugLog.i(TAG, "plan ${item.title} id=${item.id} [${version.summary}] dovi=${version.video?.doviProfile} audio=${audio?.codec} sub=${subtitle?.codec} -> ${p.mode} reasons=${p.reasons} subUnavailable=${p.subtitleUnavailable}")
         val req = PlaybackRequest(item, version, p.mode, positionMs, UUID.randomUUID().toString(), audio?.id, subtitle?.id)
         request = req
@@ -425,11 +438,12 @@ class PlayerActivity : ThemedActivity() {
 
         playbackNotice.show("${item.id}:${version.id}:${version.index}", p,
             copiesVideo = (p.mode as? PlaybackMode.Transcode)?.copyVideo == true && server.session.kind != ServerKind.FNOS)
+        startupTiming?.mark(timingAttempt, Stage.SOURCE_BEGIN)
         startJob = lifecycleScope.launch {
             // 转码时服务端按记住的音轨/字幕输出，所以先保存选择
             if (p.mode is PlaybackMode.Transcode) attempt {
                 server.saveStreamSelection(req.version, req.audioStreamId, req.subtitleStreamId)
-            }
+            }.onSuccess { startupTiming?.mark(timingAttempt, Stage.STREAM_SELECTION_SAVED) }
             if (request !== req) return@launch
             val source = attempt { server.playbackSource(req) }.getOrElse {
                 if (request === req) {
@@ -442,6 +456,7 @@ class PlayerActivity : ThemedActivity() {
             }
             // A decision request may finish after another seek, track change or episode switch.
             if (request !== req) return@launch
+            startupTiming?.mark(timingAttempt, Stage.SOURCE_END)
             pgsSelection.configure(
                 req.version.subtitles.firstOrNull { it.id == req.subtitleStreamId },
                 filterTracks = req.mode is PlaybackMode.Direct && !source.isHls &&
@@ -454,6 +469,10 @@ class PlayerActivity : ThemedActivity() {
                     .setUri(url)
                     .setMediaId("${item.id}#$i")
                     .apply {
+                        if (timingAttempt != null) {
+                            setTag(timingAttempt)
+                            if (!source.isHls) setCustomCacheKey(timingAttempt.key)
+                        }
                         if (source.isHls) setMimeType(MimeTypes.APPLICATION_M3U8)
                         else if (req.mode is PlaybackMode.Direct &&
                             req.version.container?.lowercase() in setOf("rm", "rmvb")
@@ -483,6 +502,7 @@ class PlayerActivity : ThemedActivity() {
             player.setMediaItems(media, source.startPart,
                 if ((source.isHls && !nativeHls) || embedded) 0 else source.startOffsetMs)
             player.setPlaybackSpeed(speed)
+            startupTiming?.mark(timingAttempt, Stage.PREPARE)
             player.prepare()
             player.playWhenReady = playWhenReady
         }
@@ -1699,6 +1719,7 @@ class PlayerActivity : ThemedActivity() {
     }
 
     private fun showError(message: String, retryAt: Long? = null) {
+        startupTiming?.end(PlaybackStartupTiming.End.ERROR)
         holdSpeedGesture.cancel()
         binding.buffering.visibility = View.GONE
         binding.controlsHeader.visibility = View.GONE
@@ -1716,6 +1737,7 @@ class PlayerActivity : ThemedActivity() {
 
     override fun onStop() {
         super.onStop()
+        startupTiming?.end(PlaybackStartupTiming.End.CANCELLED)
         cancelScrub()
         holdSpeedGesture.cancel()
         startJob?.cancel()

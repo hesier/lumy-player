@@ -11,6 +11,7 @@ import androidx.media3.exoplayer.Renderer
 import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.video.VideoRendererEventListener
+import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -60,8 +61,10 @@ object PlayerFactory {
         allowSoftwareVideo: Boolean = false,
         seekBackMs: Long = 10_000,
         seekForwardMs: Long = 30_000,
+        transferListener: TransferListener? = null,
     ): PlayerBundle {
         val upstream = OkHttpDataSource.Factory(http).setDefaultRequestProperties(headers)
+        transferListener?.let(upstream::setTransferListener)
         // ASS/SSA 交给 libass 渲染（保留字体、颜色、位置、动画），内封（MKV）和外挂都走这里；
         // 没有索引的 MKV 由 ClusterSeekingExtractor 按簇查找来跳转
         val ass = AssHandler(AssRenderType.OVERLAY_OPEN_GL, AssHandlerConfig())
