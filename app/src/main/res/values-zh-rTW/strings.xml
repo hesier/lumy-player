@@ -229,6 +229,9 @@
     <string name="play_all">全部播放</string>
     <string name="person_works">%1$s 的作品</string>
     <string name="player_chapters">章節</string>
+    <string name="player_episodes_hint">↓ 選集</string>
+    <string name="player_playlist_hint">↓ 播放清單</string>
+    <string name="player_chapters_hint">↓ 查看章節</string>
     <string name="player_more">更多</string>
     <string name="chapter_n">章節 %1$d</string>
     <string name="subtitle_delay">字幕延遲</string>

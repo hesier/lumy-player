@@ -1014,7 +1014,6 @@ class PlayerActivity : ThemedActivity() {
             if (danmakuProbe.profile != 0) { danmakuProbe.reset(); danmaku.setTestActive(false) }
             danmaku.showMenu()
         }
-        if (detail.chapters.size > 1) row.addActionButton(R.drawable.ic_list, getString(R.string.player_chapters)) { pickChapter() }
         row.addActionButton(R.drawable.ic_more, getString(R.string.player_more)) { showMore() }
         binding.seek.setOnFocusChangeListener { _, hasFocus ->
             binding.seekBar.animate().scaleY(if (hasFocus) 1.6f else 1f).setDuration(120).start()
@@ -1076,6 +1075,7 @@ class PlayerActivity : ThemedActivity() {
         binding.controlsHeader.visibility = View.GONE
         binding.controls.visibility = View.GONE
         binding.episodes.visibility = View.GONE
+        updateRowHint()
         binding.playerView.subtitleView?.setBottomPaddingFraction(subtitlePadding)
         dualSubtitles.setBottomPaddingFraction(subtitlePadding)
         commitScrub()
@@ -1378,6 +1378,8 @@ class PlayerActivity : ThemedActivity() {
     private fun loadRowItems() {
         val seasonId = item.parentId?.takeIf { item.type == MediaType.EPISODE }
         chapterAdapter = null
+        seasonEpisodes = emptyList()
+        updateRowHint()
         if (seasonId == null && !intent.hasExtra(EXTRA_PLAYLIST)) {
             if (detail.chapters.size > 1) {
                 chapterAdapter = ChapterAdapter(server, detail.chapters) {
@@ -1389,6 +1391,7 @@ class PlayerActivity : ThemedActivity() {
                     binding.episodes.preferredPosition = { currentChapter() }
                 }
             }
+            updateRowHint()
             return
         }
         val itemId = item.id
@@ -1415,7 +1418,19 @@ class PlayerActivity : ThemedActivity() {
             }
             adapter.submit(list)
             adapter.selectedId = item.id
+            updateRowHint()
         }
+    }
+
+    private fun updateRowHint() {
+        val label = when {
+            chapterAdapter != null -> R.string.player_chapters_hint
+            seasonEpisodes.isEmpty() -> null
+            intent.hasExtra(EXTRA_PLAYLIST) -> R.string.player_playlist_hint
+            else -> R.string.player_episodes_hint
+        }
+        binding.rowHint.visibility = if (label != null && binding.episodes.visibility != View.VISIBLE) View.VISIBLE else View.GONE
+        binding.rowHint.text = label?.let { getString(it) }
     }
 
     private fun currentChapter(): Int = detail.chapters.indexOfLast { positionMs >= it.startMs }.coerceAtLeast(0)
@@ -1440,6 +1455,7 @@ class PlayerActivity : ThemedActivity() {
                         seasonEpisodes.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
                     }
                     binding.episodes.visibility = View.VISIBLE
+                    updateRowHint()
                     (binding.episodes.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(index, 0)
                     binding.episodes.post {
                         if (binding.episodes.findViewHolderForAdapterPosition(index)?.itemView?.requestFocus() == true) {
@@ -1455,6 +1471,7 @@ class PlayerActivity : ThemedActivity() {
                         playFocusSound(View.FOCUS_UP)
                     }
                     binding.episodes.visibility = View.GONE
+                    updateRowHint()
                 }
                 return true
             }
@@ -1489,11 +1506,13 @@ class PlayerActivity : ThemedActivity() {
         val options = chapters.mapIndexed { i, c ->
             Option("${i + 1}. ${c.title ?: getString(R.string.chapter_n, i + 1)}", formatClock(c.startMs), i == current)
         }
-        OptionsPanel(this, getString(R.string.player_chapters), options) { seekTo(chapters[it].startMs) }.show()
+        OptionsPanel(this, getString(R.string.player_chapters), options) { seekTo(chapters[it].startMs) }
+            .returnToMore(R.string.player_chapters).show()
     }
 
     private fun showMore(focusedLabel: Int? = null) {
         val actions = buildList<Pair<Option, () -> Unit>> {
+            if (detail.chapters.size > 1) add(Option(getString(R.string.player_chapters)) to ::pickChapter)
             if (detail.versions.size > 1) add(Option(getString(R.string.action_version), version.summary) to ::pickVersion)
             add(Option(getString(R.string.video_scale), videoScaleLabel(this@PlayerActivity, videoScale)) to ::pickVideoScale)
             if (version.subtitles.isNotEmpty()) add(Option(getString(R.string.player_secondary_subtitles),

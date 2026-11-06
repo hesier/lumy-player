@@ -242,6 +242,9 @@
     <string name="play_all">Play all</string>
     <string name="person_works">Movies and shows with %1$s</string>
     <string name="player_chapters">Chapters</string>
+    <string name="player_episodes_hint">↓ Episodes</string>
+    <string name="player_playlist_hint">↓ Playlist</string>
+    <string name="player_chapters_hint">↓ View chapters</string>
     <string name="player_more">More</string>
     <string name="chapter_n">Chapter %1$d</string>
     <string name="subtitle_delay">Subtitle delay</string>
