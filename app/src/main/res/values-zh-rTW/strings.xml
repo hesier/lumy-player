@@ -23,7 +23,7 @@
     <string name="add_server_title">新增伺服器</string>
     <string name="add_server_subtitle">選擇媒體伺服器的類型，之後可以在設定裡新增更多伺服器</string>
     <string name="kind_plex_detail">使用 plex.tv 帳號登入，自動找到帳號下的伺服器</string>
-    <string name="kind_jellyfin_detail">輸入伺服器位址、使用者名稱和密碼</string>
+    <string name="kind_jellyfin_detail">輸入伺服器位址，支援密碼或 Quick Connect 快速登入</string>
     <string name="kind_emby_detail">輸入伺服器位址、使用者名稱和密碼</string>
     <string name="kind_fnos">飛牛影視</string>
     <string name="kind_fnos_detail">使用影視獨立帳號登入（非 NAS 帳號）</string>
@@ -31,6 +31,7 @@
     <string name="direct_login_fnos_address_hint">例如 192.168.1.10:8005</string>
 
     <string name="direct_login_title">連線至 %1$s 伺服器</string>
+    <string name="direct_login_jellyfin_hint">輸入伺服器位址。可使用 Quick Connect 快速登入，或輸入使用者名稱和密碼。</string>
     <string name="direct_login_hint">只填 IP 時自動補上 http 和連接埠 8096</string>
     <string name="direct_login_address">伺服器位址</string>
     <string name="direct_login_address_hint">例如 192.168.1.10:8096</string>

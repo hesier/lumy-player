@@ -50,11 +50,8 @@ class ServerFeaturesInstrumentation : Instrumentation() {
                 check(activity.findViewById<View>(R.id.quick_connect).requestFocus())
             }
             sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
-            await("server detection and enabled input") {
-                activity.findViewById<TextView>(R.id.quick_connect).text == activity.getString(R.string.quick_connect_login) &&
-                    activity.findViewById<EditText>(R.id.address).isEnabled
-            }
-            checkDpadPairing(activity)
+            await("Quick Connect pairing dialog") { dialog(activity)?.isShowing == true }
+            verifyPairingDialog(activity)
             sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             await("pairing cancelled and inputs restored") {
                 dialog(activity) == null && listOf(R.id.address, R.id.username, R.id.password, R.id.name)
@@ -65,6 +62,7 @@ class ServerFeaturesInstrumentation : Instrumentation() {
                 check(activity.findViewById<EditText>(R.id.username).text.isEmpty())
                 check(activity.findViewById<EditText>(R.id.password).text.isEmpty())
             }
+            checkDpadNavigation(activity)
             check(savedPreferences == preferences.all) { "Pairing UI changed saved server sessions" }
         } finally {
             main { activity.finishAndRemoveTask() }
@@ -72,17 +70,7 @@ class ServerFeaturesInstrumentation : Instrumentation() {
         }
     }
 
-    private fun checkDpadPairing(activity: DirectLoginActivity) {
-        main { check(activity.findViewById<View>(R.id.refresh).requestFocus()) }
-        sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
-        waitForIdleSync()
-        main {
-            check(activity.findViewById<View>(R.id.quick_connect).isFocused) {
-                "D-pad Up from phone refresh did not focus Quick Connect"
-            }
-        }
-        sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER)
-        await("Quick Connect pairing dialog") { dialog(activity)?.isShowing == true }
+    private fun verifyPairingDialog(activity: DirectLoginActivity) {
         main {
             val pairing = checkNotNull(dialog(activity))
             val message = pairing.findViewById<TextView>(android.R.id.message).text.toString()
@@ -90,6 +78,25 @@ class ServerFeaturesInstrumentation : Instrumentation() {
             check(pairing.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled) { "Cancel action is unavailable" }
             check(listOf(R.id.address, R.id.username, R.id.password, R.id.name)
                 .none { activity.findViewById<EditText>(it).isEnabled }) { "Pairing inputs remain editable" }
+        }
+    }
+
+    private fun checkDpadNavigation(activity: DirectLoginActivity) {
+        main { check(activity.findViewById<View>(R.id.refresh).requestFocus()) }
+        sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP)
+        waitForIdleSync()
+        main {
+            check(activity.findViewById<View>(R.id.quick_connect).isFocused) {
+                "D-pad Up from phone refresh did not focus Quick Connect"
+            }
+            check(activity.findViewById<View>(R.id.address).requestFocus())
+        }
+        sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_LEFT)
+        waitForIdleSync()
+        main {
+            check(activity.findViewById<View>(R.id.quick_connect).isFocused) {
+                "D-pad Left from address did not focus Quick Connect"
+            }
         }
     }
 

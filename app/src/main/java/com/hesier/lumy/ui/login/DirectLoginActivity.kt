@@ -52,6 +52,8 @@ class DirectLoginActivity : ThemedActivity() {
             binding.title.maxLines = 2
             binding.hint.setText(R.string.direct_login_fnos_hint)
             binding.address.setHint(R.string.direct_login_fnos_address_hint)
+        } else if (kind == ServerKind.JELLYFIN) {
+            binding.hint.setText(R.string.direct_login_jellyfin_hint)
         }
         setupQuickConnect()
         setupInputNavigation()
@@ -76,12 +78,13 @@ class DirectLoginActivity : ThemedActivity() {
 
     private fun setupInputNavigation() {
         val fields = listOf(binding.address, binding.username, binding.password, binding.name)
+        val hasQuick = kind == ServerKind.JELLYFIN
         fields.forEachIndexed { index, field ->
             field.enableDpadNavigation { direction ->
                 when (direction) {
                     View.FOCUS_UP -> fields.getOrNull(index - 1)
                     View.FOCUS_DOWN -> fields.getOrNull(index + 1) ?: binding.connect
-                    View.FOCUS_LEFT -> binding.phoneInput.refresh
+                    View.FOCUS_LEFT -> if (hasQuick && index == 0) binding.quickConnect else binding.phoneInput.refresh
                     else -> null
                 }
             }
@@ -89,14 +92,16 @@ class DirectLoginActivity : ThemedActivity() {
         binding.phoneInput.refresh.apply {
             nextFocusRightId = R.id.address
             nextFocusLeftId = R.id.refresh
-            nextFocusUpId = R.id.quick_connect
+            nextFocusUpId = if (hasQuick) R.id.quick_connect else R.id.refresh
             nextFocusDownId = R.id.refresh
         }
-        binding.quickConnect.apply {
-            nextFocusUpId = R.id.quick_connect
-            nextFocusDownId = R.id.refresh
-            nextFocusLeftId = R.id.quick_connect
-            nextFocusRightId = R.id.address
+        if (hasQuick) {
+            binding.quickConnect.apply {
+                nextFocusUpId = R.id.quick_connect
+                nextFocusDownId = R.id.refresh
+                nextFocusLeftId = R.id.quick_connect
+                nextFocusRightId = R.id.address
+            }
         }
         binding.connect.nextFocusUpId = R.id.name
         binding.connect.nextFocusLeftId = R.id.refresh
@@ -118,9 +123,13 @@ class DirectLoginActivity : ThemedActivity() {
     }
 
     private fun setupQuickConnect() {
+        if (kind != ServerKind.JELLYFIN) {
+            binding.quickConnect.visibility = View.GONE
+            return
+        }
+        binding.quickConnect.visibility = View.VISIBLE
         binding.address.doAfterTextChanged {
             quickServer = null
-            binding.quickConnect.setText(R.string.quick_connect_check)
         }
         binding.quickConnect.setOnClickListener {
             if (!busy) startQuickConnect()
@@ -128,16 +137,18 @@ class DirectLoginActivity : ThemedActivity() {
     }
 
     private fun startQuickConnect() {
-        val address = binding.address.text.toString()
-        val normalized = if (kind == ServerKind.FNOS) FnOsConnector.normalizeAddress(address)
-            else JellyfinConnector.normalizeAddress(address)
+        val address = binding.address.text.toString().trim()
+        val normalized = JellyfinConnector.normalizeAddress(address)
         if (normalized == null) {
-            return showStatus(getString(R.string.direct_login_bad_address), binding.address)
+            showStatus(getString(R.string.direct_login_bad_address), binding.address)
+            binding.address.requestFocus()
+            return
         }
         busy = true
         setQuickFieldsEnabled(false)
         phoneInput?.close()
         binding.progress.visibility = View.VISIBLE
+        showStatus(getString(R.string.direct_login_probing), null)
         quickJob = lifecycleScope.launch {
             try {
                 val server = quickServer ?: app.jellyfinConnector.probe(normalized)
@@ -145,12 +156,7 @@ class DirectLoginActivity : ThemedActivity() {
                     showStatus(getString(R.string.quick_connect_jellyfin_only), binding.connect)
                     return@launch
                 }
-                if (quickServer == null) {
-                    quickServer = server
-                    binding.quickConnect.setText(R.string.quick_connect_login)
-                    showStatus(getString(R.string.quick_connect_ready, server.info.serverName), binding.quickConnect)
-                    return@launch
-                }
+                quickServer = server
                 pairQuickConnect(server)
             } catch (error: kotlinx.coroutines.CancellationException) {
                 throw error

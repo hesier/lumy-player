@@ -5,6 +5,8 @@
         <activity android:name=".ui.detail.DetailActivity" android:exported="true" />
         <activity android:name=".ui.player.PlayerActivity" android:exported="true" />
         <activity android:name=".ui.settings.SettingsActivity" android:exported="true" />
+        <activity android:name=".ui.servers.AddServerActivity" android:exported="true" />
+        <activity android:name=".ui.login.DirectLoginActivity" android:exported="true" />
 
         <receiver
             android:name=".tv.WatchNextDebugReceiver"
