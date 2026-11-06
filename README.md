@@ -15,7 +15,7 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
 
 - **Sign-in and servers**
   - Plex: sign in with a plex.tv PIN, discover the servers on your account, and probe for a reachable address (local / remote / relay), reconnecting automatically when the connection drops
-  - Jellyfin / Emby: sign in with server address, username and password (a bare IP defaults to http and port 8096), or scan a QR code and type them on your phone
+  - Jellyfin / Emby: sign in with server address, username and password (a bare IP defaults to http and port 8096), or scan a QR code and type them on your phone; Jellyfin also supports Quick Connect when enabled on the server
   - fnOS Media: sign in with server address, media account and password (a bare IP defaults to http and port 8005)
   - HTTPS servers with Let's Encrypt certificates also work on Android 5.0–7.0, whose built-in trust store is too old (see [TLS compatibility](docs/tls-compatibility.md))
   - Add multiple servers (even the same server more than once), switch between them at the top of the sidebar, and rename or remove them in Settings
@@ -73,8 +73,9 @@ APKs you build yourself are signed with a different key, so they cannot be insta
 
 - Only movie and TV show libraries are shown; music, photo and other library types are not supported yet
 - No Live TV / DVR and no offline downloads
-- Plex Home user switching and Jellyfin Quick Connect are not supported; sign in with the account you want to use
-- fnOS Media does not yet support collections, playlists, cast filmographies or recommendations; transcoding does not support video stream copy or 7.1 audio output
+- Plex Home user switching is not supported; sign in with the account you want to use
+- fnOS Media collections and playlists are not integrated; native cast-filmography pagination is integrated, while recommendations are inferred locally from cast / genre metadata. Next Up finds the following unwatched episode from returned episode playback records, including the episode after the current Continue Watching item; omitted completed history prevents reconstruction of the full follow-up queue. Transcoding does not support video stream copy or 7.1 audio output
+- Jellyfin / Emby first-letter indexes use local counts from lightweight server pages with the same filters, only when sorting by title; scans above 100,000 items yield no index. See the [support matrix](docs/server-support.md) for cache and validation limits
 - Dolby Vision Profile 5 prefers native playback and can try HEVC compatibility playback if unavailable or failing, but colors may be incorrect. Correct output still requires a compatible Dolby Vision chain (details in [Playback and Decoding](docs/playback.md#dolby-vision))
 - ARM devices only (`armeabi-v7a` / `arm64-v8a`)
 - Phone input needs the phone and TV on the same LAN. If the page does not open, turn off the phone's VPN and check guest Wi-Fi / AP isolation; on a TV with several network connections, disconnect the unused ones

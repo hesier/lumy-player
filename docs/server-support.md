@@ -2,7 +2,7 @@
 
 English | [简体中文](server-support.zh-CN.md)
 
-Updated: 2026-11-01.
+Updated: 2026-11-06.
 
 This page describes **the integrations currently implemented in Lumy Player**, rather than the complete capabilities of each server product. “Integrated” is based on code and API tests; availability still depends on server version, permissions, metadata and device capabilities. “Not integrated” does not mean the server itself lacks the feature.
 
@@ -17,7 +17,9 @@ See [Playback and Decoding](playback.md) for playback policy and device support,
 | Account server discovery and connection probing | Integrated, including local, remote and relay candidates | Manually supplied address | Manually supplied address | Manually supplied address |
 | HTTPS, saved sessions and reachability checks | Integrated | Integrated | Integrated | Integrated |
 | Phone QR input for credentials | Not applicable; uses PIN sign-in | Integrated | Integrated | Integrated |
-| Additional sign-in methods | Plex Home user switching not integrated | Quick Connect not integrated | No additional flow | Does not use the NAS administrator sign-in flow |
+| Additional sign-in methods | Plex Home user switching not integrated | Quick Connect integrated; server must enable it | No additional flow | Does not use the NAS administrator sign-in flow |
+
+Jellyfin Quick Connect displays a code to authorize from an already signed-in Jellyfin client after supplying the server address. This flow is covered by API tests; it has not been verified against every Jellyfin version.
 
 All integrations support multiple saved entries, switching, renaming and removal. Phone input requires the phone and TV to share a LAN. See [TLS compatibility](tls-compatibility.md) for HTTPS on older Android versions.
 
@@ -28,16 +30,16 @@ All integrations support multiple saved entries, switching, renaming and removal
 | Movie and TV libraries | Integrated | Integrated | Integrated | Integrated |
 | Continue Watching and resume positions | Integrated | Integrated | Integrated | Integrated through native records |
 | Recently Added | Server-provided home rows | Integrated | Integrated | Integrated |
-| Separate Next Up row | Server-provided home rows | Integrated; hidden when empty | Integrated; hidden when empty | Not integrated |
+| Separate Next Up row | Server-provided home rows | Integrated; hidden when empty | Integrated; hidden when empty | Derived from returned episode playback records; hidden when empty |
 | Sort by title, added date, release date, rating and last viewed | Server query | Server query | Server query | First four use native queries; last viewed sorts locally |
 | Watch status, genre and resolution filters | Server query | Server query | Server query | Native queries; complete SD filtering runs locally |
 | Pagination | Server pagination | Server pagination | Server pagination | Native pagination for common queries; compatibility catalog mapping still required |
-| First-letter quick index | Integrated | Not integrated | Not integrated | Not integrated |
+| First-letter quick index | Integrated | Local counts for title sorting | Local counts for title sorting | Local counts in actual title-query order |
 | Search scope | Movies, shows, seasons and episodes | Movies, shows and episodes | Movies, shows and episodes | Movies and shows |
 | Collections and their contents | Integrated | Integrated | Integrated | Not integrated |
 | Video playlists and their contents | Integrated | Integrated | Integrated | Not integrated |
-| Cast filmographies | Integrated within the source library | Integrated across libraries | Integrated across libraries | Not integrated |
-| More Like This / recommendations | Integrated | Integrated | Integrated | Not integrated |
+| Cast filmographies | Integrated within the source library | Integrated across libraries | Integrated across libraries | Integrated through native pagination, with catalog mapping |
+| More Like This / recommendations | Integrated | Integrated | Integrated | Derived locally from shared cast / genres |
 | Show, season and episode details and lists | Integrated | Integrated | Integrated | Integrated |
 | Version selection | Integrated | Integrated | Integrated | Compatibility mapping implemented; not independently playback-tested |
 | Personal favorites (movies, shows, episodes) | Not offered | Integrated, server sync | Integrated, server sync | Integrated, native API sync |
@@ -46,7 +48,11 @@ All integrations support multiple saved entries, switching, renaming and removal
 
 The Favorites sidebar entry can be hidden and reordered per server in Settings. Detail actions and card menus can add or remove favorites; the page groups them into movies, shows and episodes. Plex does not offer favorites, and its Watchlist is not mapped to favorites.
 
-Home rows vary by integration. Plex uses server-provided rows; Jellyfin/Emby combine Continue Watching, Next Up and Recently Added in the client; fnOS combines Continue Watching and Recently Added. Empty rows are hidden.
+Home rows vary by integration. Plex uses server-provided rows; Jellyfin/Emby combine Continue Watching, Next Up and Recently Added in the client; fnOS combines Continue Watching, conditional Next Up and Recently Added. Empty rows are hidden. fnOS uses recently watched or in-progress episodes in the server’s returned `play/list` records as anchors and finds the following unwatched episode, including the episode after the current Continue Watching item. Current progress stays in Continue Watching; a candidate that already has progress is not repeated in Next Up. The endpoint is not assumed to provide complete watch history: if the server removes completed records, Lumy cannot reconstruct the full follow-up queue.
+
+Jellyfin/Emby build the first-letter index by paging lightweight Items with the same library filters and server title order; counts merge adjacent equal initials without reordering items. The cache holds up to eight queries for 60 seconds, and watched-state changes invalidate filtered entries. Non-title sorting, scans exceeding 100,000 items or inconsistent pagination yield no index rather than partial jump offsets. This path is covered by API and unit tests, without a claim of validation on every server version.
+
+fnOS builds its title-sorted first-letter index by paging the same query used for the grid, keeping the actual returned order and all active filters. It adds no separate index cache and reuses the existing catalog cache. Scans above 100,000 items, repeated entries, changing totals or incomplete catalog mapping hide the index instead of exposing unreliable jump offsets. This index is covered by unit tests; it has not been independently validated across server versions.
 
 Next-episode handling has boundaries: Plex takes the first episode of the immediately following season and does not continue past an empty season; Jellyfin/Emby depend on server ordering of all episodes; fnOS sorts season and episode numbers and skips subsequent empty seasons. These code paths do not establish playback validation for every special episode-ordering case.
 
@@ -81,11 +87,13 @@ fnOS uses the independent `server-fnos` module and has no dependency on `server-
 
 | Area | Current implementation |
 |---|---|
-| Native APIs | Search, common filters/sorting/pagination, genres, progress, watched and favorite state, accurate stream metadata, transcode creation and cleanup |
+| Native APIs | Search, common filters/sorting/pagination, genres, cast filmographies, playback records, progress, watched and favorite state, accurate stream metadata, transcode creation and cleanup |
 | Compatibility APIs | Sign-in and reachability, libraries, catalog ID mapping, base detail metadata, seasons/episodes, Direct Play URLs, external subtitles and images |
-| Local fallbacks | Last-viewed sorting uses compatibility `LastPlayedDate`; complete SD filtering uses video width |
+| Local fallbacks | Last-viewed sorting uses compatibility `LastPlayedDate`; complete SD filtering uses video width; recommendations use shared cast / genres; Next Up uses returned episode playback records |
 
-Search and native page results still need the compatibility catalog to resolve playable file IDs. The catalog is cached for 30 seconds and invalidated by progress reports or watched-state changes, so initial loading of large libraries may still be slow. Last-viewed and SD queries additionally collect all native results before processing locally.
+Search, native page and cast-filmography results still need the compatibility catalog to resolve playable file IDs. The catalog is cached for 30 seconds and invalidated by progress reports or watched-state changes, so initial loading of large libraries may still be slow. Last-viewed and SD queries additionally collect all native results before processing locally.
+
+Local fnOS recommendations use the compatibility catalog, keep the same movie/show type, exclude the source and its native media versions, and return up to 20 matches ranked by shared cast / genres and year distance. Missing related metadata produces no recommendations. This is a client heuristic, not a native recommendation feed. Unit tests cover filtering and ranking; the emulator integration check below covers this specific server instance.
 
 The fnOS checks in this integration were limited to **media service version 0.8.43**:
 
@@ -93,7 +101,9 @@ The fnOS checks in this integration were limited to **media service version 0.8.
 - AAC, AC3 and EAC3 preservation is supported by comparisons of source and output audio packets; 5.1 output was verified. A sample requested with 8 channels still produced 5.1, so 7.1 is not currently offered.
 - HDR10 → SDR requests and output color metadata were verified; this does not validate color reproduction for every HDR / Dolby Vision source.
 - Native HLS can carry the selected text subtitle; the current playback plan may also choose burn-in. Bitmap subtitles use burn-in, without general preservation of arbitrary embedded tracks.
-- Collections, playlists, filmographies and recommendations remain unintegrated. A native local-filmography endpoint was successfully probed; no usable recommendation endpoint was found. This does not establish that the fnOS product lacks recommendations.
+- Native cast-filmography pagination was verified against this service version and is now integrated. `ServerCatalogInstrumentation` also exercised native cast filmographies, local recommendations and Next Up on an emulator against this instance; that result does not cover all service versions or devices.
+- Collections and playlists remain unintegrated: no usable native routes were found on the tested 0.8.43 instance, and compatibility queries returned empty results. No usable native recommendation endpoint was found; recommendations instead use the local metadata heuristic above. These findings do not establish that the fnOS product lacks those features.
+- Next Up also has unit tests for returned episode playback records; neither these tests nor the emulator check establish that the server provides complete watch history or validate every show’s follow-up queue.
 - Native chapter and intro/credits endpoints have not been integrated. These features and version selection have not received independent playback validation.
 
 Native requests reuse the signed-in session and discover signing parameters from the server's public web assets. Changes to that web protocol may require an adapter update.
