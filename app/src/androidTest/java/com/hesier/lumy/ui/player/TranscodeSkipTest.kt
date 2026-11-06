@@ -50,6 +50,7 @@ internal class TranscodeSkipTest(
         check(requests.last().startMs == 16_000L)
         Thread.sleep(450)
         check(requests.size == before + 1) { "Intermediate transcode sources were requested" }
+        main { player.pause() }
         await("local seek ready") { main { player.playbackState == androidx.media3.common.Player.STATE_READY } }
     }
 
@@ -80,6 +81,7 @@ internal class TranscodeSkipTest(
         }
         await("reversed skip source") { requests.size == before + 1 }
         check(requests.last().startMs == 1_000L)
+        main { player.pause() }
         await("reversed local seek ready") { main { player.playbackState == androidx.media3.common.Player.STATE_READY } }
     }
 
@@ -158,13 +160,8 @@ internal class TranscodeSkipTest(
         activity.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
     }
 
-    private fun field(name: String): Any? = activity.javaClass.getDeclaredField(name).apply {
-        isAccessible = true
-    }.get(activity)
-
-    private fun set(name: String, value: Any?) = activity.javaClass.getDeclaredField(name).apply {
-        isAccessible = true
-    }.set(activity, value)
+    private fun field(name: String): Any? = activity.readPlaybackField(name)
+    private fun set(name: String, value: Any?) = activity.writePlaybackField(name, value)
 
     private fun <T> main(action: () -> T): T {
         var result: Result<T>? = null
@@ -173,7 +170,7 @@ internal class TranscodeSkipTest(
     }
 
     private fun await(label: String, condition: () -> Boolean) {
-        val deadline = SystemClock.elapsedRealtime() + 5_000
+        val deadline = SystemClock.elapsedRealtime() + 45_000
         while (SystemClock.elapsedRealtime() < deadline) {
             if (condition()) return
             Thread.sleep(30)

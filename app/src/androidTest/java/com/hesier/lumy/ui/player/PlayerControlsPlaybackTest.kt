@@ -261,8 +261,8 @@ class PlayerControlsPlaybackTest(private val instrumentation: Instrumentation) {
     }
 
     private fun press(code: Int) = instrumentation.sendKeyDownUpSync(code)
-    private fun field(name: String): Any? = activity.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(activity)
-    private fun setField(name: String, value: Any?) = activity.javaClass.getDeclaredField(name).apply { isAccessible = true }.set(activity, value)
+    private fun field(name: String): Any? = activity.readPlaybackField(name)
+    private fun setField(name: String, value: Any?) = activity.writePlaybackField(name, value)
     private fun value(name: String) = activity.javaClass.getDeclaredMethod("get$name").apply { isAccessible = true }.invoke(activity) as Long
     private fun main(action: () -> Unit) {
         var result: Result<Unit>? = null

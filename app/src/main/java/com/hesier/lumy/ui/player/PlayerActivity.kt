@@ -2,33 +2,23 @@
 
 package com.hesier.lumy.ui.player
 
-import android.app.Dialog
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
-import android.os.SystemClock
 import com.hesier.lumy.util.DebugLog
-import android.view.GestureDetector
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.ImageView
-import android.widget.TextView
 import android.widget.Toast
 import com.hesier.lumy.ui.ThemedActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
 import androidx.media3.common.Format
-import androidx.media3.common.MediaItem.SubtitleConfiguration
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.common.Player
-import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
@@ -36,11 +26,6 @@ import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.AudioSink
-import androidx.media3.ui.CaptionStyleCompat
-import androidx.media3.ui.SubtitleView
-import com.hesier.lumy.core.AudioStream
-import com.hesier.lumy.core.Marker
-import com.hesier.lumy.core.MarkerType
 import com.hesier.lumy.core.MediaDetail
 import com.hesier.lumy.core.MediaItem
 import com.hesier.lumy.core.MediaServer
@@ -50,38 +35,18 @@ import com.hesier.lumy.core.PlaybackMode
 import com.hesier.lumy.core.PlaybackRequest
 import com.hesier.lumy.core.PlaybackState
 import com.hesier.lumy.core.ServerKind
-import com.hesier.lumy.core.SubtitleStream
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
 import com.hesier.lumy.BuildConfig
 import com.hesier.lumy.tv.WatchNextManager
 import com.hesier.lumy.tv.WatchNextResume
 import com.hesier.lumy.ui.player.PlaybackStartupTiming.Stage
-import com.hesier.lumy.data.Settings
-import com.hesier.lumy.data.TrackPreferences
-import com.hesier.lumy.data.VideoScale
-import com.hesier.lumy.data.SkipMode
+import com.hesier.lumy.ui.player.PlayerControls.Focus as ControlsFocus
 import com.hesier.lumy.databinding.ActivityPlayerBinding
-import com.hesier.lumy.ui.formatClock
-import com.hesier.lumy.ui.widget.Option
-import com.hesier.lumy.ui.widget.OptionsPanel
-import com.hesier.lumy.ui.widget.StepperPanel
-import com.hesier.lumy.ui.widget.CardAdapter
-import com.hesier.lumy.ui.widget.StartAlignedLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.hesier.lumy.core.HubStyle
-import com.hesier.lumy.ui.widget.addActionButton
 import com.hesier.lumy.ui.widget.attempt
-import com.hesier.lumy.ui.widget.clipToRoundedBackground
 import com.hesier.lumy.ui.widget.readableMessage
 import com.hesier.lumy.ui.widget.showMessage
-import coil.load
-import io.github.peerless2012.ass.media.AssHandler
-import io.github.peerless2012.ass.media.widget.AssSubtitleView
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -97,24 +62,19 @@ class PlayerActivity : ThemedActivity() {
     private lateinit var danmakuProbe: DanmakuProbe
     private lateinit var danmaku: PlayerDanmaku
     private lateinit var player: ExoPlayer
-    private lateinit var ass: AssHandler
-    private lateinit var bitmapSubtitles: BitmapSubtitleOverlay
-    private lateinit var dualSubtitles: DualSubtitleOverlay
-    private lateinit var subtitleSelector: DualSubtitleTrackSelector
-    private lateinit var secondaryAss: AssHandler
     private lateinit var codecs: LumyCodecSelector
-    private lateinit var pgsSelection: PgsTrackSelection
+    private lateinit var mediaItems: PlayerMediaItems
     private lateinit var device: DeviceProfile
-    private lateinit var planner: PlaybackPlanner
+    private lateinit var selection: PlaybackSelection
+    private lateinit var tracks: PlayerTrackController
+    private lateinit var menus: PlayerMenus
+    private lateinit var controls: PlayerControls
+    private lateinit var remote: PlayerRemoteInput
+    private lateinit var seek: PlayerSeekController
+    private lateinit var info: PlayerInfo
 
     private lateinit var detail: MediaDetail
     private val item: MediaItem get() = detail.item
-    private lateinit var version: MediaVersion
-    private var audio: AudioStream? = null
-    private var subtitle: SubtitleStream? = null
-    private var secondarySubtitle: SubtitleStream? = null
-    private var quality: Quality = Quality.Original
-    private var speed = 1f
     private var holdSpeedActive = false
     private val holdSpeedGesture by lazy {
         HoldSpeedGesture(
@@ -129,13 +89,7 @@ class PlayerActivity : ThemedActivity() {
 
     private var request: PlaybackRequest? = null
     private var startJob: Job? = null
-    private var plan: Plan? = null
-    /** 直接播放失败后改用转码，同一版本内保持 */
-    private var fellBack = false
-    private var fallbackReason: PlaybackIssue? = null
     private val playbackNotice by lazy { PlaybackNotice(binding.playbackNotice, lifecycleScope) }
-    /** 回退转码是因为本机视频解码失败：设备声明支持也不能让服务器原样复制视频流 */
-    private var videoDecodeFailed = false
     /** 网络错误已自动重试的次数，恢复播放后清零 */
     private var networkRetries = 0
     private var tracksApplied = false
@@ -146,42 +100,17 @@ class PlayerActivity : ThemedActivity() {
     private var timeBase = 0L
     private var startPart = 0
     private var hlsAligned = true
-
-    private var controlsJob: Job? = null
-    private var hintJob: Job? = null
-    private var scrubJob: Job? = null
-    private var scrubTarget: Long? = null
-    private var playPauseIcon: ImageView? = null
-
-    private var videoDecoder: String? = null
-    private var audioDecoder: String? = null
-    /** 当前音轨直通时的码流编码（C.ENCODING_*），解码成 PCM 输出时为 null */
-    private var passthroughEncoding: Int? = null
-    private var droppedFrames = 0
     /** Retry failed Dolby Vision decoding through ordinary HEVC (P5 may have incorrect colors). */
     private var doviHevcFallback = false
     private var firstFrameRendered = false
     private var doviWatchJob: Job? = null
 
     private val settings get() = LumyApp.instance.settings
-    private val policy get() = PlanPolicy(
-        settings.allowTranscode(LumyApp.instance.currentEntry?.id.orEmpty()),
-        settings.allowSubtitleBurn,
-        settings.displaySupportsHdr,
-        server.embedsSubtitles,
-        com.hesier.lumy.core.PlaybackBandwidth.maxTotalKbps(settings.bandwidthMbps(LumyApp.instance.currentEntry?.id.orEmpty())),
-    )
-    /** 剧集的下一集，加载完详情后异步获取 */
-    private var nextEpisode: MediaItem? = null
-    /** 已自动跳过的标记，避免往回拖时被反复跳过 */
-    private val autoSkipped = HashSet<Marker>()
-    private var upNextDismissed = false
-    private var upNextJob: Job? = null
+    private lateinit var episodes: PlayerEpisodeController
+    private lateinit var overlays: PlayerOverlayController
     private var progressJob: Job? = null
 
     private val offsets = SyncOffsets()
-    private var videoScale = VideoScale.FIT
-    private val subtitlePadding get() = Settings.SUBTITLE_POSITIONS[settings.subtitlePosition]
     private lateinit var refreshRate: RefreshRateMatcher
     private var frameRateMatched = false
 
@@ -198,7 +127,7 @@ class PlayerActivity : ThemedActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         device = DeviceProfile(this, settings.allowSoftwareVideoDecoding)
-        planner = PlaybackPlanner(device)
+        selection = PlaybackSelection(settings, device) { server }
         offsets.audioDelayMs = settings.audioDelayMs
         refreshRate = RefreshRateMatcher(this)
         val startupTransfer = startupTiming?.let(::PlaybackStartupTimingTransfer)
@@ -210,92 +139,47 @@ class PlayerActivity : ThemedActivity() {
             callFactory = startupTransfer?.callFactory(app.plex.http),
         )
         player = bundle.player
-        ass = bundle.ass
-        secondaryAss = bundle.secondaryAss
-        subtitleSelector = bundle.subtitles
         codecs = bundle.codecs
-        pgsSelection = bundle.pgs
-        quality = Quality.presets.getOrElse(settings.defaultQuality) { Quality.Original }
+        mediaItems = PlayerMediaItems(bundle.pgs, selection)
         player.addListener(playerListener)
         player.addAnalyticsListener(analyticsListener)
         startupTiming?.let { player.addAnalyticsListener(PlaybackStartupTimingListener(it)) }
         binding.playerView.player = player
-        videoScale = settings.videoScale
-        binding.playerView.resizeMode = videoScale.resizeMode()
-        binding.playerView.subtitleView?.apply {
-            val background = if (settings.subtitleBackground) SUBTITLE_BACKGROUND else Color.TRANSPARENT
-            setStyle(CaptionStyleCompat(Color.WHITE, background, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_OUTLINE, Color.BLACK, null))
-            setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 1.1f * settings.subtitleScale)
-            setBottomPaddingFraction(subtitlePadding)
-            // libass 的特效字幕画在这一层上，和视频画面同尺寸
-            addView(AssSubtitleView(this@PlayerActivity, ass))
-        }
-        bitmapSubtitles = BitmapSubtitleOverlay(binding.playerView)
-        player.addListener(bitmapSubtitles)
-        dualSubtitles = DualSubtitleOverlay(binding.playerView, settings, secondaryAss)
-        subtitleSelector.onCues = dualSubtitles::onSecondaryCues
-        player.addListener(dualSubtitles)
+        binding.controls.visibility = View.GONE
+        tracks = PlayerTrackController(this, bundle, binding, selection = selection, server = { server },
+            onRestart = { start(positionMs, it) })
+        info = PlayerInfo(this, binding, player, selection = selection, server = { server })
         danmaku = PlayerDanmaku(this, binding.playerView, player, positionMs = { positionMs },
             onMasterChanged = ::refreshDanmakuControls, onNotice = playbackNotice::showMessage)
         danmakuProbe = DanmakuProbe(binding.playerView, player, onProfileChanged = {
             danmaku.setTestActive(danmakuProbe.profile != 0)
         }) { positionMs }
-        binding.controls.visibility = View.GONE
-        binding.upNextFrame.clipToRoundedBackground()
-        binding.upNextPlay.setOnClickListener { playNext() }
-        binding.upNextCancel.setOnClickListener { dismissUpNext() }
-        setupTouch()
+        episodes = PlayerEpisodeController(this, binding, positionMs = { positionMs },
+            onSeek = ::seekTo, onSwitch = ::switchTo, onFocusMoved = ::playFocusSound)
+        overlays = PlayerOverlayController(this, binding, player, settings = settings,
+            positionMs = { positionMs }, durationMs = { durationMs }, nextEpisode = { episodes.nextEpisode },
+            onSeek = ::seekTo, onEnded = ::onEnded, onPlayNext = ::playNext)
+        seek = PlayerSeekController(this, binding, settings, positionMs = { positionMs }, durationMs = { durationMs },
+            bufferedMs = { bufferedMs }, onSeek = ::seekTo, needsRestart = ::needsTranscodeRestart,
+            onInteraction = { controls.scheduleHide() })
+        controls = PlayerControls(this, binding, tracks, episodes = episodes, overlays = overlays, seek = seek,
+            durationMs = { durationMs }, isReady = { ::detail.isInitialized }, onShow = { holdSpeedGesture.cancel() })
+        menus = PlayerMenus(this, binding, player, selection = selection, server = { server }, tracks = tracks,
+            info = info, offsets = offsets, detail = { detail }, positionMs = { positionMs }, onSeek = ::seekTo,
+            onRestart = { start(positionMs, it) }, onVersion = { v ->
+                val position = positionMs
+                selectVersion(v)
+                start(position)
+            })
+        remote = PlayerRemoteInput(binding, controls, seek, episodes = episodes, overlays = overlays, settings = settings,
+            holdSpeedGesture = holdSpeedGesture, isReady = { ::detail.isInitialized }, onTogglePlay = ::togglePlay,
+            onMore = { menus.showMore() })
         load()
-    }
-
-    /** 触屏：点画面显示 / 收起控制栏，在进度条上点按或拖动跳转 */
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupTouch() {
-        // 关掉了 PlayerView 自带的控制器，它不再消费触摸事件，点击监听收不到，只能自己识别点击
-        val taps = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent) = true
-
-            override fun onSingleTapUp(e: MotionEvent): Boolean {
-                if (binding.state.root.visibility == View.VISIBLE || !::detail.isInitialized) return false
-                if (controlsVisible) hideControls() else showControls(ControlsFocus.NONE)
-                return true
-            }
-        })
-        binding.playerView.setOnTouchListener { _, e -> taps.onTouchEvent(e) }
-        // 控制栏空白处吃掉点击，免得点按钮时稍微偏一点就穿透到画面，把控制栏收起
-        binding.controls.isClickable = true
-        // Keep the clickable background out of D-pad focus navigation.
-        binding.controls.isFocusable = false
-        binding.seek.setOnTouchListener { _, e ->
-            val duration = durationMs
-            if (duration <= 0) return@setOnTouchListener true
-            val bar = binding.seekBar
-            val fraction = ((e.x - bar.left) / bar.width).coerceIn(0f, 1f)
-            when (e.actionMasked) {
-                // 拖动时只更新目标时间，松手再 seek，和遥控器拖动一样
-                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                    scrubJob?.cancel()
-                    scrubTarget = (duration * fraction).toLong()
-                    updateProgress()
-                    scheduleHideControls()
-                }
-                MotionEvent.ACTION_UP -> {
-                    commitScrub()
-                    scheduleHideControls()
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    scrubTarget = null
-                    updateProgress()
-                    scheduleHideControls()
-                }
-            }
-            true
-        }
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         // 点控制栏里的按钮也算操作，重新计时自动收起
-        if (ev.actionMasked == MotionEvent.ACTION_DOWN && controlsVisible) scheduleHideControls()
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN && controls.visible) controls.scheduleHide()
         return super.dispatchTouchEvent(ev)
     }
 
@@ -317,21 +201,14 @@ class PlayerActivity : ThemedActivity() {
             setupControls()
             start(intent.getLongExtra(EXTRA_START, 0), startupAttempt = startupAttempt)
             if (progressJob == null) startProgressReporting()
-            startMarkerWatch()
-            loadRowItems()
-            // 播放列表按顺序连播；剧集接着播下一集
-            val playlist = playlistItems()
-            nextEpisode = when {
-                playlist != null -> playlist.getOrNull(playlist.indexOfFirst { it.id == item.id } + 1)
-                item.type == MediaType.EPISODE -> attempt { server.nextEpisode(item) }.getOrNull()
-                else -> null
-            }
+            episodes.bind(server, detail, intent.getStringExtra(EXTRA_PLAYLIST))
+            overlays.bind(server, detail)
         }
     }
 
     private fun onEnded() {
-        DebugLog.i(TAG, "ended at ${positionMs}/${durationMs} next=${nextEpisode?.id}")
-        if (nextEpisode != null && settings.autoPlayNext && !upNextDismissed) {
+        DebugLog.i(TAG, "ended at ${positionMs}/${durationMs} next=${episodes.nextEpisode?.id}")
+        if (episodes.nextEpisode != null && settings.autoPlayNext && !overlays.upNextDismissed) {
             playNext()
         } else {
             report(PlaybackState.STOPPED)
@@ -341,7 +218,7 @@ class PlayerActivity : ThemedActivity() {
 
     /** 连续播放：在同一个播放器里换成下一集，省去重新创建解码器的时间 */
     private fun playNext() {
-        val next = nextEpisode ?: return finish()
+        val next = episodes.nextEpisode ?: return finish()
         DebugLog.i(TAG, "play next ${next.id} from ${positionMs}")
         switchTo(next, 0L)
     }
@@ -349,7 +226,7 @@ class PlayerActivity : ThemedActivity() {
     /** 在同一个播放器里换成另一集（下一集 / 从剧集行选的） */
     private fun switchTo(next: MediaItem, startMs: Long) {
         startupTiming?.end(PlaybackStartupTiming.End.REPLACED)
-        cancelScrub()
+        seek.cancel()
         playbackNotice.clear()
         danmaku.clear()
         danmakuProbe.reset()
@@ -357,19 +234,14 @@ class PlayerActivity : ThemedActivity() {
         report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
         request = null
-        hideOverlays()
+        overlays.reset()
+        episodes.reset()
         intent.removeExtra("watch_next_version_id")
         intent.putExtra(EXTRA_ID, next.id).putExtra(EXTRA_VERSION, 0).putExtra(EXTRA_START, startMs)
-        seasonEpisodes = emptyList()
-        // 播放列表重新拉一次，切回看过一半的条目时进度是新的
-        playlistJob = null
-        hideControls()
-        nextEpisode = null
-        autoSkipped.clear()
-        upNextDismissed = false
+        controls.hide()
         offsets.subtitleDelayMs = 0
         frameRateMatched = false
-        droppedFrames = 0
+        info.droppedFrames = 0
         binding.buffering.visibility = View.VISIBLE
         player.stop()
         load()
@@ -378,32 +250,22 @@ class PlayerActivity : ThemedActivity() {
     /** 剧集所属的剧，用来记住这部剧选的语言 */
     private val showId: String? get() = item.grandparentId?.takeIf { item.type == MediaType.EPISODE }
 
-    /** 手动选择按服务器分开记 */
-    private val memoryServerId: String get() = LumyApp.instance.currentEntry?.id.orEmpty()
-    private val trackPreferences get() = TrackPreferences(settings, LumyApp.instance.trackMemory, memoryServerId)
-
     /**
      * 选默认音轨和字幕，优先级：这个文件手动选过 > 这部剧记住的语言 > 设置里的语言偏好 > 服务器的选择。
      * 某一级没有符合的轨道时交给下一级。
      */
     private fun selectVersion(v: MediaVersion) {
-        cancelScrub()
+        seek.cancel()
         playbackNotice.clear()
         danmakuProbe.reset()
-        secondarySubtitle = null
-        subtitleSelector.selectSecondary(null)
-        dualSubtitles.clear()
-        version = v
+        tracks.selector.selectSecondary(null)
+        tracks.dual.clear()
+        selection.selectVersion(v, showId)
         intent.putExtra("watch_next_version_id", v.id)
-        danmaku.bind(server, detail, v, memoryServerId)
-        fellBack = false
-        fallbackReason = null
-        videoDecodeFailed = false
+        danmaku.bind(server, detail, v, LumyApp.instance.currentEntry?.id.orEmpty())
         doviHevcFallback = false
         codecs.softwareVideoMime = null
-        audio = trackPreferences.audio(v, showId)
-        subtitle = trackPreferences.subtitle(v, showId, audio)
-        DebugLog.i(TAG, "tracks audio=${audio?.title} subtitle=${subtitle?.title}")
+        DebugLog.i(TAG, "tracks audio=${selection.audio?.title} subtitle=${selection.subtitle?.title}")
     }
 
     // ---- 起播 ----
@@ -411,26 +273,23 @@ class PlayerActivity : ThemedActivity() {
     private fun start(positionMs: Long, playWhenReady: Boolean = true,
         startupAttempt: PlaybackStartupTiming.Attempt? = null) {
         val timingAttempt = startupAttempt?.takeIf { startupTiming?.isActive(it) == true } ?: startupTiming?.begin()
-        cancelScrub()
+        seek.cancel()
         holdSpeedGesture.cancel()
         startJob?.cancel()
-        bitmapSubtitles.clear()
-        dualSubtitles.clear()
-        subtitleSelector.selectSecondary(null)
-        subtitleSelector.secondaryAssEnabled = secondarySubtitle?.codec?.lowercase() in setOf("ass", "ssa")
+        tracks.prepare()
         // 换字幕 / 音轨 / 画质等重新起播时，旧会话要先报停止，否则服务端的“正在播放”里会一直留着它
         if (request != null) report(PlaybackState.STOPPED)
         request?.let { stopSession(it) }
         startupTiming?.mark(timingAttempt, Stage.PLAN_BEGIN)
-        val p = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed, fallbackReason = fallbackReason)
+        val p = selection.createPlan()
         startupTiming?.mark(timingAttempt, Stage.PLAN_END)
-        DebugLog.i(TAG, "plan ${item.title} id=${item.id} [${version.summary}] dovi=${version.video?.doviProfile} audio=${audio?.codec} sub=${subtitle?.codec} -> ${p.mode} reasons=${p.reasons} subUnavailable=${p.subtitleUnavailable}")
-        val req = PlaybackRequest(item, version, p.mode, positionMs, UUID.randomUUID().toString(), audio?.id, subtitle?.id)
+        DebugLog.i(TAG, "plan ${item.title} id=${item.id} [${selection.version.summary}] dovi=${selection.version.video?.doviProfile} audio=${selection.audio?.codec} sub=${selection.subtitle?.codec} -> ${p.mode} reasons=${p.reasons} subUnavailable=${p.subtitleUnavailable}")
+        val req = PlaybackRequest(item, selection.version, p.mode, positionMs, UUID.randomUUID().toString(), selection.audio?.id, selection.subtitle?.id)
         request = req
-        plan = p
+        selection.plan = p
         doviWatchJob?.cancel()
         firstFrameRendered = false
-        val doviProfile = version.video?.doviProfile
+        val doviProfile = selection.version.video?.doviProfile
         // Native Dolby Vision stays preferred until it is unavailable or has actually failed.
         codecs.hevcOnly = doviHevcFallback || doviProfile in settings.brokenDolbyVisionProfiles ||
             ((doviProfile == 5 || doviProfile == 7) && !device.hasDolbyVisionDecoder())
@@ -441,13 +300,13 @@ class PlayerActivity : ThemedActivity() {
         timeBase = 0
         // 新的播放源准备好之前，播放器里还是旧的，位置以起播目标为准
         pendingSeekMs = positionMs
-        startPart = version.partAt(positionMs)
+        startPart = selection.version.partAt(positionMs)
         hlsAligned = p.mode is PlaybackMode.Direct
         binding.state.root.visibility = View.GONE
         binding.buffering.visibility = View.VISIBLE
         if (p.subtitleUnavailable) Toast.makeText(this, R.string.subtitle_unavailable, Toast.LENGTH_LONG).show()
 
-        playbackNotice.show("${item.id}:${version.id}:${version.index}", p,
+        playbackNotice.show("${item.id}:${selection.version.id}:${selection.version.index}", p,
             copiesVideo = (p.mode as? PlaybackMode.Transcode)?.copyVideo == true && server.session.kind != ServerKind.FNOS)
         startupTiming?.mark(timingAttempt, Stage.SOURCE_BEGIN)
         startJob = lifecycleScope.launch {
@@ -468,43 +327,7 @@ class PlayerActivity : ThemedActivity() {
             // A decision request may finish after another seek, track change or episode switch.
             if (request !== req) return@launch
             startupTiming?.mark(timingAttempt, Stage.SOURCE_END)
-            pgsSelection.configure(
-                req.version.subtitles.firstOrNull { it.id == req.subtitleStreamId },
-                filterTracks = req.mode is PlaybackMode.Direct && !source.isHls &&
-                    req.version.parts.size == 1 && source.urls.size == 1,
-                secondary = secondarySubtitle,
-            )
-            // 多段文件放进播放列表，段与段之间无缝衔接；外挂字幕属于第一段
-            val media = source.urls.mapIndexed { i, url ->
-                androidx.media3.common.MediaItem.Builder()
-                    .setUri(url)
-                    .setMediaId("${item.id}#$i")
-                    .apply {
-                        if (timingAttempt != null) {
-                            setTag(timingAttempt)
-                            if (!source.isHls) setCustomCacheKey(timingAttempt.key)
-                        }
-                        if (source.isHls) setMimeType(MimeTypes.APPLICATION_M3U8)
-                        else if (req.mode is PlaybackMode.Direct &&
-                            req.version.container?.lowercase() in setOf("rm", "rmvb")
-                        ) setMimeType("application/vnd.rn-realmedia")
-                    }
-                    .setSubtitleConfigurations(
-                        if (i != 0) emptyList() else source.externalSubtitles.filter {
-                            // A missing unselected SUP must not prevent the video from starting.
-                            it.codec.lowercase() !in SupMediaSourceFactory.CODECS ||
-                                it.streamId == req.subtitleStreamId || it.streamId == secondarySubtitle?.id
-                        }.map {
-                            SubtitleConfiguration.Builder(Uri.parse(it.url))
-                                .setId(EXTERNAL_PREFIX + it.streamId)
-                                .setMimeType(subtitleMime(it.codec))
-                                .setLanguage(it.language)
-                                .setLabel(it.label)
-                                .build()
-                        },
-                    )
-                    .build()
-            }
+            val media = mediaItems.build(req, source, timingAttempt)
             // 带内封字幕的转码流已从起播点开始，而且不能跳转
             val embedded = (p.mode as? PlaybackMode.Transcode)?.embedSubtitleId != null
             // fnOS serves a full VOD timeline but only generates segments near the requested start.
@@ -512,33 +335,16 @@ class PlayerActivity : ThemedActivity() {
             if (nativeHls) hlsAligned = true
             player.setMediaItems(media, source.startPart,
                 if ((source.isHls && !nativeHls) || embedded) 0 else source.startOffsetMs)
-            player.setPlaybackSpeed(speed)
+            player.setPlaybackSpeed(selection.speed)
             startupTiming?.mark(timingAttempt, Stage.PREPARE)
             player.prepare()
             player.playWhenReady = playWhenReady
         }
     }
 
-    private fun encodingName(encoding: Int) = when (encoding) {
-        C.ENCODING_AC3 -> "AC3"
-        C.ENCODING_E_AC3 -> "E-AC3"
-        C.ENCODING_E_AC3_JOC -> "E-AC3 Atmos"
-        C.ENCODING_DTS -> "DTS"
-        C.ENCODING_DTS_HD -> "DTS-HD"
-        C.ENCODING_DOLBY_TRUEHD -> "TrueHD"
-        else -> "encoding $encoding"
-    }
-
-    private fun subtitleMime(codec: String) = when (codec.lowercase()) {
-        "sup", "pgs", "hdmv_pgs_subtitle" -> MimeTypes.APPLICATION_PGS
-        "ass", "ssa" -> MimeTypes.TEXT_SSA
-        "vtt", "webvtt" -> MimeTypes.TEXT_VTT
-        else -> MimeTypes.APPLICATION_SUBRIP
-    }
-
     /** 第 [index] 段的播放器时间 0 对应的绝对时间 */
     private fun partBase(index: Int): Long =
-        version.partStartsMs.getOrElse(index) { 0L } + if (index == startPart) timeBase else 0L
+        selection.version.partStartsMs.getOrElse(index) { 0L } + if (index == startPart) timeBase else 0L
 
     /**
      * 跳转到还没加载的那一段时，播放器在缓冲完成前报告的位置不可靠（实测会返回另一段的时长），
@@ -551,14 +357,14 @@ class PlayerActivity : ThemedActivity() {
     private val bufferedMs: Long get() = partBase(player.currentMediaItemIndex) + player.bufferedPosition
     private val durationMs: Long
         get() = item.durationMs
-            ?: version.parts.sumOf { it.durationMs ?: 0 }.takeIf { it > 0 }
+            ?: selection.version.parts.sumOf { it.durationMs ?: 0 }.takeIf { it > 0 }
             ?: (player.duration.takeIf { it != C.TIME_UNSET }?.plus(partBase(player.currentMediaItemIndex)) ?: 0)
 
     private fun seekTo(target: Long) {
-        cancelScrub()
+        seek.cancel()
         val t = target.coerceIn(0, (durationMs - 1_000).coerceAtLeast(0))
-        val part = version.partAt(t)
-        val local = version.localOffset(t, part)
+        val part = selection.version.partAt(t)
+        val local = selection.version.localOffset(t, part)
         DebugLog.i(TAG, "seek target=$t part=$part local=$local")
         // 转码流只有已经转好的片段可以直接跳；跨段、跳到缓冲之后、或早于转码起点时，
         // 让服务器从目标位置重新转码（官方客户端也是这么做的），否则会请求到不存在的片段（404）
@@ -566,18 +372,18 @@ class PlayerActivity : ThemedActivity() {
             start(t)
             return
         }
-        if (plan?.mode !is PlaybackMode.Transcode && fallBackIfUnseekable(t)) return
+        if (selection.plan?.mode !is PlaybackMode.Transcode && fallBackIfUnseekable(t)) return
         pendingSeekMs = t
         if (part == startPart) player.seekTo(part, local - timeBase) else player.seekTo(part, local)
     }
 
     private fun needsTranscodeRestart(target: Long): Boolean {
-        val mode = plan?.mode as? PlaybackMode.Transcode ?: return false
+        val mode = selection.plan?.mode as? PlaybackMode.Transcode ?: return false
         // The player still exposes the old buffer while a replacement source is pending.
         if (startJob?.isActive == true) return true
-        val part = version.partAt(target)
+        val part = selection.version.partAt(target)
         return mode.embedSubtitleId != null || part != player.currentMediaItemIndex || target > bufferedMs + 5_000 ||
-            (part == startPart && version.localOffset(target, part) < timeBase)
+            (part == startPart && selection.version.localOffset(target, part) < timeBase)
     }
 
     /**
@@ -585,10 +391,10 @@ class PlayerActivity : ThemedActivity() {
      * 这时改用服务器转码（视频能直接复制时只换封装），由服务器从目标位置开始。
      */
     private fun fallBackIfUnseekable(target: Long): Boolean {
-        if (player.isCurrentMediaItemSeekable || fellBack || !policy.allowTranscode) return false
+        if (player.isCurrentMediaItemSeekable || selection.fellBack || !selection.policy.allowTranscode) return false
         DebugLog.i(TAG, "unseekable direct play, transcode from $target")
-        fellBack = true
-        fallbackReason = PlaybackIssue.Unseekable
+        selection.fellBack = true
+        selection.fallbackReason = PlaybackIssue.Unseekable
         start(target)
         return true
     }
@@ -603,7 +409,7 @@ class PlayerActivity : ThemedActivity() {
             if (state == Player.STATE_READY) networkRetries = 0
             if (state == Player.STATE_READY && !hlsAligned) alignHlsTimeline()
             // 起播位置没生效（文件不能跳转，播放器从头开始）
-            if (state == Player.STATE_READY && plan?.mode is PlaybackMode.Direct) {
+            if (state == Player.STATE_READY && selection.plan?.mode is PlaybackMode.Direct) {
                 val startMs = request?.startMs ?: 0
                 if (startMs > 0 && positionMs < startMs - 5_000) fallBackIfUnseekable(startMs)
             }
@@ -611,9 +417,9 @@ class PlayerActivity : ThemedActivity() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            playPauseIcon?.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+            menus.onPlayingChanged(isPlaying)
             if (player.playbackState == Player.STATE_READY) report(if (isPlaying) PlaybackState.PLAYING else PlaybackState.PAUSED)
-            if (isPlaying) scheduleHideControls() else holdSpeedGesture.cancel()
+            if (isPlaying) controls.scheduleHide() else holdSpeedGesture.cancel()
         }
 
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
@@ -633,7 +439,7 @@ class PlayerActivity : ThemedActivity() {
             }
             if (!tracksApplied && !tracks.isEmpty) {
                 tracksApplied = true
-                applyTrackSelection()
+                this@PlayerActivity.tracks.apply()
             }
             matchFrameRate()
         }
@@ -647,18 +453,18 @@ class PlayerActivity : ThemedActivity() {
             // A wedged codec may report release errors after the compatibility page has opened.
             if (isFinishing || isDestroyed) return
             val current = positionMs
-            DebugLog.i(TAG, "error ${error.errorCodeName} at $current mode=${plan?.mode} retries=$networkRetries: ${error.cause?.message}")
+            DebugLog.i(TAG, "error ${error.errorCodeName} at $current mode=${selection.plan?.mode} retries=$networkRetries: ${error.cause?.message}")
             val failedFormat = (error as? ExoPlaybackException)?.rendererFormat ?: player.videoFormat
-            if (plan?.mode is PlaybackMode.Direct && !codecs.hevcOnly &&
+            if (selection.plan?.mode is PlaybackMode.Direct && !codecs.hevcOnly &&
                 dolbyVisionProfile(failedFormat?.codecs) == 5 && error.isVideoDecodeError()
             ) {
                 retryDolbyVisionWithHevc(5)
                 return
             }
-            if (plan?.mode is PlaybackMode.Direct && settings.allowSoftwareVideoDecoding &&
+            if (selection.plan?.mode is PlaybackMode.Direct && settings.allowSoftwareVideoDecoding &&
                 codecs.softwareVideoMime == null && failedFormat != null &&
                 SoftwareVideoPolicy.supports(failedFormat) && error.isVideoDecodeError() &&
-                videoDecoder?.startsWith("LumyFFmpeg") != true
+                info.videoDecoder?.startsWith("LumyFFmpeg") != true
             ) {
                 codecs.softwareVideoMime = failedFormat.sampleMimeType
                 DebugLog.i(TAG, "retry software video ${failedFormat.sampleMimeType} at $current")
@@ -673,16 +479,16 @@ class PlayerActivity : ThemedActivity() {
             } else if (network && error.errorCode != PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
                 // 连不上服务器时转码也一样连不上，直接提示
                 showError(getString(R.string.player_network_error), retryAt = current)
-            } else if (plan?.mode is PlaybackMode.Direct && !fellBack && policy.allowTranscode) {
+            } else if (selection.plan?.mode is PlaybackMode.Direct && !selection.fellBack && selection.policy.allowTranscode) {
                 // 硬解失败、格式识别错误等：自动改用服务器转码，从当前位置继续。
                 // 视频解码失败要重新编码；封装、解析等问题只换封装，服务器几乎没有负担
-                fellBack = true
-                videoDecodeFailed = error.isVideoDecodeError()
-                fallbackReason = if (videoDecodeFailed) PlaybackIssue.VideoDecodeFailed else PlaybackIssue.DirectPlayFailed
+                selection.fellBack = true
+                selection.videoDecodeFailed = error.isVideoDecodeError()
+                selection.fallbackReason = if (selection.videoDecodeFailed) PlaybackIssue.VideoDecodeFailed else PlaybackIssue.DirectPlayFailed
                 start(current)
             } else {
-                val hint = if (!policy.allowTranscode && plan?.reasons?.isNotEmpty() == true) {
-                    getString(R.string.direct_only_failed, plan!!.reasons.text(this@PlayerActivity))
+                val hint = if (!selection.policy.allowTranscode && selection.plan?.reasons?.isNotEmpty() == true) {
+                    getString(R.string.direct_only_failed, selection.plan!!.reasons.text(this@PlayerActivity))
                 } else {
                     error.errorCodeName + (error.cause?.message?.let { " · $it" } ?: "")
                 }
@@ -694,7 +500,7 @@ class PlayerActivity : ThemedActivity() {
     private val analyticsListener = object : AnalyticsListener {
         override fun onVideoDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
             DebugLog.i(TAG, "video decoder $decoderName init ${initializationDurationMs}ms")
-            videoDecoder = decoderName
+            info.videoDecoder = decoderName
             firstFrameRendered = false
         }
 
@@ -705,22 +511,22 @@ class PlayerActivity : ThemedActivity() {
 
         override fun onAudioDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
             DebugLog.i(TAG, "audio decoder $decoderName")
-            audioDecoder = decoderName
+            info.audioDecoder = decoderName
         }
 
         override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, config: AudioSink.AudioTrackConfig) {
-            passthroughEncoding = config.encoding.takeUnless { Util.isEncodingLinearPcm(it) }
-            if (passthroughEncoding != null) holdSpeedGesture.cancel()
-            DebugLog.i(TAG, "audio track encoding=${config.encoding} ${config.sampleRate}Hz channelConfig=${config.channelConfig} passthrough=${passthroughEncoding != null}")
+            info.passthroughEncoding = config.encoding.takeUnless { Util.isEncodingLinearPcm(it) }
+            if (info.passthroughEncoding != null) holdSpeedGesture.cancel()
+            DebugLog.i(TAG, "audio track encoding=${config.encoding} ${config.sampleRate}Hz channelConfig=${config.channelConfig} passthrough=${info.passthroughEncoding != null}")
             // 直通的音轨无法变速，播放器会按 1x 播放，这里同步一下避免界面显示的倍速不对
-            if (passthroughEncoding != null && speed != 1f) {
-                speed = 1f
-                player.setPlaybackSpeed(speed)
+            if (info.passthroughEncoding != null && selection.speed != 1f) {
+                selection.speed = 1f
+                player.setPlaybackSpeed(selection.speed)
             }
         }
 
         override fun onDroppedVideoFrames(eventTime: AnalyticsListener.EventTime, droppedFrames: Int, elapsedMs: Long) {
-            this@PlayerActivity.droppedFrames += droppedFrames
+            info.droppedFrames += droppedFrames
         }
     }
 
@@ -744,7 +550,7 @@ class PlayerActivity : ThemedActivity() {
 
     private fun dolbyVisionProfile(codecsString: String?): Int? =
         codecsString?.let { DOVI_PROFILE.find(it)?.groupValues?.get(1)?.toIntOrNull() }
-            ?: version.video?.doviProfile
+            ?: selection.version.video?.doviProfile
 
     private fun retryDolbyVisionWithHevc(profile: Int?) {
         doviWatchJob?.cancel()
@@ -760,7 +566,7 @@ class PlayerActivity : ThemedActivity() {
         startActivity(
             Intent(this, PlayerActivity::class.java)
                 .putExtras(intent)
-                .putExtra(EXTRA_VERSION, detail.versions.indexOf(version).coerceAtLeast(0))
+                .putExtra(EXTRA_VERSION, detail.versions.indexOf(selection.version).coerceAtLeast(0))
                 .putExtra(EXTRA_START, positionMs)
                 .putExtra(EXTRA_DOVI_HEVC, true)
                 .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION),
@@ -776,15 +582,15 @@ class PlayerActivity : ThemedActivity() {
      */
     private fun alignHlsTimeline() {
         hlsAligned = true
-        val start = version.localOffset(request?.startMs ?: return, startPart)
+        val start = selection.version.localOffset(request?.startMs ?: return, startPart)
         if (start <= 0) return
-        if ((plan?.mode as? PlaybackMode.Transcode)?.embedSubtitleId != null) {
+        if ((selection.plan?.mode as? PlaybackMode.Transcode)?.embedSubtitleId != null) {
             // MKV 转码流从起播点开始：Emby 实测保留原片时间戳，时间轴也可能从 0 开始，按就绪时的位置判断
             if (abs(player.currentPosition - start) > 15_000) timeBase = start
             return
         }
         val hlsDuration = player.duration.takeIf { it != C.TIME_UNSET } ?: return
-        val partDuration = version.parts[startPart].durationMs ?: item.durationMs ?: return
+        val partDuration = selection.version.parts[startPart].durationMs ?: item.durationMs ?: return
         if (abs(hlsDuration - (partDuration - start)) < 15_000) {
             timeBase = start
         } else {
@@ -795,731 +601,48 @@ class PlayerActivity : ThemedActivity() {
     // ---- 音轨 / 字幕 ----
 
     /** 把 Plex 的流对应到播放器的轨道：内封轨道按顺序对应，外挂字幕按 id 对应 */
-    private fun applyTrackSelection() {
-        val mode = plan?.mode ?: return
-        val groups = player.currentTracks.groups
-        val params = player.trackSelectionParameters.buildUpon()
-
-        if (mode is PlaybackMode.Direct) {
-            val audioGroups = groups.filter { it.type == C.TRACK_TYPE_AUDIO }
-            matchGroup(audioGroups, audio?.index, version.audio.indexOf(audio))?.let {
-                params.setOverrideForType(TrackSelectionOverride(it.mediaTrackGroup, 0))
-            }
-        }
-
-        val s = subtitle
-        val burned = (mode as? PlaybackMode.Transcode)?.burnSubtitleId
-        if (s == null || burned == s.id || plan?.subtitleUnavailable == true) {
-            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-        } else {
-            val textGroups = groups.filter { it.type == C.TRACK_TYPE_TEXT }
-            val group = if (s.external) {
-                textGroups.firstOrNull { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX + s.id) == true }
-            } else if ((mode as? PlaybackMode.Transcode)?.embedSubtitleId == s.id ||
-                (mode is PlaybackMode.Transcode && server.session.kind == ServerKind.FNOS)) {
-                // 转码流里只带了这一条内封字幕，轨道号和原文件对不上
-                textGroups.firstOrNull { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX) != true }
-            } else {
-                val embedded = textGroups.filter { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX) != true }
-                matchGroup(embedded, s.index, version.subtitles.filter { !it.external }.indexOf(s))
-            }
-            if (group != null) {
-                params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                params.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, 0))
-            } else if (mode is PlaybackMode.Direct && policy.allowTranscode && policy.allowSubtitleBurn) {
-                // 播放器没认出这条字幕，用户允许时改由服务器烧录
-                fellBack = true
-                fallbackReason = PlaybackIssue.SubtitleNeedsBurn(s.codec)
-                start(positionMs)
-                return
-            } else {
-                params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                Toast.makeText(this, R.string.subtitle_unavailable, Toast.LENGTH_LONG).show()
-            }
-        }
-        player.trackSelectionParameters = params.build()
-        if (secondarySubtitle?.id == subtitle?.id) secondarySubtitle = null
-        subtitleSelector.selectSecondary(secondarySubtitle?.let(::findSubtitleGroup)?.mediaTrackGroup)
-    }
-
-    private fun findSubtitleGroup(stream: SubtitleStream): Tracks.Group? {
-        val groups = player.currentTracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
-        if (stream.external) return groups.firstOrNull {
-            it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX + stream.id) == true
-        }
-        val embedded = groups.filter { it.getTrackFormat(0).id?.contains(EXTERNAL_PREFIX) != true }
-        val mode = plan?.mode
-        if (mode is PlaybackMode.Transcode) {
-            val nativeText = server.session.kind == ServerKind.FNOS && subtitle?.id == stream.id &&
-                mode.burnSubtitleId != stream.id
-            return embedded.firstOrNull().takeIf { mode.embedSubtitleId == stream.id || nativeText }
-        }
-        return matchGroup(embedded, stream.index, version.subtitles.filter { !it.external }.indexOf(stream))
-    }
-
-    private fun pickSecondarySubtitle() {
-        val streams = version.subtitles.filter { it.id != subtitle?.id }
-        val options = listOf(Option(getString(R.string.subtitles_off), selected = secondarySubtitle == null)) +
-            streams.map { stream ->
-                val available = findSubtitleGroup(stream)?.isSupported == true ||
-                    (stream.external && stream.codec.lowercase() in SupMediaSourceFactory.CODECS &&
-                        (plan?.mode as? PlaybackMode.Transcode)?.burnSubtitleId == null)
-                Option(stream.title, listOfNotNull(stream.codec.uppercase(),
-                    getString(R.string.subtitle_not_available_note).takeUnless { available }).joinToString(" · "),
-                    stream.id == secondarySubtitle?.id)
-            }
-        OptionsPanel(this, getString(R.string.player_secondary_subtitles), options) { index ->
-            val selected = streams.getOrNull(index - 1)
-            if (selected?.id == secondarySubtitle?.id) return@OptionsPanel
-            val pgs = selected?.codec?.lowercase() in SupMediaSourceFactory.CODECS
-            if (selected != null && findSubtitleGroup(selected)?.isSupported != true &&
-                !(pgs && selected.external && (plan?.mode as? PlaybackMode.Transcode)?.burnSubtitleId == null)) {
-                Toast.makeText(this, R.string.subtitle_unavailable, Toast.LENGTH_LONG).show()
-                return@OptionsPanel
-            }
-            val rebuildCodecs = SupMediaSourceFactory.CODECS + setOf("ass", "ssa")
-            val rebuild = selected?.codec?.lowercase() in rebuildCodecs || secondarySubtitle?.codec?.lowercase() in rebuildCodecs
-            secondarySubtitle = selected
-            dualSubtitles.onSecondaryCues(androidx.media3.common.text.CueGroup(emptyList(), 0))
-            if (rebuild) start(positionMs, player.playWhenReady) else applyTrackSelection()
-        }.returnToMore(R.string.player_secondary_subtitles).show()
-    }
-
-    /**
-     * 把 Plex 的流对应到播放器的轨道组。播放器里的轨道顺序不一定是文件里的顺序（实测 MKV 会把 AC3 排在 DTS 前面），
-     * 不能按位置对应。MKV/MP4 的轨道 id 是从 1 开始的轨道号，等于 Plex 的流序号 + 1；
-     * 对不上（其他封装）时才退回按位置对应。
-     */
-    private fun matchGroup(groups: List<Tracks.Group>, streamIndex: Int?, position: Int): Tracks.Group? {
-        if (streamIndex != null) {
-            val trackNumber = (streamIndex + 1).toString()
-            // Merging an external subtitle prefixes embedded track IDs with the source index.
-            groups.firstOrNull { it.getTrackFormat(0).id?.substringAfterLast(':') == trackNumber }?.let { return it }
-        }
-        return groups.getOrNull(position)
-    }
-
-    private fun pickAudio() {
-        val options = version.audio.map { Option(it.title, it.channelsLabel, it == audio) }
-        OptionsPanel(this, getString(R.string.player_audio), options) { i ->
-            audio = version.audio[i]
-            saveSelection()
-            rememberAudio()
-            if (plan?.mode is PlaybackMode.Direct) applyTrackSelection() else start(positionMs)
-        }.show()
-    }
-
-    private fun pickSubtitle(focusStyle: Boolean = false) {
-        val transcoding = plan?.mode is PlaybackMode.Transcode
-        // 视频已在重新编码时，渲染不了的字幕总是交给服务器烧录（见 PlaybackPlanner）
-        val reencoding = (plan?.mode as? PlaybackMode.Transcode)?.copyVideo == false
-        val options = listOf(Option(getString(R.string.subtitles_off), selected = subtitle == null)) +
-            version.subtitles.map {
-                val note = when {
-                    device.canRenderSubtitle(it, transcoding) -> null
-                    transcoding && planner.canEmbed(it, policy) -> null
-                    policy.allowTranscode && (policy.allowSubtitleBurn || reencoding) -> getString(R.string.subtitle_burn_note)
-                    else -> getString(R.string.subtitle_not_available_note)
-                }
-                Option(it.title, listOfNotNull(it.codec.uppercase(), if (it.forced) getString(R.string.subtitle_forced) else null, note).joinToString(" · "), it == subtitle)
-            }
-        OptionsPanel(this, getString(R.string.player_subtitles), options) { i ->
-            val selected = if (i == 0) null else version.subtitles[i - 1]
-            // Native HLS contains only the subtitle selected when its session was created.
-            val nativeSubtitleChanged = server.session.kind == ServerKind.FNOS && transcoding && selected?.id != subtitle?.id
-            val oldPgs = subtitle?.takeIf { it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
-            val newPgs = selected?.takeIf { it.codec.lowercase() in SupMediaSourceFactory.CODECS }?.id
-            if (selected?.id != subtitle?.id) bitmapSubtitles.clear()
-            if (selected?.id != subtitle?.id && fallbackReason is PlaybackIssue.SubtitleNeedsBurn) {
-                fallbackReason = null
-                fellBack = false
-            }
-            subtitle = selected
-            if (secondarySubtitle?.id == selected?.id) secondarySubtitle = null
-            saveSelection()
-            rememberSubtitle()
-            // Skipped PGS tracks have no decoded cues; rebuild their source when changing tracks.
-            val newPlan = planner.plan(version, audio, subtitle, quality, policy, forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed, fallbackReason = fallbackReason)
-            val sameMode = newPlan.mode == plan?.mode
-            if (sameMode && oldPgs == newPgs && !nativeSubtitleChanged) applyTrackSelection()
-            else start(positionMs, playWhenReady = !sameMode || player.playWhenReady)
-        }.withHeaderAction(getString(R.string.player_subtitle_style), focused = focusStyle) {
-            showSubtitleStyle()
-        }.show()
-    }
-
-    private fun showSubtitleStyle() {
-        val authoredCodecs = SupMediaSourceFactory.CODECS + setOf("ass", "ssa", "dvd_subtitle", "vobsub", "dvb_subtitle")
-        val burned = subtitle != null && (plan?.mode as? PlaybackMode.Transcode)?.burnSubtitleId == subtitle?.id
-        val adjustable = !burned && subtitle?.codec?.lowercase() !in authoredCodecs
-        lateinit var panel: SubtitleStylePanel
-        val secondaryStyle: (() -> Unit)? = if (secondarySubtitle?.codec?.lowercase() in setOf("srt", "subrip", "vtt", "webvtt")) {
-            {
-                SecondarySubtitleStylePanel(this, settings, ::refreshSubtitleStyle,
-                    onBack = { panel.show(Int.MAX_VALUE) }).show()
-            }
-        } else null
-        panel = SubtitleStylePanel(this, settings, ::refreshSubtitleStyle, onBack = { pickSubtitle(focusStyle = true) },
-            onSecondaryStyle = secondaryStyle, allowPositionAndBackground = adjustable, allowScale = adjustable)
-        panel.show()
-    }
-
-    private fun refreshSubtitleStyle() {
-        binding.playerView.subtitleView?.apply {
-            val background = if (settings.subtitleBackground) SUBTITLE_BACKGROUND else Color.TRANSPARENT
-            setStyle(CaptionStyleCompat(Color.WHITE, background, Color.TRANSPARENT,
-                CaptionStyleCompat.EDGE_TYPE_OUTLINE, Color.BLACK, null))
-            setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 1.1f * settings.subtitleScale)
-            setBottomPaddingFraction(if (controlsVisible) maxOf(subtitlePadding, SUBTITLE_PADDING_WITH_CONTROLS) else subtitlePadding)
-        }
-        dualSubtitles.refreshStyle()
-        dualSubtitles.setBottomPaddingFraction(if (controlsVisible) maxOf(subtitlePadding, SUBTITLE_PADDING_WITH_CONTROLS) else subtitlePadding)
-    }
-
-    private fun rememberAudio() = trackPreferences.rememberAudio(version, showId, audio)
-
-    private fun rememberSubtitle() = trackPreferences.rememberSubtitle(version, showId, subtitle)
-
-    private fun saveSelection() {
-        val v = version
-        val a = audio?.id
-        val s = subtitle?.id
-        LumyApp.instance.appScope.launch { attempt { server.saveStreamSelection(v, a, s) } }
-    }
-
-    private fun pickQuality() {
-        val options = Quality.presets.map {
-            when (it) {
-                Quality.Original -> Option(getString(R.string.quality_original), getString(R.string.quality_original_detail), quality == it)
-                is Quality.Limited -> Option(
-                    getString(R.string.quality_transcode, "${it.height}p", "%.0f".format(it.bitrateKbps / 1000f)),
-                    getString(R.string.quality_transcode_detail),
-                    quality == it,
-                )
-            }
-        }
-        OptionsPanel(this, getString(R.string.player_quality), options) { i ->
-            quality = Quality.presets[i]
-            start(positionMs)
-        }.show()
-    }
-
-    private fun pickVersion() {
-        val options = detail.versions.map {
-            Option(it.summary, it.bitrateKbps?.let { b -> "%.1f Mbps · %s".format(b / 1000f, it.container.orEmpty().uppercase()) }, it == version)
-        }
-        OptionsPanel(this, getString(R.string.version_title), options) { i ->
-            val pos = positionMs
-            selectVersion(detail.versions[i])
-            start(pos)
-        }.returnToMore(R.string.action_version).show()
-    }
-
-    private fun pickSpeed() {
-        // 只有当前音轨真的在直通时才不能变速（开了直通，AAC 等功放不支持的格式仍在本机解码）
-        if (passthroughEncoding != null) {
-            Toast.makeText(this, R.string.speed_unavailable_passthrough, Toast.LENGTH_LONG).show()
-            return
-        }
-        val options = SPEEDS.map { Option(if (it == 1f) getString(R.string.speed_normal) else "${it}x", selected = it == speed) }
-        OptionsPanel(this, getString(R.string.player_speed), options,
-            hint = getString(R.string.player_hold_speed_hint)) { i ->
-            speed = SPEEDS[i]
-            player.setPlaybackSpeed(speed)
-        }.show()
-    }
-
-    // ---- 控制栏 ----
-
-    private fun setupControls() {
-        binding.title.text = if (item.type == MediaType.EPISODE) item.showTitle ?: item.title else item.title
-        binding.subtitle.text = when (item.type) {
-            MediaType.EPISODE -> listOfNotNull(
-                item.seasonNumber?.let { s -> item.episodeNumber?.let { e -> getString(R.string.episode_code, s, e) } },
-                item.title,
-            ).joinToString("  ·  ")
-            else -> item.year?.toString()
-        }
-        val row = binding.buttons
-        row.removeAllViews()
-        val playButton = row.addActionButton(R.drawable.ic_pause, "") { togglePlay() }
-        playButton.findViewById<TextView>(R.id.label).visibility = View.GONE
-        playPauseIcon = playButton.findViewById(R.id.icon)
-        if (version.subtitles.isNotEmpty()) row.addActionButton(R.drawable.ic_subtitles, getString(R.string.player_subtitles)) { pickSubtitle() }
-        if (version.audio.size > 1) row.addActionButton(R.drawable.ic_audio, getString(R.string.player_audio)) { pickAudio() }
-        if (policy.allowTranscode) row.addActionButton(R.drawable.ic_hd, getString(R.string.player_quality)) { pickQuality() }
-        row.addActionButton(R.drawable.ic_speed, getString(R.string.player_speed)) { pickSpeed() }
-        if (settings.danmaku.enabled) row.addActionButton(R.drawable.ic_danmaku, getString(R.string.settings_section_danmaku)) {
+    private fun setupControls(restoreFocus: Boolean = false) {
+        menus.refreshControls(::togglePlay, onDanmaku = {
             if (danmakuProbe.profile != 0) { danmakuProbe.reset(); danmaku.setTestActive(false) }
             danmaku.showMenu()
-        }
-        row.addActionButton(R.drawable.ic_more, getString(R.string.player_more)) { showMore() }
-        binding.seek.setOnFocusChangeListener { _, hasFocus ->
-            binding.seekBar.animate().scaleY(if (hasFocus) 1.6f else 1f).setDuration(120).start()
-        }
+        }, restoreFocus = restoreFocus)
     }
 
     private fun refreshDanmakuControls() {
-        if (!::detail.isInitialized || !::version.isInitialized) return
-        val hadFocus = binding.buttons.hasFocus()
-        val label = binding.buttons.focusedChild?.findViewById<TextView>(R.id.label)?.text
-        setupControls()
-        playPauseIcon?.setImageResource(if (player.isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
-        if (hadFocus) {
-            val target = (0 until binding.buttons.childCount).map { binding.buttons.getChildAt(it) }
-                .firstOrNull { it.findViewById<TextView>(R.id.label)?.text == label }
-            (target ?: binding.buttons.getChildAt(0))?.requestFocus()
-        }
-    }
-
-    private val controlsVisible get() = binding.controls.visibility == View.VISIBLE
-
-    private enum class ControlsFocus { SEEK, BUTTONS, NONE }
-
-    private fun showControls(target: ControlsFocus) {
-        holdSpeedGesture.cancel()
-        autoHiddenAt = 0L
-        if (!controlsVisible) {
-            // 控制栏和跳过按钮不同时出现；控制栏收起后由标记检查重新显示
-            hideSkip()
-            binding.controlsHeader.visibility = View.VISIBLE
-            binding.controlsHeader.alpha = 0f
-            binding.controlsHeader.animate().alpha(1f).setDuration(150).start()
-            binding.controls.visibility = View.VISIBLE
-            binding.controls.alpha = 0f
-            binding.controls.animate().alpha(1f).setDuration(150).start()
-            // 控制栏出现时把字幕抬到它上方，避免重叠
-            binding.playerView.subtitleView?.setBottomPaddingFraction(maxOf(subtitlePadding, SUBTITLE_PADDING_WITH_CONTROLS))
-            dualSubtitles.setBottomPaddingFraction(maxOf(subtitlePadding, SUBTITLE_PADDING_WITH_CONTROLS))
-            when (target) {
-                ControlsFocus.SEEK -> binding.seek.requestFocus()
-                // 默认落在播放/暂停按钮上
-                ControlsFocus.BUTTONS -> binding.buttons.getChildAt(0)?.requestFocus()
-                ControlsFocus.NONE -> Unit
-            }
-            controlsJob?.cancel()
-            controlsJob = lifecycleScope.launch {
-                while (isActive) {
-                    updateProgress()
-                    delay(500)
-                }
-            }
-        }
-        scheduleHideControls()
-    }
-
-    private fun hideControls() {
-        hideJob?.cancel()
-        controlsJob?.cancel()
-        binding.controlsHeader.visibility = View.GONE
-        binding.controls.visibility = View.GONE
-        binding.episodes.visibility = View.GONE
-        updateRowHint()
-        binding.playerView.subtitleView?.setBottomPaddingFraction(subtitlePadding)
-        dualSubtitles.setBottomPaddingFraction(subtitlePadding)
-        commitScrub()
-    }
-
-    private var hideJob: Job? = null
-
-    /** 控制栏自动收起的时间：之后不久按的返回键多半是想关控制栏，要再按一次才退出 */
-    private var autoHiddenAt = 0L
-    private var exitConfirmUntil = 0L
-
-    private fun scheduleHideControls() {
-        hideJob?.cancel()
-        if (!controlsVisible || !hasWindowFocus()) return
-        hideJob = lifecycleScope.launch {
-            delay(3_000)
-            if (controlsVisible && hasWindowFocus() && scrubTarget == null) {
-                hideControls()
-                autoHiddenAt = SystemClock.elapsedRealtime()
-            }
-        }
-    }
-
-    /** 控制栏刚自动收起时拦下第一次返回键，提示再按一次退出 */
-    private fun guardBackAfterAutoHide(down: Boolean): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (autoHiddenAt == 0L || now - autoHiddenAt > BACK_GUARD_MS || now < exitConfirmUntil) return false
-        if (!down) {
-            exitConfirmUntil = now + BACK_GUARD_MS
-            Toast.makeText(this, R.string.player_back_again_exit, Toast.LENGTH_SHORT).show()
-        }
-        return true
-    }
-
-    private fun updateProgress() {
-        val duration = durationMs.takeIf { it > 0 } ?: return
-        val shown = scrubTarget ?: positionMs
-        binding.seekBar.progress = (shown * 10_000 / duration).toInt()
-        binding.seekBar.secondaryProgress = (bufferedMs * 10_000 / duration).toInt()
-        binding.position.text = formatClock(positionMs)
-        binding.remaining.text = if (settings.showRemainingTime) {
-            "-" + formatClock((duration - shown).coerceAtLeast(0))
-        } else {
-            formatClock(duration)
-        }
-        binding.scrub.visibility = if (scrubTarget != null) View.VISIBLE else View.INVISIBLE
-        binding.scrub.text = scrubTarget?.let { formatClock(it) }
+        if (::detail.isInitialized && selection.ready) setupControls(restoreFocus = true)
     }
 
     private fun togglePlay() {
         if (player.isPlaying) player.pause() else player.play()
-        showControls(ControlsFocus.BUTTONS)
-    }
-
-    /** 拖动进度条：按住方向键越久步长越大，松手 0.8 秒后才真正 seek，避免每一步都请求网络 */
-    private fun scrub(forward: Boolean, repeat: Int) {
-        val baseStep = if (forward) settings.seekForwardMs else settings.seekBackMs
-        val step = maxOf(baseStep, when {
-            repeat > 20 -> 120_000L
-            repeat > 8 -> 60_000L
-            repeat > 2 -> 30_000L
-            else -> baseStep
-        })
-        val base = scrubTarget ?: positionMs
-        scrubTarget = (base + if (forward) step else -step).coerceIn(0, durationMs)
-        updateProgress()
-        scrubJob?.cancel()
-        scrubJob = lifecycleScope.launch {
-            delay(800)
-            commitScrub()
-        }
-        scheduleHideControls()
-    }
-
-    private fun commitScrub() {
-        val target = scrubTarget ?: return
-        cancelScrub()
-        seekTo(target)
-        updateProgress()
-    }
-
-    private fun cancelScrub() {
-        scrubJob?.cancel()
-        scrubJob = null
-        scrubTarget = null
-    }
-
-    /** 提示还在显示时连续快进/快退，累计显示总跳转量（按两次右键显示 +60 秒） */
-    private var skipTotalMs = 0L
-
-    private fun skip(deltaMs: Long) {
-        val target = ((scrubTarget ?: positionMs) + deltaMs)
-            .coerceIn(0, (durationMs - 1_000).coerceAtLeast(0))
-        cancelScrub()
-        if (needsTranscodeRestart(target)) {
-            // Coalesce remote repeats before replacing a server transcode session.
-            scrubTarget = target
-            scrubJob = lifecycleScope.launch {
-                delay(TRANSCODE_SKIP_DELAY_MS)
-                commitScrub()
-            }
-        } else seekTo(target)
-        updateProgress()
-        if (binding.hint.visibility != View.VISIBLE) skipTotalMs = 0
-        skipTotalMs += deltaMs
-        val total = skipTotalMs
-        val amount = formatSkip(abs(total))
-        showHint(if (total < 0) "‹ -$amount" else "+$amount ›")
-    }
-
-    private fun formatSkip(ms: Long): String = getString(R.string.skip_seconds, (ms / 1000).toInt())
-
-    private fun showHint(text: String) {
-        binding.hint.text = text
-        binding.hint.visibility = View.VISIBLE
-        hintJob?.cancel()
-        hintJob = lifecycleScope.launch {
-            delay(900)
-            binding.hint.visibility = View.GONE
-        }
+        controls.show(ControlsFocus.BUTTONS)
     }
 
     private fun beginHoldSpeed() {
-        if (!player.isPlaying || controlsVisible || overlayFocused) return
-        if (passthroughEncoding != null) {
+        if (!player.isPlaying || controls.visible || overlays.hasFocus) return
+        if (info.passthroughEncoding != null) {
             Toast.makeText(this, R.string.speed_unavailable_passthrough, Toast.LENGTH_LONG).show()
             return
         }
         holdSpeedActive = true
         player.setPlaybackSpeed(settings.holdSpeed)
-        hintJob?.cancel()
-        skipTotalMs = 0L
-        binding.hint.text = getString(R.string.player_hold_speed, settings.holdSpeed.toString())
-        binding.hint.visibility = View.VISIBLE
+        seek.showHoldSpeed(settings.holdSpeed)
     }
 
     private fun endHoldSpeed() {
         if (!holdSpeedActive) return
         holdSpeedActive = false
-        player.setPlaybackSpeed(speed)
-        binding.hint.visibility = View.GONE
+        player.setPlaybackSpeed(selection.speed)
+        seek.clearHint()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            // Restart the idle timeout after a subtitle or other options panel closes.
-            scheduleHideControls()
-        } else {
-            hideJob?.cancel()
-            holdSpeedGesture.cancel()
-        }
+        if (::controls.isInitialized) controls.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) holdSpeedGesture.cancel()
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (holdSpeedGesture.handle(event, enabled = ::detail.isInitialized &&
-                binding.state.root.visibility != View.VISIBLE && !controlsVisible && !overlayFocused)) return true
-        if (binding.state.root.visibility == View.VISIBLE || !::detail.isInitialized) return super.dispatchKeyEvent(event)
-        val down = event.action == KeyEvent.ACTION_DOWN
-        when (event.keyCode) {
-            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE -> {
-                if (down) togglePlay()
-                return true
-            }
-            // 菜单键：直接打开“更多”（字幕延迟、音频延迟、版本、播放信息）
-            KeyEvent.KEYCODE_MENU -> {
-                if (!down) showMore()
-                return true
-            }
-            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
-                if (down) skip(settings.seekForwardMs)
-                return true
-            }
-            KeyEvent.KEYCODE_MEDIA_REWIND -> {
-                if (down) skip(-settings.seekBackMs)
-                return true
-            }
-            KeyEvent.KEYCODE_BACK -> {
-                if (controlsVisible) {
-                    if (!down) hideControls()
-                    return true
-                }
-                if (binding.upNext.visibility == View.VISIBLE) {
-                    if (!down) dismissUpNext()
-                    return true
-                }
-                if (guardBackAfterAutoHide(down)) return true
-            }
-        }
-        if (!controlsVisible) {
-            // 只拦截方向键和确认键；返回键等交给系统，否则无法退出播放
-            if (event.keyCode !in HIDDEN_CONTROL_KEYS) return super.dispatchKeyEvent(event)
-            // 跳过按钮 / 下一集卡片有焦点：确认键点它，左右在卡片按钮间移动，上下呼出控制栏
-            val confirm = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER
-            val horizontal = event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT || event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
-            if ((overlayFocused && confirm) || (binding.upNext.hasFocus() && horizontal)) {
-                return super.dispatchKeyEvent(event)
-            }
-            if (down) {
-                when (event.keyCode) {
-                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> togglePlay()
-                    KeyEvent.KEYCODE_DPAD_LEFT -> skip(-settings.seekBackMs)
-                    KeyEvent.KEYCODE_DPAD_RIGHT -> skip(settings.seekForwardMs)
-                    // 下键直接到按钮行（更常用），上键到进度条
-                    KeyEvent.KEYCODE_DPAD_DOWN -> showControls(ControlsFocus.BUTTONS)
-                    else -> showControls(ControlsFocus.SEEK)
-                }
-            }
-            return true
-        }
-        scheduleHideControls()
-        if (handleEpisodeRowKey(event)) return true
-        if (binding.seek.hasFocus()) {
-            when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    if (down) scrub(event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT, event.repeatCount)
-                    return true
-                }
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    if (down) if (scrubTarget != null) commitScrub() else togglePlay()
-                    return true
-                }
-            }
-        }
-        return super.dispatchKeyEvent(event)
-    }
-
-    // ---- 播放信息（排查 4K 卡顿用） ----
-
-    private var infoJob: Job? = null
-
-    private fun toggleInfo() {
-        if (binding.info.visibility == View.VISIBLE) {
-            infoJob?.cancel()
-            binding.info.visibility = View.GONE
-            return
-        }
-        binding.info.visibility = View.VISIBLE
-        infoJob = lifecycleScope.launch {
-            while (isActive) {
-                binding.info.text = infoText()
-                delay(1_000)
-            }
-        }
-    }
-
-    private fun infoText(): String {
-        val p = plan
-        val modeLabel = when (val m = p?.mode) {
-            PlaybackMode.Direct -> getString(R.string.mode_direct)
-            is PlaybackMode.Transcode -> if (m.copyVideo && server.session.kind != ServerKind.FNOS) {
-                getString(R.string.mode_direct_stream)
-            } else {
-                getString(R.string.mode_transcode)
-            }
-            null -> "-"
-        }
-        val v = player.videoFormat
-        val a = player.audioFormat
-        val yesNo = { b: Boolean -> getString(if (b) R.string.supported else R.string.unsupported) }
-        val rows = buildList {
-            add(R.string.info_mode to modeLabel)
-            p?.reasons?.takeIf { it.isNotEmpty() }?.let { add(R.string.info_reasons to it.text(this@PlayerActivity)) }
-            add(R.string.info_source to "${version.summary}  ${version.bitrateKbps?.let { "%.1f Mbps".format(it / 1000f) } ?: ""}")
-            if (v != null) add(R.string.info_video to "${v.width}x${v.height} ${v.sampleMimeType} ${v.codecs ?: ""} ${if (v.frameRate > 0) "%.3f fps".format(v.frameRate) else ""}")
-            add(R.string.info_video_decoder to (videoDecoder ?: "-"))
-            if (a != null) add(R.string.info_audio to "${a.sampleMimeType} ${a.channelCount}ch ${a.sampleRate}Hz")
-            add(R.string.info_audio_decoder to (passthroughEncoding?.let { getString(R.string.info_passthrough, encodingName(it)) } ?: audioDecoder ?: "-"))
-            add(R.string.info_dropped_frames to droppedFrames.toString())
-            add(R.string.info_buffer to getString(R.string.info_seconds, (player.bufferedPosition - player.currentPosition) / 1000f))
-            add(R.string.info_speed to "${player.playbackParameters.speed}x")
-            add(R.string.info_hdr to getString(R.string.info_hdr_value, yesNo(device.displaySupportsHdr), yesNo(settings.displaySupportsHdr)))
-        }.map { (label, value) -> getString(label) to value }
-        // 等宽字体下中文占两列，按显示宽度补空格让值对齐
-        val width = rows.maxOf { monoWidth(it.first) } + 2
-        return rows.joinToString("\n") { (label, value) -> label + " ".repeat(width - monoWidth(label)) + value }
-    }
-
-    private fun monoWidth(s: String): Int = s.sumOf { if (it.code >= 0x2E80) 2 else 1 }
-
-    // ---- 剧集行：从播放列表进来时是播放列表，剧集是本季剧集，电影是章节 ----
-
-    private var seasonEpisodes: List<MediaItem> = emptyList()
-    private var episodesAdapter: CardAdapter? = null
-    /** 电影没有剧集行，按下键展开章节行 */
-    private var chapterAdapter: ChapterAdapter? = null
-    /** 剧集行和“下一个”都要用，共用一次请求 */
-    private var playlistJob: Deferred<List<MediaItem>?>? = null
-
-    /** 从播放列表进来时它的条目（只留能播放的），否则为 null */
-    private suspend fun playlistItems(): List<MediaItem>? {
-        val id = intent.getStringExtra(EXTRA_PLAYLIST) ?: return null
-        val job = playlistJob ?: lifecycleScope.async {
-            attempt { server.containerItems(MediaItem(id, MediaType.PLAYLIST, "")) }.getOrNull()
-                ?.filter { it.type == MediaType.MOVIE || it.type == MediaType.EPISODE }
-        }.also { playlistJob = it }
-        return job.await()
-    }
-
-    private fun loadRowItems() {
-        val seasonId = item.parentId?.takeIf { item.type == MediaType.EPISODE }
-        chapterAdapter = null
-        seasonEpisodes = emptyList()
-        updateRowHint()
-        if (seasonId == null && !intent.hasExtra(EXTRA_PLAYLIST)) {
-            if (detail.chapters.size > 1) {
-                chapterAdapter = ChapterAdapter(server, detail.chapters) {
-                    seekTo(it.startMs)
-                    chapterAdapter?.selected = detail.chapters.indexOf(it)
-                }.also {
-                    binding.episodes.layoutManager = StartAlignedLayoutManager(this, RecyclerView.HORIZONTAL)
-                    binding.episodes.adapter = it
-                    binding.episodes.preferredPosition = { currentChapter() }
-                }
-            }
-            updateRowHint()
-            return
-        }
-        val itemId = item.id
-        lifecycleScope.launch {
-            val list = playlistItems() ?: run {
-                if (seasonId == null) return@launch
-                val result = attempt { server.children(seasonId) }
-                DebugLog.i(TAG, "season $seasonId episodes=${result.getOrNull()?.size} error=${result.exceptionOrNull()}")
-                result.getOrDefault(emptyList())
-            }
-            if (item.id != itemId) return@launch
-            seasonEpisodes = list
-            val adapter = episodesAdapter ?: CardAdapter(
-                server, HubStyle.LANDSCAPE,
-                onFocused = {},
-                onClick = { ep -> if (ep.id != item.id) switchTo(ep, ep.viewOffsetMs?.takeIf { it > 30_000 } ?: 0) },
-            ).also {
-                episodesAdapter = it
-            }
-            if (binding.episodes.adapter !== adapter) {
-                binding.episodes.layoutManager = StartAlignedLayoutManager(this@PlayerActivity, RecyclerView.HORIZONTAL)
-                binding.episodes.adapter = adapter
-                binding.episodes.preferredPosition = { episodesAdapter?.indexOf(item.id) ?: -1 }
-            }
-            adapter.submit(list)
-            adapter.selectedId = item.id
-            updateRowHint()
-        }
-    }
-
-    private fun updateRowHint() {
-        val label = when {
-            chapterAdapter != null -> R.string.player_chapters_hint
-            seasonEpisodes.isEmpty() -> null
-            intent.hasExtra(EXTRA_PLAYLIST) -> R.string.player_playlist_hint
-            else -> R.string.player_episodes_hint
-        }
-        binding.rowHint.visibility = if (label != null && binding.episodes.visibility != View.VISIBLE) View.VISIBLE else View.GONE
-        binding.rowHint.text = label?.let { getString(it) }
-    }
-
-    private fun currentChapter(): Int = detail.chapters.indexOfLast { positionMs >= it.startMs }.coerceAtLeast(0)
-
-    /** 按钮行按下键展开剧集行并选中当前集（电影是章节行和当前章节）；剧集行按上键收起回到按钮行 */
-    private fun handleEpisodeRowKey(event: KeyEvent): Boolean {
-        val focused = currentFocus ?: return false
-        val inButtons = focused.parent === binding.buttons
-        val inEpisodes = focused.parent === binding.episodes
-        if (event.action == KeyEvent.ACTION_DOWN && (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN || event.keyCode == KeyEvent.KEYCODE_DPAD_UP)) {
-            DebugLog.i(TAG, "key ${event.keyCode} focus=${focused.javaClass.simpleName} inButtons=$inButtons inEpisodes=$inEpisodes episodes=${seasonEpisodes.size}")
-        }
-        when {
-            event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && inButtons -> {
-                val chapters = chapterAdapter
-                if (chapters == null && seasonEpisodes.isEmpty()) return true
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    lastButton = binding.buttons.indexOfChild(focused)
-                    val index = if (chapters != null) {
-                        currentChapter().also { chapters.selected = it }
-                    } else {
-                        seasonEpisodes.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
-                    }
-                    binding.episodes.visibility = View.VISIBLE
-                    updateRowHint()
-                    (binding.episodes.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(index, 0)
-                    binding.episodes.post {
-                        if (binding.episodes.findViewHolderForAdapterPosition(index)?.itemView?.requestFocus() == true) {
-                            playFocusSound(View.FOCUS_DOWN)
-                        }
-                    }
-                }
-                return true
-            }
-            event.keyCode == KeyEvent.KEYCODE_DPAD_UP && inEpisodes -> {
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    if (binding.buttons.getChildAt(lastButton.coerceIn(0, binding.buttons.childCount - 1))?.requestFocus() == true) {
-                        playFocusSound(View.FOCUS_UP)
-                    }
-                    binding.episodes.visibility = View.GONE
-                    updateRowHint()
-                }
-                return true
-            }
-            event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && inEpisodes -> return true
-        }
-        return false
-    }
-
-    private var lastButton = 0
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        (::remote.isInitialized && remote.handle(event)) || super.dispatchKeyEvent(event)
 
     // ---- 刷新率 ----
 
@@ -1537,189 +660,6 @@ class PlayerActivity : ThemedActivity() {
         }
     }
 
-    // ---- 章节 / 更多 ----
-
-    private fun pickChapter() {
-        val chapters = detail.chapters
-        val current = currentChapter()
-        val options = chapters.mapIndexed { i, c ->
-            Option("${i + 1}. ${c.title ?: getString(R.string.chapter_n, i + 1)}", formatClock(c.startMs), i == current)
-        }
-        OptionsPanel(this, getString(R.string.player_chapters), options) { seekTo(chapters[it].startMs) }
-            .returnToMore(R.string.player_chapters).show()
-    }
-
-    private fun showMore(focusedLabel: Int? = null) {
-        val actions = buildList<Pair<Option, () -> Unit>> {
-            if (detail.chapters.size > 1) add(Option(getString(R.string.player_chapters)) to ::pickChapter)
-            if (detail.versions.size > 1) add(Option(getString(R.string.action_version), version.summary) to ::pickVersion)
-            add(Option(getString(R.string.video_scale), videoScaleLabel(this@PlayerActivity, videoScale)) to ::pickVideoScale)
-            if (version.subtitles.isNotEmpty()) add(Option(getString(R.string.player_secondary_subtitles),
-                secondarySubtitle?.title ?: getString(R.string.subtitles_off)) to ::pickSecondarySubtitle)
-            if (secondarySubtitle?.codec?.lowercase() in setOf("srt", "subrip", "vtt", "webvtt")) {
-                add(Option(getString(R.string.player_secondary_subtitle_style)) to {
-                    SecondarySubtitleStylePanel(this@PlayerActivity, settings, dualSubtitles::refreshStyle,
-                        onBack = { showMore(R.string.player_secondary_subtitle_style) }).show()
-                })
-            }
-            add(Option(getString(R.string.subtitle_delay), formatDelay(this@PlayerActivity, offsets.subtitleDelayMs)) to ::adjustSubtitleDelay)
-            add(Option(getString(R.string.audio_delay), formatDelay(this@PlayerActivity, offsets.audioDelayMs)) to ::adjustAudioDelay)
-            val infoLabel = if (binding.info.visibility == View.VISIBLE) R.string.info_hide else R.string.info_show
-            add(Option(getString(infoLabel)) to ::toggleInfo)
-        }
-        OptionsPanel(this, getString(R.string.player_more), actions.map {
-            it.first.copy(selected = focusedLabel != null && it.first.label == getString(focusedLabel))
-        }) { actions[it].second() }.show()
-    }
-
-    private fun Dialog.returnToMore(label: Int): Dialog {
-        val mediaId = item.id
-        val versionId = version.id
-        setOnCancelListener {
-            if (!isFinishing && !isDestroyed && item.id == mediaId && version.id == versionId) showMore(label)
-        }
-        return this
-    }
-
-    /** 只对这次播放生效（连播的下一集也沿用），默认值在设置里改 */
-    private fun pickVideoScale() {
-        val scales = VideoScale.entries
-        val options = scales.map { Option(videoScaleLabel(this, it), selected = it == videoScale) }
-        OptionsPanel(this, getString(R.string.video_scale), options) { i ->
-            videoScale = scales[i]
-            binding.playerView.resizeMode = videoScale.resizeMode()
-        }.returnToMore(R.string.video_scale).show()
-    }
-
-    private fun adjustSubtitleDelay() {
-        StepperPanel(
-            this, getString(R.string.subtitle_delay), getString(R.string.delay_hint), offsets.subtitleDelayMs,
-            100, 1_000, -10_000L..10_000L, { formatDelay(this, it) },
-        ) { offsets.subtitleDelayMs = it }.returnToMore(R.string.subtitle_delay).show()
-    }
-
-    /** 音频延迟通常跟输出设备有关，保存到设置里，所有视频生效 */
-    private fun adjustAudioDelay() {
-        StepperPanel(
-            this, getString(R.string.audio_delay), getString(R.string.delay_hint), offsets.audioDelayMs,
-            100, 1_000, -5_000L..5_000L, { formatDelay(this, it) },
-        ) {
-            offsets.audioDelayMs = it
-            settings.audioDelayMs = it
-        }.returnToMore(R.string.audio_delay).show()
-    }
-
-    // ---- 跳过片头片尾 / 下一集 ----
-
-    private var markerJob: Job? = null
-    private var skipTarget: Long? = null
-
-    /** 每半秒检查当前位置是否落在片头/片尾标记里 */
-    private fun startMarkerWatch() {
-        markerJob?.cancel()
-        markerJob = lifecycleScope.launch {
-            while (isActive) {
-                delay(500)
-                if (player.playbackState == Player.STATE_READY) checkMarkers()
-            }
-        }
-    }
-
-    private fun checkMarkers() {
-        val pos = positionMs
-        val duration = durationMs
-        val active = detail.markers.firstOrNull { pos >= it.startMs && pos < it.endMs - 1_000 }
-        val next = nextEpisode?.takeIf { settings.autoPlayNext && !upNextDismissed }
-
-        // 片尾：有下一集就显示倒计时卡片；没有片尾标记时在最后 20 秒显示
-        val inCredits = active?.type == MarkerType.CREDITS ||
-            (detail.markers.none { it.type == MarkerType.CREDITS } && duration > 0 && duration - pos in 1..UP_NEXT_FALLBACK_MS)
-        if (next != null && inCredits) {
-            showUpNext(next)
-            return
-        }
-        // 从片尾拖回正片时收起下一集卡片（不算用户取消）
-        if (binding.upNext.visibility == View.VISIBLE) {
-            upNextJob?.cancel()
-            binding.upNext.visibility = View.GONE
-        }
-
-        val mode = when (active?.type) {
-            MarkerType.INTRO -> settings.skipIntro
-            MarkerType.CREDITS -> settings.skipCredits
-            null -> SkipMode.OFF
-        }
-        when {
-            active == null || mode == SkipMode.OFF -> hideSkip()
-            mode == SkipMode.AUTO -> if (autoSkipped.add(active)) {
-                hideSkip()
-                skipTo(active.endMs)
-            }
-            else -> showSkip(active)
-        }
-    }
-
-    private fun showSkip(marker: Marker) {
-        skipTarget = marker.endMs
-        if (binding.skip.visibility == View.VISIBLE || controlsVisible) return
-        binding.skipLabel.setText(if (marker.type == MarkerType.INTRO) R.string.skip_intro else R.string.skip_credits)
-        binding.skip.visibility = View.VISIBLE
-        binding.skip.setOnClickListener { skipTarget?.let(::skipTo); hideSkip() }
-        binding.skip.requestFocus()
-    }
-
-    private fun hideSkip() {
-        if (binding.skip.visibility != View.VISIBLE) return
-        binding.skip.visibility = View.GONE
-        skipTarget = null
-    }
-
-    /** 片尾标记一直到片子结束时，直接当作播放结束处理 */
-    private fun skipTo(target: Long) {
-        if (durationMs > 0 && target >= durationMs - 2_000) {
-            onEnded()
-        } else {
-            seekTo(target)
-        }
-    }
-
-    private fun showUpNext(next: MediaItem) {
-        if (binding.upNext.visibility == View.VISIBLE || controlsVisible) return
-        DebugLog.i(TAG, "up next ${next.id} at ${positionMs}")
-        hideSkip()
-        binding.upNextLabel.setText(if (next.type == MediaType.EPISODE) R.string.up_next else R.string.up_next_item)
-        binding.upNextTitle.text = next.title
-        binding.upNextSub.text = next.seasonNumber?.let { s -> next.episodeNumber?.let { e -> getString(R.string.episode_code, s, e) } }
-        val frame = binding.upNextFrame.layoutParams
-        (next.thumb ?: next.backdrop ?: next.poster)?.let { binding.upNextThumb.load(server.imageUrl(it, frame.width, frame.height)) }
-        binding.upNext.visibility = View.VISIBLE
-        binding.upNextPlay.requestFocus()
-        upNextJob?.cancel()
-        upNextJob = lifecycleScope.launch {
-            for (left in UP_NEXT_SECONDS downTo 1) {
-                binding.upNextPlay.text = getString(R.string.play_now) + " · " + getString(R.string.up_next_countdown, left)
-                delay(1_000)
-                // 暂停时倒计时也暂停
-                while (!player.isPlaying) delay(300)
-            }
-            playNext()
-        }
-    }
-
-    private fun dismissUpNext() {
-        upNextDismissed = true
-        upNextJob?.cancel()
-        binding.upNext.visibility = View.GONE
-    }
-
-    private fun hideOverlays() {
-        upNextJob?.cancel()
-        binding.upNext.visibility = View.GONE
-        hideSkip()
-    }
-
-    private val overlayFocused get() = binding.skip.hasFocus() || binding.upNext.hasFocus()
-
     // ---- 进度上报 ----
 
     private fun startProgressReporting() {
@@ -1728,7 +668,7 @@ class PlayerActivity : ThemedActivity() {
                 delay(10_000)
                 if (player.isPlaying) {
                     val v = player.videoFormat
-                    DebugLog.i(TAG, "stats pos=${positionMs / 1000}s video=${v?.width}x${v?.height} ${v?.sampleMimeType} audio=${player.audioFormat?.sampleMimeType} dropped=$droppedFrames buffer=${(player.bufferedPosition - player.currentPosition) / 1000}s")
+                    DebugLog.i(TAG, "stats pos=${positionMs / 1000}s video=${v?.width}x${v?.height} ${v?.sampleMimeType} audio=${player.audioFormat?.sampleMimeType} dropped=${info.droppedFrames} buffer=${(player.bufferedPosition - player.currentPosition) / 1000}s")
                 }
                 if (player.isPlaying) report(PlaybackState.PLAYING)
             }
@@ -1742,7 +682,7 @@ class PlayerActivity : ThemedActivity() {
         val dur = durationMs
         val s = server
         val curItem = item
-        val next = nextEpisode
+        val next = episodes.nextEpisode
         val watchNextSession = WatchNextManager.captureSession(s)
         val appContext = applicationContext
         val resume = WatchNextResume(req.version.id, intent.getStringExtra(EXTRA_PLAYLIST))
@@ -1819,7 +759,7 @@ class PlayerActivity : ThemedActivity() {
         super.onStop()
         if (!::player.isInitialized) return
         startupTiming?.end(PlaybackStartupTiming.End.CANCELLED)
-        cancelScrub()
+        seek.cancel()
         holdSpeedGesture.cancel()
         startJob?.cancel()
         // TV 上离开播放页就结束播放：上报停止（服务端据此记录进度/标记已看）并释放转码
@@ -1828,10 +768,12 @@ class PlayerActivity : ThemedActivity() {
         request = null
         if (::danmaku.isInitialized) danmaku.release()
         if (::danmakuProbe.isInitialized) danmakuProbe.release()
+        if (::episodes.isInitialized) episodes.reset()
+        if (::overlays.isInitialized) overlays.reset()
         player.release()
-        subtitleSelector.onCues = null
-        ass.release()
-        secondaryAss.release()
+        tracks.release()
+        controls.release()
+        info.release()
         refreshRate.restore()
         finish()
     }
@@ -1843,28 +785,14 @@ class PlayerActivity : ThemedActivity() {
         private const val EXTRA_PLAYLIST = "playlist"
         private const val EXTRA_SERVER_ID = "server_id"
         private const val EXTRA_DOVI_HEVC = "dovi_hevc_compatibility"
-        private const val EXTERNAL_PREFIX = "ext:"
         private const val TAG = "LumyPlayer"
-        private const val UP_NEXT_SECONDS = 10
-        private const val BACK_GUARD_MS = 3_000L
         private const val MODE_SWITCH_PAUSE_MS = 2_500L
-        private const val UP_NEXT_FALLBACK_MS = 20_000L
         private const val MAX_NETWORK_RETRIES = 3
         private const val DOVI_FIRST_FRAME_TIMEOUT_MS = 8_000L
         private const val DOVI_MAX_WAIT_MS = 30_000L
         /** dvhe.07.06 / dvh1.08.06 → 7 / 8 */
         private val DOVI_PROFILE = Regex("""^dv[ah][e1v]\.(\d+)""")
         private const val NETWORK_RETRY_DELAY_MS = 3_000L
-        private const val TRANSCODE_SKIP_DELAY_MS = 300L
-        private val SUBTITLE_BACKGROUND = Color.argb(0x99, 0, 0, 0)
-        private const val SUBTITLE_PADDING_WITH_CONTROLS = 0.36f
-        private val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
-        private val HIDDEN_CONTROL_KEYS = setOf(
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER,
-            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT,
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
-        )
-
         /** [playlistId]：在这个播放列表里播放，剧集行显示播放列表，按它的顺序连播 */
         fun intent(context: Context, itemId: String, versionIndex: Int, startMs: Long, playlistId: String? = null, serverId: String? = null): Intent =
             Intent(context, PlayerActivity::class.java)

@@ -38,7 +38,7 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
     private val playback = SkipPlaybackProbe()
     private val serverField = LumyApp::class.java.getDeclaredField("server").apply { isAccessible = true }
 
-    fun runAll(skipOnly: Boolean = false): String {
+    fun runAll(skipOnly: Boolean = false, controllersOnly: Boolean = false): String {
         instrumentation.waitForIdleSync()
         await("application session initialized") { main { runCatching { app.currentEntry != null }.getOrDefault(false) } }
         requireSafeTasks()
@@ -72,6 +72,11 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)) as PlayerActivity
             main { binding = field("binding") as ActivityPlayerBinding; player = field("player") as ExoPlayer }
             await("local PlayerActivity playback") { main { player.isPlaying && binding.buttons.childCount >= 4 } }
+            if (controllersOnly) {
+                val result = PlayerControllersTest(instrumentation, activity, binding).runAll()
+                check(unexpected.isEmpty()) { "Unexpected fixture server calls: $unexpected" }
+                return result
+            }
             if (skipOnly) {
                 TranscodeSkipTest(instrumentation, activity, playback).runAll()
                 check(unexpected.isEmpty()) { "Unexpected fixture server calls: $unexpected" }
@@ -121,18 +126,21 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
             when (method.name) {
                 "getSession" -> session
                 "getEmbedsSubtitles", "getSupportsFavorites" -> false
-                "detail" -> { check(args?.firstOrNull() == FIXTURE_ID); detail }
+                "detail" -> PlayerControllersTest.detail(detail, args?.firstOrNull() as String)
                 "playbackSource" -> {
                     val request = args?.firstOrNull() as PlaybackRequest
-                    check(request.item.id == FIXTURE_ID)
+                    check(request.item.id == FIXTURE_ID || request.item.id in PlayerControllersTest.season.map { it.id })
                     val source = PlaybackSource(listOf(file.toURI().toString()), false, emptyList(), 0, request.startMs)
                     @Suppress("UNCHECKED_CAST")
                     playback.source(request, source, args!!.last() as kotlin.coroutines.Continuation<PlaybackSource>)
                 }
                 "playbackHeaders" -> emptyMap<String, String>()
                 "reportProgress", "stopPlayback", "saveStreamSelection" -> Unit
-                "danmakuResource", "nextEpisode" -> null
-                "homeHubs", "children", "containerItems", "libraries", "similar" -> emptyList<Any>()
+                "nextEpisode" -> PlayerControllersTest.second.takeIf { (args?.firstOrNull() as MediaItem).id == PlayerControllersTest.first.id }
+                "children" -> PlayerControllersTest.season
+                "containerItems" -> PlayerControllersTest.playlist
+                "danmakuResource" -> null
+                "homeHubs", "libraries", "similar" -> emptyList<Any>()
                 "isReachable" -> true
                 "toString" -> "ControlBarFixtureServer"
                 "hashCode" -> System.identityHashCode(proxy)
