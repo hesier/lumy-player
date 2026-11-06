@@ -91,6 +91,17 @@
     <string name="settings_detail_cast">Show cast on details page</string>
     <string name="settings_detail_similar">Show “More like this” on details page</string>
     <string name="settings_detail_file_info">Show file info on details page</string>
+    <string name="settings_watch_next">Home screen Continue Watching</string>
+    <string name="settings_watch_next_detail">Show cards on supported TV home screens. Turning this off removes all Lumy cards and stops publishing new ones.</string>
+    <string name="settings_watch_next_refresh">Refresh home screen cards</string>
+    <string name="settings_watch_next_refresh_detail">Sync Continue Watching from the current server. Enable home screen Continue Watching first.</string>
+    <string name="settings_watch_next_clear">Clear home screen cards</string>
+    <string name="settings_watch_next_clear_detail">Remove all Lumy cards. While enabled, playback or refresh may create them again.</string>
+    <string name="settings_watch_next_refreshed">Home screen cards refreshed</string>
+    <string name="settings_watch_next_cleared">Home screen cards cleared</string>
+    <string name="settings_watch_next_disabled">Enable home screen Continue Watching before refreshing</string>
+    <string name="settings_watch_next_working">Working…</string>
+    <string name="settings_watch_next_failed">Could not update home screen cards: %1$s</string>
     <string name="reorder_moving">Moving ↑↓</string>
     <string name="settings_section_servers">Servers</string>
     <string name="settings_section_about">About</string>

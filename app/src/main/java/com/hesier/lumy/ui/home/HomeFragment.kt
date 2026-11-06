@@ -7,10 +7,15 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
+import com.hesier.lumy.core.Hub
+import com.hesier.lumy.core.HubLabel
 import com.hesier.lumy.core.MediaItem
+import com.hesier.lumy.core.MediaServer
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
 import com.hesier.lumy.databinding.FragmentHomeBinding
+import com.hesier.lumy.tv.WatchNextManager
+import com.hesier.lumy.tv.WatchNextSession
 import com.hesier.lumy.ui.heroLine
 import com.hesier.lumy.ui.widget.HubRowAdapter
 import com.hesier.lumy.ui.widget.StartAlignedLayoutManager
@@ -61,16 +66,20 @@ class HomeFragment : Fragment(), ItemChangeListener {
         // 还没有行（之前加载失败或首页为空）：完整加载一次，有内容了才能显示出来
         val adapter = rowsAdapter ?: return load()
         viewLifecycleOwner.lifecycleScope.launch {
+            val server = host.server
+            val session = WatchNextManager.captureSession(server)
             LumyApp.instance.awaitPendingReports()
-            val hubs = attempt { host.server.homeHubs() }.getOrNull() ?: return@launch
+            val hubs = attempt { server.homeHubs() }.getOrNull() ?: return@launch
             if (hubs.isNotEmpty()) {
                 adapter.update(hubs)
+                syncWatchNext(server, session, hubs)
             } else {
                 // 服务端首页清空了，去掉旧卡片
                 rowsAdapter = null
                 binding.rows.adapter = null
                 binding.heroTitle.text = ""
                 binding.state.showMessage(getString(R.string.home_empty))
+                syncWatchNext(server, session, emptyList())
             }
         }
     }
@@ -84,12 +93,15 @@ class HomeFragment : Fragment(), ItemChangeListener {
     private fun load() {
         binding.state.showLoading()
         viewLifecycleOwner.lifecycleScope.launch {
-            val hubs = attempt { host.server.homeHubs() }.getOrElse {
+            val server = host.server
+            val session = WatchNextManager.captureSession(server)
+            val hubs = attempt { server.homeHubs() }.getOrElse {
                 binding.state.showMessage(getString(R.string.load_failed, it.readableMessage()), getString(R.string.reconnect)) {
                     host.reconnect()
                 }
                 return@launch
             }
+            syncWatchNext(server, session, hubs)
             if (hubs.isEmpty()) {
                 binding.state.showMessage(getString(R.string.home_empty))
                 return@launch
@@ -102,6 +114,17 @@ class HomeFragment : Fragment(), ItemChangeListener {
                 val firstRow = binding.rows.getChildAt(0)?.findViewById<RecyclerView>(R.id.items)
                 firstRow?.post { firstRow.getChildAt(0)?.requestFocus() }
             }
+        }
+    }
+
+    private fun syncWatchNext(server: MediaServer, session: WatchNextSession?, hubs: List<Hub>) {
+        if (!LumyApp.instance.settings.watchNextEnabled) {
+            WatchNextManager.onServerChanged(requireContext().applicationContext)
+            return
+        }
+        val items = hubs.filter { it.label is HubLabel.ContinueWatching }.flatMap { it.items }
+        viewLifecycleOwner.lifecycleScope.launch {
+            WatchNextManager.syncContinueWatching(requireContext().applicationContext, server, items, session)
         }
     }
 

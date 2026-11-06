@@ -70,6 +70,7 @@ class SettingsActivity : ThemedActivity() {
     /** 恢复焦点之前系统会先把焦点给第一个分类，这时不能跟着切换分类 */
     private var focusRestored = false
     private lateinit var backup: BackupController
+    private val watchNextSection by lazy { WatchNextSettingsSection(this, settings, ::render) }
     /** 侧边栏设置针对当前服务器 */
     private val entryId: String get() = app.currentEntry?.id.orEmpty()
 
@@ -228,7 +229,7 @@ class SettingsActivity : ThemedActivity() {
                 settings.detailShowFileInfo = !settings.detailShowFileInfo
                 render()
             },
-            ),
+            ) + watchNextSection.rows(),
             listOf(
             Row(getString(R.string.settings_default_quality), qualityLabel(this, Quality.presets[settings.defaultQuality.coerceIn(0, Quality.presets.lastIndex)])) {
                 choose(R.string.settings_default_quality, Quality.presets.map { qualityLabel(this, it) }, settings.defaultQuality) { settings.defaultQuality = it }

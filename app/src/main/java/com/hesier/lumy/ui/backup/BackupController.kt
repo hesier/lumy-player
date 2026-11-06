@@ -107,7 +107,7 @@ internal class BackupController(private val activity: FragmentActivity) : Defaul
     )) { if (it == 1) work(R.string.backup_restore_failed, { store.restore(data, scope) }) {
         val app = LumyApp.instance
         app.setLanguage(app.settings.language)
-        app.switchTo(app.store.current?.id.orEmpty())
+        app.switchTo(app.store.current?.id.orEmpty(), forceReset = true)
         message(R.string.backup_restored)
         HomeActivity.restart(activity)
     } }

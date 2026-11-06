@@ -20,7 +20,7 @@ internal object BackupSettings {
         "display_supports_hdr", "allow_subtitle_burn", "detail_show_cast", "detail_show_similar",
         "detail_show_file_info", "match_frame_rate", "auto_play_next", "remember_audio_selection",
         "remember_subtitle_selection", "auto_check_updates", "use_update_mirror", "danmaku_enabled",
-        "danmaku_rolling", "danmaku_top", "danmaku_bottom", "danmaku_auto_reduce")
+        "danmaku_rolling", "danmaku_top", "danmaku_bottom", "danmaku_auto_reduce", "watch_next_enabled")
     private val enums = mapOf(
         "video_scale" to setOf("FIT", "ZOOM", "FILL"),
         "theme" to setOf("DARK", "LIGHT", "SYSTEM"),

@@ -154,6 +154,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.lifecycle.runtime)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.tvprovider)
     implementation(libs.coil)
     implementation(libs.zxing.core)
     implementation(libs.media3.exoplayer)

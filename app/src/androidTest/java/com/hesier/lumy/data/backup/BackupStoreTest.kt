@@ -40,6 +40,7 @@ class BackupStoreTest(base: Context) {
 
     fun runAll() {
         reset(); preservesSessionsAndExcludesDeviceIdentity()
+        reset(); roundTripsWatchNextPreference()
         reset(); roundTripsEveryServerKind()
         roundTripsBackupFiles()
         reset(); preservesLegacySessionDeviceAssociation()
@@ -97,6 +98,15 @@ class BackupStoreTest(base: Context) {
         check(data.serverCount == 1 && data.createdAt > 0)
         val full = JSONObject(store.export().toString(Charsets.UTF_8)).getJSONArray("servers").getJSONObject(0)
         check(full.getString("token") == "SECRET" && full.getString("deviceId") == "fnos-device")
+    }
+
+    private fun roundTripsWatchNextPreference() {
+        check(com.hesier.lumy.data.Settings(context).watchNextEnabled)
+        check(prefs("settings").edit().putBoolean("watch_next_enabled", false).commit())
+        val data = store.inspect(store.export())
+        check(prefs("settings").edit().putBoolean("watch_next_enabled", true).commit())
+        store.restore(data, RestoreOptions(settings = true, servers = false))
+        check(!com.hesier.lumy.data.Settings(context).watchNextEnabled)
     }
 
     private fun roundTripsEveryServerKind() {

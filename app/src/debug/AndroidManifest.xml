@@ -5,5 +5,14 @@
         <activity android:name=".ui.detail.DetailActivity" android:exported="true" />
         <activity android:name=".ui.player.PlayerActivity" android:exported="true" />
         <activity android:name=".ui.settings.SettingsActivity" android:exported="true" />
+
+        <receiver
+            android:name=".tv.WatchNextDebugReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.hesier.lumy.debug.WATCH_NEXT_PUSH" />
+                <action android:name="com.hesier.lumy.debug.WATCH_NEXT_CLEAR" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

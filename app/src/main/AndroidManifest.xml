@@ -85,8 +85,14 @@
         <activity
             android:name=".ui.player.PlayerActivity"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:exported="true"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.Lumy.Player" />
+
+        <provider
+            android:name=".tv.WatchNextArtworkProvider"
+            android:authorities="${applicationId}.watchnext.art"
+            android:exported="true" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

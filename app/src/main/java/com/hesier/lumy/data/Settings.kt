@@ -183,6 +183,10 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("detail_show_file_info", true)
         set(v) = prefs.edit().putBoolean("detail_show_file_info", v).apply()
 
+    var watchNextEnabled: Boolean
+        get() = prefs.getBoolean("watch_next_enabled", true)
+        set(v) = prefs.edit().putBoolean("watch_next_enabled", v).apply()
+
     var matchFrameRate: Boolean
         get() = prefs.getBoolean("match_frame_rate", false)
         set(v) = prefs.edit().putBoolean("match_frame_rate", v).apply()

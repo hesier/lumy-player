@@ -54,6 +54,8 @@ import com.hesier.lumy.core.SubtitleStream
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
 import com.hesier.lumy.BuildConfig
+import com.hesier.lumy.tv.WatchNextManager
+import com.hesier.lumy.tv.WatchNextResume
 import com.hesier.lumy.ui.player.PlaybackStartupTiming.Stage
 import com.hesier.lumy.data.Settings
 import com.hesier.lumy.data.TrackPreferences
@@ -186,6 +188,10 @@ class PlayerActivity : ThemedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val app = LumyApp.instance
+        intent.getStringExtra(EXTRA_SERVER_ID)?.let { sid ->
+            val target = app.store.servers.firstOrNull { it.id == sid } ?: return finish()
+            if (target.id != app.currentEntry?.id) app.switchTo(target.id)
+        }
         server = app.currentServer() ?: return finish()
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -302,7 +308,8 @@ class PlayerActivity : ThemedActivity() {
             }
             startupTiming?.mark(startupAttempt, Stage.DETAIL_END)
             LumyApp.instance.currentServer()?.let { server = it }
-            val v = detail.versions.getOrNull(intent.getIntExtra(EXTRA_VERSION, 0)) ?: detail.versions.firstOrNull()
+            val v = detail.versions.firstOrNull { it.id == intent.getStringExtra("watch_next_version_id") }
+                ?: detail.versions.getOrNull(intent.getIntExtra(EXTRA_VERSION, 0)) ?: detail.versions.firstOrNull()
                 ?: return@launch showError(getString(R.string.no_playable_file))
             selectVersion(v)
             doviHevcFallback = intent.getBooleanExtra(EXTRA_DOVI_HEVC, false)
@@ -351,6 +358,7 @@ class PlayerActivity : ThemedActivity() {
         request?.let { stopSession(it) }
         request = null
         hideOverlays()
+        intent.removeExtra("watch_next_version_id")
         intent.putExtra(EXTRA_ID, next.id).putExtra(EXTRA_VERSION, 0).putExtra(EXTRA_START, startMs)
         seasonEpisodes = emptyList()
         // 播放列表重新拉一次，切回看过一半的条目时进度是新的
@@ -386,6 +394,7 @@ class PlayerActivity : ThemedActivity() {
         subtitleSelector.selectSecondary(null)
         dualSubtitles.clear()
         version = v
+        intent.putExtra("watch_next_version_id", v.id)
         danmaku.bind(server, detail, v, memoryServerId)
         fellBack = false
         fallbackReason = null
@@ -1731,7 +1740,26 @@ class PlayerActivity : ThemedActivity() {
         if (!::detail.isInitialized) return
         val pos = positionMs
         val dur = durationMs
-        LumyApp.instance.report { server.reportProgress(req, state, pos, dur) }
+        val s = server
+        val curItem = item
+        val next = nextEpisode
+        val watchNextSession = WatchNextManager.captureSession(s)
+        val appContext = applicationContext
+        val resume = WatchNextResume(req.version.id, intent.getStringExtra(EXTRA_PLAYLIST))
+        LumyApp.instance.report {
+            WatchNextManager.onPlaybackProgress(
+                context = appContext,
+                server = s,
+                item = curItem,
+                positionMs = pos,
+                durationMs = dur,
+                nextEpisode = next,
+                state = state,
+                session = watchNextSession,
+                resume = resume,
+            )
+        }
+        LumyApp.instance.report { s.reportProgress(req, state, pos, dur) }
     }
 
     private fun stopSession(req: PlaybackRequest) {
@@ -1789,6 +1817,7 @@ class PlayerActivity : ThemedActivity() {
 
     override fun onStop() {
         super.onStop()
+        if (!::player.isInitialized) return
         startupTiming?.end(PlaybackStartupTiming.End.CANCELLED)
         cancelScrub()
         holdSpeedGesture.cancel()
@@ -1812,6 +1841,7 @@ class PlayerActivity : ThemedActivity() {
         private const val EXTRA_VERSION = "version"
         private const val EXTRA_START = "start"
         private const val EXTRA_PLAYLIST = "playlist"
+        private const val EXTRA_SERVER_ID = "server_id"
         private const val EXTRA_DOVI_HEVC = "dovi_hevc_compatibility"
         private const val EXTERNAL_PREFIX = "ext:"
         private const val TAG = "LumyPlayer"
@@ -1836,11 +1866,14 @@ class PlayerActivity : ThemedActivity() {
         )
 
         /** [playlistId]：在这个播放列表里播放，剧集行显示播放列表，按它的顺序连播 */
-        fun intent(context: Context, itemId: String, versionIndex: Int, startMs: Long, playlistId: String? = null): Intent =
+        fun intent(context: Context, itemId: String, versionIndex: Int, startMs: Long, playlistId: String? = null, serverId: String? = null): Intent =
             Intent(context, PlayerActivity::class.java)
                 .putExtra(EXTRA_ID, itemId)
                 .putExtra(EXTRA_VERSION, versionIndex)
                 .putExtra(EXTRA_START, startMs)
-                .apply { playlistId?.let { putExtra(EXTRA_PLAYLIST, it) } }
+                .apply {
+                    playlistId?.let { putExtra(EXTRA_PLAYLIST, it) }
+                    serverId?.let { putExtra(EXTRA_SERVER_ID, it) }
+                }
     }
 }

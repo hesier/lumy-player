@@ -78,6 +78,17 @@
     <string name="settings_detail_cast">详情页显示演员</string>
     <string name="settings_detail_similar">详情页显示更多类似</string>
     <string name="settings_detail_file_info">详情页显示文件信息</string>
+    <string name="settings_watch_next">桌面继续观看</string>
+    <string name="settings_watch_next_detail">在支持的电视桌面显示卡片。关闭后立即清空所有 Lumy 卡片，并停止发布新卡片。</string>
+    <string name="settings_watch_next_refresh">刷新桌面卡片</string>
+    <string name="settings_watch_next_refresh_detail">同步当前服务器的继续观看内容，需先开启桌面继续观看。</string>
+    <string name="settings_watch_next_clear">清空桌面卡片</string>
+    <string name="settings_watch_next_clear_detail">移除所有 Lumy 卡片。开启时，继续播放或刷新后可能重新生成。</string>
+    <string name="settings_watch_next_refreshed">桌面卡片已刷新</string>
+    <string name="settings_watch_next_cleared">桌面卡片已清空</string>
+    <string name="settings_watch_next_disabled">请先开启桌面继续观看，再刷新卡片</string>
+    <string name="settings_watch_next_working">正在处理…</string>
+    <string name="settings_watch_next_failed">更新桌面卡片失败：%1$s</string>
     <string name="reorder_moving">移动中 ↑↓</string>
     <string name="settings_section_servers">服务器</string>
     <string name="settings_section_about">关于</string>

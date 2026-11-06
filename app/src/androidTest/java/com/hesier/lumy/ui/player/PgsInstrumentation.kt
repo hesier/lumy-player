@@ -31,7 +31,10 @@ class PgsInstrumentation : Instrumentation() {
     private var benchmark = false
     private var dualSubtitlesOnly = false
     private var trackMemoryOnly = false
+    private var watchNextOnly = false
+    private var watchNextDesktopOnly = false
     private var backupOnly = false
+    private var backupStoreOnly = false
     private var playbackNoticeOnly = false
     private var bandwidthSettingsOnly = false
     private var seekSettingsOnly = false
@@ -69,7 +72,10 @@ class PgsInstrumentation : Instrumentation() {
         benchmark = arguments?.getString("benchmark_sup") == "true"
         dualSubtitlesOnly = arguments?.getString("dual_subtitles_only") == "true"
         trackMemoryOnly = arguments?.getString("track_memory_only") == "true"
+        watchNextOnly = arguments?.getString("watch_next_only") == "true"
+        watchNextDesktopOnly = arguments?.getString("watch_next_desktop_only") == "true"
         backupOnly = arguments?.getString("backup_only") == "true"
+        backupStoreOnly = arguments?.getString("backup_store_only") == "true"
         playerControlsOnly = arguments?.getString("player_controls_only") == "true"
         transcodeSkipOnly = arguments?.getString("transcode_skip_only") == "true"
         sidebarInputOnly = arguments?.getString("sidebar_input_only") == "true"
@@ -185,6 +191,13 @@ class PgsInstrumentation : Instrumentation() {
                 finish(Activity.RESULT_OK, result)
                 return
             }
+            if (backupStoreOnly) {
+                waitForIdleSync()
+                com.hesier.lumy.data.backup.BackupStoreTest(targetContext).runAll()
+                result.putString("stream", "Backup storage, settings scopes, Watch Next preference, validation and rollback passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (backupOnly) {
                 com.hesier.lumy.data.backup.BackupStoreTest(targetContext).runAll()
                 com.hesier.lumy.ui.backup.BackupDocumentsTest(this).runAll()
@@ -230,6 +243,19 @@ class PgsInstrumentation : Instrumentation() {
             if (trackMemoryOnly) {
                 com.hesier.lumy.data.TrackMemoryTest(targetContext).runAll()
                 result.putString("stream", "Track memory migration, independent switches, writes, clearing and selection checks passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (watchNextDesktopOnly) {
+                waitForIdleSync()
+                result.putString("stream", com.hesier.lumy.tv.WatchNextDesktopTest(this).runAll() + "\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (watchNextOnly) {
+                waitForIdleSync()
+                com.hesier.lumy.tv.WatchNextManagerTest(targetContext).runAll()
+                result.putString("stream", "Watch Next progress ordering, completion, NEXT validation, account binding, resume context, disabled publishing and concurrent writes passed\n")
                 finish(Activity.RESULT_OK, result)
                 return
             }

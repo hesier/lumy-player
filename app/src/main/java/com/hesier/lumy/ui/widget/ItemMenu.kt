@@ -12,6 +12,7 @@ import com.hesier.lumy.core.MediaType
 import com.hesier.lumy.R
 import com.hesier.lumy.ui.cardTitle
 import com.hesier.lumy.ui.detail.DetailActivity
+import com.hesier.lumy.tv.WatchNextManager
 import kotlinx.coroutines.launch
 
 /** 长按卡片弹出的操作菜单，和官方客户端一样 */
@@ -61,9 +62,13 @@ object ItemMenu {
 
     fun toggleWatched(activity: FragmentActivity, server: MediaServer, item: MediaItem, onChanged: (MediaItem) -> Unit) {
         val watched = !item.watched
+        val session = WatchNextManager.captureSession(server)
         activity.lifecycleScope.launch {
             attempt { server.setWatched(item.id, watched) }
-                .onSuccess { onChanged(item.withWatched(watched)) }
+                .onSuccess {
+                    if (watched) WatchNextManager.removeWatched(activity.applicationContext, item, session)
+                    onChanged(item.withWatched(watched))
+                }
                 .onFailure { Toast.makeText(activity, activity.getString(R.string.load_failed, it.readableMessage()), Toast.LENGTH_SHORT).show() }
         }
     }

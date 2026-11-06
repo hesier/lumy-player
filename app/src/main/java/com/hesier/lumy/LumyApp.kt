@@ -32,6 +32,7 @@ import com.hesier.lumy.util.withLegacyTls
 import com.hesier.lumy.data.Settings
 import com.hesier.lumy.data.TrackMemory
 import com.hesier.lumy.data.backup.BackupStore
+import com.hesier.lumy.tv.WatchNextManager
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import kotlinx.coroutines.CoroutineScope
@@ -131,6 +132,7 @@ class LumyApp : Application(), ImageLoaderFactory {
             plex.http,
         )
         store.migrateLegacy()?.let(settings::migrateSidebar)
+        if (!settings.watchNextEnabled) WatchNextManager.onServerChanged(this)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -179,6 +181,7 @@ class LumyApp : Application(), ImageLoaderFactory {
     /** 把已有的一项换成新的连接（重新选择 Plex 服务器、地址变了），侧边栏设置跟着 id 保留 */
     fun replaceServer(id: String, session: ServerSession, accountToken: String?) {
         val entry = store.servers.firstOrNull { it.id == id } ?: return addServer(session, accountToken)
+        if (currentEntry?.id == id && entry.session != session) WatchNextManager.onServerChanged(this)
         store.update(entry.copy(session = session, accountToken = accountToken ?: entry.accountToken))
         switchTo(id)
     }
@@ -189,14 +192,19 @@ class LumyApp : Application(), ImageLoaderFactory {
         store.update(entry.copy(customName = name.trim().takeIf { it.isNotEmpty() }))
     }
 
-    fun switchTo(id: String) {
+    fun switchTo(id: String, forceReset: Boolean = false) {
+        if (forceReset || store.currentId != id) {
+            WatchNextManager.onServerChanged(this)
+        }
         store.currentId = id
         server = null
     }
 
     /** 删除后当前服务器变为列表里的第一台；全部删完时 [currentServer] 返回 null */
     fun removeServer(id: String) {
+        val wasCurrent = currentEntry?.id == id
         store.remove(id)
+        if (wasCurrent) WatchNextManager.onServerChanged(this)
         settings.forgetServer(id)
         trackMemory.forgetServer(id)
         server = null
