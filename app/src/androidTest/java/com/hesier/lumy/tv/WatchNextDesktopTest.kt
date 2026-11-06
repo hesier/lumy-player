@@ -32,7 +32,7 @@ class WatchNextDesktopTest(private val instrumentation: Instrumentation) {
         instrumentation.waitForIdleSync()
         check(app.store.servers.isEmpty()) { "Desktop test requires an empty temporary emulator account store" }
         check(cards().isEmpty()) { "Refusing to clear existing launcher cards" }
-        check(WatchNextManager.isSupported()) { "Desktop test requires API 26+" }
+        check(WatchNextManager.isAvailable(context)) { "Desktop test requires an available Watch Next table" }
         val field = LumyApp::class.java.getDeclaredField("server").apply { isAccessible = true }
         val oldServer = field.get(app)
         val oldId = app.store.currentId

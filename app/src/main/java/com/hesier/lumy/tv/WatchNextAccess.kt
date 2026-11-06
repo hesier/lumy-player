@@ -23,7 +23,7 @@ internal object WatchNextAccess {
     private var lastSnapshotSequence = 0L
 
     fun capture(server: MediaServer): WatchNextSession? {
-        if (!LumyApp.instance.settings.watchNextEnabled) return null
+        if (!LumyApp.instance.settings.watchNextEnabled || WatchNextSupport.isUnavailable(LumyApp.instance)) return null
         val revision = generation.get()
         val entry = LumyApp.instance.currentEntry ?: return null
         if (entry.session != server.session) return null
@@ -52,12 +52,18 @@ internal object WatchNextAccess {
 
     suspend fun run(context: Context, session: WatchNextSession? = null, block: () -> Unit) =
         withContext(Dispatchers.IO) {
-            try {
-                mutex.withLock {
+            if (!WatchNextSupport.ensure(context)) {
+                return@withContext Result.failure(WatchNextUnavailableException())
+            }
+            mutex.withLock {
+                if (WatchNextSupport.isUnavailable(context)) {
+                    return@withLock Result.failure(WatchNextUnavailableException())
+                }
+                try {
                     val revision = generation.get()
                     if (session != null && (session.generation != revision ||
                             session.serverId != LumyApp.instance.currentEntry?.id ||
-                            !LumyApp.instance.settings.watchNextEnabled)) return@withLock
+                            !LumyApp.instance.settings.watchNextEnabled)) return@withLock Result.success(Unit)
                     // A new account must be cleared before its first write, even if cleanup is still queued.
                     if (clearedGeneration != revision) {
                         WatchNextManager.clearInternal(context)
@@ -66,13 +72,16 @@ internal object WatchNextAccess {
                         lastSnapshotSequence = 0L
                     }
                     block()
+                    Result.success(Unit)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Mark failure before releasing the mutex so queued work cannot retry the provider.
+                    if (!WatchNextSupport.onFailure(context, e)) {
+                        DebugLog.i("WatchNextManager", "Failed to access Watch Next: ${e.message}")
+                    }
+                    Result.failure(e)
                 }
-                Result.success(Unit)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                DebugLog.i("WatchNextManager", "Failed to access Watch Next: ${e.message}")
-                Result.failure(e)
             }
         }
 }

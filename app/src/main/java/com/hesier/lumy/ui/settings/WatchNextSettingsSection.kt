@@ -7,6 +7,7 @@ import com.hesier.lumy.data.Settings
 import com.hesier.lumy.tv.WatchNextManager
 import com.hesier.lumy.ui.widget.attempt
 import com.hesier.lumy.ui.widget.readableMessage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 internal class WatchNextSettingsSection(
@@ -15,9 +16,18 @@ internal class WatchNextSettingsSection(
     private val changed: () -> Unit,
 ) {
     private var busy = false
+    private var checkingSupport = false
 
     fun rows(): List<SettingsActivity.Row> {
-        if (!WatchNextManager.isSupported()) return emptyList()
+        if (!WatchNextManager.isSupported()) {
+            if (!checkingSupport) {
+                checkingSupport = true
+                activity.lifecycleScope.launch(Dispatchers.Main) {
+                    if (WatchNextManager.isAvailable(activity.applicationContext)) changed()
+                }
+            }
+            return emptyList()
+        }
         return listOf(
             SettingsActivity.Row(text(R.string.settings_watch_next),
                 text(if (settings.watchNextEnabled) R.string.on else R.string.off),
@@ -49,9 +59,13 @@ internal class WatchNextSettingsSection(
         activity.lifecycleScope.launch {
             try {
                 attempt { action() }
-                    .onSuccess { successMessage?.let { toast(text(it)) } }
+                    .onSuccess {
+                        if (WatchNextManager.isSupported()) successMessage?.let { toast(text(it)) }
+                    }
                     .onFailure {
-                        toast(activity.getString(R.string.settings_watch_next_failed, it.readableMessage()))
+                        if (WatchNextManager.isSupported()) {
+                            toast(activity.getString(R.string.settings_watch_next_failed, it.readableMessage()))
+                        }
                     }
             } finally {
                 busy = false

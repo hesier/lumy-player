@@ -1,7 +1,6 @@
 package com.hesier.lumy.tv
 
 import android.content.Context
-import android.os.Build
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.core.HttpStatusException
 import com.hesier.lumy.core.HubLabel
@@ -19,15 +18,18 @@ object WatchNextManager {
     private const val COMPLETION_RATIO = 0.90
     private const val COMPLETION_REMAINING_MS = 30_000L
 
-    fun isSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+    fun isSupported(): Boolean = WatchNextSupport.isSupported(LumyApp.instance)
+    suspend fun isAvailable(context: Context): Boolean = WatchNextSupport.ensure(context)
     fun captureSession(server: MediaServer): WatchNextSession? = WatchNextAccess.capture(server)
 
     fun onServerChanged(context: Context) {
         WatchNextAccess.invalidate()
+        if (WatchNextSupport.isUnavailable(context)) return
         LumyApp.instance.appScope.launch { WatchNextAccess.run(context) {} }
     }
 
     suspend fun setEnabled(context: Context, enabled: Boolean) {
+        if (!isAvailable(context)) return
         LumyApp.instance.settings.watchNextEnabled = enabled
         WatchNextAccess.invalidate()
         WatchNextAccess.run(context) {}.getOrThrow()
@@ -35,7 +37,7 @@ object WatchNextManager {
     }
 
     suspend fun refresh(context: Context) {
-        if (!isSupported() || !LumyApp.instance.settings.watchNextEnabled) return
+        if (!LumyApp.instance.settings.watchNextEnabled || !isAvailable(context)) return
         val server = LumyApp.instance.currentServer()
             ?: error(context.getString(com.hesier.lumy.R.string.no_server))
         val session = captureSession(server) ?: return
@@ -48,14 +50,14 @@ object WatchNextManager {
         nextEpisode: MediaItem?, state: PlaybackState,
         session: WatchNextSession? = captureSession(server), resume: WatchNextResume? = null,
     ) {
-        if (!isSupported() || session == null) return
+        if (session == null || !isAvailable(context)) return
         var needsArtwork = false
         val ready = WatchNextAccess.run(context, session) {
             needsArtwork = if (isFinished(positionMs, durationMs)) nextEpisode != null
                 else durationMs > 0 && (positionMs >= MIN_POSITION_MS ||
                     WatchNextProgramsStore(context).records().any { it.mediaId == item.id })
         }
-        if (ready.isFailure || !WatchNextAccess.isCurrent(session)) return
+        if (ready.isFailure || !WatchNextAccess.isCurrent(session) || WatchNextSupport.isUnavailable(context)) return
         val target = if (isFinished(positionMs, durationMs)) nextEpisode else item
         val artwork = if (needsArtwork) target?.let { WatchNextArtwork.prepare(context, server, it, session) } else null
         WatchNextAccess.run(context, session) {
@@ -79,7 +81,7 @@ object WatchNextManager {
         context: Context, server: MediaServer, items: List<MediaItem>,
         session: WatchNextSession? = captureSession(server),
     ) {
-        if (!isSupported() || session == null) return
+        if (session == null || !isAvailable(context)) return
         sync(context, server, items, session)
     }
 
@@ -116,7 +118,7 @@ object WatchNextManager {
         removeWatched(context, MediaItem(mediaId, MediaType.MOVIE, ""), session)
 
     suspend fun removeWatched(context: Context, item: MediaItem, session: WatchNextSession?) {
-        if (!isSupported() || session == null) return
+        if (session == null || !isAvailable(context)) return
         WatchNextAccess.run(context, session) {
             if (!accept(session, item)) return@run
             val store = WatchNextProgramsStore(context)
@@ -128,13 +130,13 @@ object WatchNextManager {
     }
 
     suspend fun clearAll(context: Context) {
-        if (!isSupported()) return
+        if (!isAvailable(context)) return
         WatchNextAccess.invalidate()
         WatchNextAccess.run(context) {}.getOrThrow()
     }
 
     internal fun clearInternal(context: Context) {
-        if (isSupported()) WatchNextProgramsStore(context).clear()
+        if (WatchNextSupport.hasApi()) WatchNextProgramsStore(context).clear()
     }
 
     private fun publish(

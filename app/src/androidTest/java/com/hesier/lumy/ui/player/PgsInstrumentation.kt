@@ -33,6 +33,7 @@ class PgsInstrumentation : Instrumentation() {
     private var trackMemoryOnly = false
     private var watchNextOnly = false
     private var watchNextDesktopOnly = false
+    private var watchNextAvailabilityOnly = false
     private var backupOnly = false
     private var backupStoreOnly = false
     private var playbackNoticeOnly = false
@@ -74,6 +75,7 @@ class PgsInstrumentation : Instrumentation() {
         trackMemoryOnly = arguments?.getString("track_memory_only") == "true"
         watchNextOnly = arguments?.getString("watch_next_only") == "true"
         watchNextDesktopOnly = arguments?.getString("watch_next_desktop_only") == "true"
+        watchNextAvailabilityOnly = arguments?.getString("watch_next_availability_only") == "true"
         backupOnly = arguments?.getString("backup_only") == "true"
         backupStoreOnly = arguments?.getString("backup_store_only") == "true"
         playerControlsOnly = arguments?.getString("player_controls_only") == "true"
@@ -243,6 +245,12 @@ class PgsInstrumentation : Instrumentation() {
             if (trackMemoryOnly) {
                 com.hesier.lumy.data.TrackMemoryTest(targetContext).runAll()
                 result.putString("stream", "Track memory migration, independent switches, writes, clearing and selection checks passed\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (watchNextAvailabilityOnly) {
+                waitForIdleSync()
+                result.putString("stream", com.hesier.lumy.tv.WatchNextAvailabilityTest(this).runAll() + "\n")
                 finish(Activity.RESULT_OK, result)
                 return
             }

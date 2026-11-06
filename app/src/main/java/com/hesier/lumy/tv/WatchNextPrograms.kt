@@ -34,7 +34,9 @@ internal class WatchNextProgramsStore(private val context: Context) {
         val columns = arrayOf(WatchNextPrograms._ID, WatchNextPrograms.COLUMN_CONTENT_ID,
             WatchNextPrograms.COLUMN_WATCH_NEXT_TYPE, WatchNextPrograms.COLUMN_INTERNAL_PROVIDER_DATA,
             WatchNextPrograms.COLUMN_POSTER_ART_URI)
-        return resolver.query(WatchNextPrograms.CONTENT_URI, columns, null, null, null)?.use { cursor ->
+        val cursor = resolver.query(WatchNextPrograms.CONTENT_URI, columns, null, null, null)
+            ?: throw WatchNextUnavailableException()
+        return cursor.use {
             buildList {
                 while (cursor.moveToNext()) {
                     val data = if (cursor.isNull(3)) JSONObject() else runCatching {
@@ -47,7 +49,7 @@ internal class WatchNextProgramsStore(private val context: Context) {
                         cursor.getString(4)?.let(Uri::parse)))
                 }
             }
-        }.orEmpty()
+        }
     }
 
     fun remove(record: WatchNextRecord) {
@@ -69,7 +71,7 @@ internal class WatchNextProgramsStore(private val context: Context) {
             publication.copy(artworkUri = publication.artworkUri ?: old?.artworkUri), resume)
         val id = old?.id ?: prefs.getLong(publication.item.id, -1L)
         if (id != -1L && resolver.update(TvContractCompat.buildWatchNextProgramUri(id), program.toContentValues(), null, null) > 0) return
-        val uri = resolver.insert(WatchNextPrograms.CONTENT_URI, program.toContentValues()) ?: error("Watch Next insertion failed")
+        val uri = resolver.insert(WatchNextPrograms.CONTENT_URI, program.toContentValues()) ?: throw WatchNextUnavailableException()
         prefs.edit { putLong(publication.item.id, ContentUris.parseId(uri)) }
     }
 

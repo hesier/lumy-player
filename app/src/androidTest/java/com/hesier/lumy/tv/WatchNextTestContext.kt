@@ -13,7 +13,7 @@ import android.net.Uri
 import androidx.tvprovider.media.tv.TvContractCompat
 
 /** Keeps tests away from the device's real launcher data and program preferences. */
-class WatchNextTestContext(base: Context) : ContextWrapper(base) {
+open class WatchNextTestContext(base: Context) : ContextWrapper(base) {
     val provider = ProgramProvider()
     private val resolver = ContentResolver.wrap(provider)
 
@@ -28,12 +28,19 @@ class WatchNextTestContext(base: Context) : ContextWrapper(base) {
 class ProgramProvider : ContentProvider() {
     val rows = linkedMapOf<Long, ContentValues>()
     private var nextId = 1L
+    var queryFailure: Exception? = null
+    var writeFailure: Exception? = null
+    var nullQueries = false
+    var queries = 0
+    var writes = 0
     var beforeInsert: (() -> Unit)? = null
 
     override fun onCreate() = true
     override fun getType(uri: Uri) = "vnd.android.cursor.item/watch_next_program"
 
     override fun insert(uri: Uri, values: ContentValues?): Uri {
+        writes++
+        writeFailure?.let { throw it }
         beforeInsert?.also { beforeInsert = null }?.invoke()
         val id = nextId++
         rows[id] = ContentValues(values).apply { put("_id", id) }
@@ -51,7 +58,10 @@ class ProgramProvider : ContentProvider() {
 
     override fun query(
         uri: Uri, projection: Array<out String>?, selection: String?, args: Array<out String>?, sort: String?,
-    ): Cursor {
+    ): Cursor? {
+        queries++
+        queryFailure?.let { throw it }
+        if (nullQueries) return null
         val columns = projection ?: arrayOf("_id")
         val selected = uri.lastPathSegment?.toLongOrNull()?.let { listOfNotNull(rows[it]) } ?: rows.values
         return MatrixCursor(columns).apply {
