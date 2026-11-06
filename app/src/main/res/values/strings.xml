@@ -282,6 +282,7 @@
     <string name="player_audio">Audio</string>
     <string name="player_subtitles">Subtitles</string>
     <string name="player_subtitle_style">Subtitle style</string>
+    <string name="player_danmaku_settings">Danmaku settings</string>
     <string name="player_style_saved_hint">Changes apply immediately and are saved as defaults.</string>
     <string name="player_subtitle_style_unavailable">ASS, image-based and burned-in subtitles use their own styling. Primary subtitle style cannot be adjusted in the player.</string>
     <string name="player_quality">Quality</string>

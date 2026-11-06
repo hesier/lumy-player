@@ -78,7 +78,7 @@ internal class PlayerDanmaku(
         reload()
     }
 
-    fun showMenu(focusManual: Boolean = false) {
+    fun showMenu(focusManual: Boolean = false, focusSettings: Boolean = false) {
         if (!settings.enabled || released) return
         val request = media ?: return
         val revision = generation
@@ -86,6 +86,9 @@ internal class PlayerDanmaku(
             add(Option(activity.getString(R.string.danmaku_media_enabled), activity.getString(if (enabled) R.string.on else R.string.off)) to {
                 media?.let { store.setMediaEnabled(it.key, !store.mediaEnabled(it.key)) }
                 reload()
+            })
+            add(Option(activity.getString(R.string.player_danmaku_settings), selected = focusSettings) to {
+                DanmakuStylePanel(activity, settings) { showMenu(focusSettings = true) }.show()
             })
             if (enabled) {
                 add(Option(activity.getString(R.string.danmaku_manual_match),
