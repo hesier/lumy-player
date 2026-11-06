@@ -20,6 +20,14 @@ internal data class FnOsResume(
     val durationMs: Long?,
 )
 
+internal data class FnOsHistory(
+    val itemId: String,
+    val mediaId: String?,
+    val positionMs: Long,
+    val durationMs: Long?,
+    val watched: Boolean,
+)
+
 internal class FnOsProgress(private val native: FnOsNativeClient) {
     private val mutex = Mutex()
     private val contexts = mutableMapOf<String, Context>()
@@ -48,23 +56,33 @@ internal class FnOsProgress(private val native: FnOsNativeClient) {
         }
     }
 
-    suspend fun resume(): List<FnOsResume> {
+    suspend fun history(): List<FnOsHistory> {
         val records = native.get("play/list") as? JsonArray ?: throw IOException("Invalid fnOS playback list")
         return records.mapNotNull { element ->
             val record = element as? JsonObject ?: return@mapNotNull null
             val itemId = record.text("guid") ?: return@mapNotNull null
-            val position = record.seconds("ts")?.takeIf { it > 0 } ?: return@mapNotNull null
+            val position = record.seconds("ts")?.coerceAtLeast(0.0) ?: 0.0
             val duration = record.seconds("duration")?.takeIf { it > 0 }
             val watched = record["watched"] as? JsonPrimitive
-            if (watched?.booleanOrNull == true || watched?.doubleOrNull == 1.0 ||
-                (duration != null && position >= duration)) return@mapNotNull null
-            val info = if (record.text("media_guid") == null) playInfo(itemId) else null
-            val mediaId = record.text("media_guid") ?: info?.text("media_guid") ?: return@mapNotNull null
-            val resolvedDuration = duration ?: (info?.get("item") as? JsonObject)?.seconds("duration")?.takeIf { it > 0 }
-            if (resolvedDuration != null && position >= resolvedDuration) return@mapNotNull null
-            FnOsResume(itemId, mediaId, (position * MILLIS_PER_SECOND).toLong(),
-                resolvedDuration?.let { (it * MILLIS_PER_SECOND).toLong() })
+            FnOsHistory(
+                itemId, record.text("media_guid"), (position * MILLIS_PER_SECOND).toLong(),
+                duration?.let { (it * MILLIS_PER_SECOND).toLong() },
+                watched?.booleanOrNull == true || watched?.doubleOrNull == 1.0 ||
+                    (duration != null && position >= duration),
+            )
         }
+    }
+
+    suspend fun resume(): List<FnOsResume> = resume(history())
+
+    suspend fun resume(records: List<FnOsHistory>): List<FnOsResume> = records.mapNotNull { record ->
+        if (record.watched || record.positionMs <= 0) return@mapNotNull null
+        val info = if (record.mediaId == null) playInfo(record.itemId) else null
+        val mediaId = record.mediaId ?: info?.text("media_guid") ?: return@mapNotNull null
+        val duration = record.durationMs ?: (info?.get("item") as? JsonObject)?.seconds("duration")
+            ?.takeIf { it > 0 }?.let { (it * MILLIS_PER_SECOND).toLong() }
+        if (duration != null && record.positionMs >= duration) return@mapNotNull null
+        FnOsResume(record.itemId, mediaId, record.positionMs, duration)
     }
 
     private suspend fun context(request: PlaybackRequest): Context {

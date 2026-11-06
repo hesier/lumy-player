@@ -31,6 +31,24 @@ internal class FnOsQueries(private val native: FnOsNativeClient) {
         return Page(rows.drop(skip).take(limit), offset, total)
     }
 
+    suspend fun personItems(personId: String): List<JsonObject> {
+        val result = mutableListOf<JsonObject>()
+        var page = 1
+        do {
+            val data = native.post("person/item/list", buildJsonObject {
+                put("person_guid", personId)
+                put("page", page++)
+                put("page_size", 200)
+            }).jsonObject
+            val rows = data.rows()
+            result += rows
+            val total = data["total"]?.jsonPrimitive?.intOrNull
+            if (rows.isEmpty() || result.size >= (total ?: result.size)) break
+            check(page <= 500) { "fnOS person pagination exceeded its limit" }
+        } while (true)
+        return result.distinctBy { it["guid"]?.jsonPrimitive?.content }
+    }
+
     suspend fun search(query: String): List<JsonObject> {
         val url = "http://fnos/search/list".toHttpUrl().newBuilder().addQueryParameter("q", query.trim()).build()
         return (native.get("search/list?${url.encodedQuery}") as? JsonArray).orEmpty().map { it.jsonObject }

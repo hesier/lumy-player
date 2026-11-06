@@ -9,6 +9,8 @@ import com.hesier.lumy.core.WatchFilter
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.mockwebserver.Dispatcher
+import okhttp3.mockwebserver.RecordedRequest
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.MockResponse
 import org.junit.After
@@ -93,6 +95,33 @@ class FnOsQueriesTest {
         assertEquals(listOf("b"), result.items.map { it.id })
         assertEquals(2, result.total)
         assertEquals("sort_title", parameters().single()["sort_column"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `person items send native person ID and deduplicate across all pages`() = runBlocking {
+        val requests = mutableListOf<RecordedRequest>()
+        val pages = ArrayDeque(listOf(
+            """{"list":[{"guid":"a"},{"guid":"b"}],"total":5}""",
+            """{"list":[{"guid":"b"},{"guid":"c"}],"total":5}""",
+            """{"list":[{"guid":"d"}],"total":5}""",
+        ))
+        web.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.requestUrl!!.encodedPath != "/v/api/v1/person/item/list") {
+                    return fixture.dispatch(request)
+                }
+                requests += request
+                return MockResponse().setBody("""{"code":0,"data":${pages.removeFirst()}}""")
+            }
+        }
+        assertEquals(listOf("a", "b", "c", "d"),
+            queries.personItems("person / one").map { it["guid"]!!.jsonPrimitive.content })
+        val params = requests.map { client.json.parseToJsonElement(it.body.clone().readUtf8()).jsonObject }
+        assertEquals(listOf("1", "2", "3"), params.map { it["page"]!!.jsonPrimitive.content })
+        assertTrue(params.all { it["person_guid"]!!.jsonPrimitive.content == "person / one" })
+        assertTrue(params.all { it["page_size"]!!.jsonPrimitive.content == "200" })
+        assertTrue(params.all { !it.containsKey("ancestor_guid") })
+        assertTrue(requests.all { it.method == "POST" })
     }
 
     private fun parameters() = fixture.requests.filter { it.requestUrl!!.encodedPath.endsWith("/item/list") }
