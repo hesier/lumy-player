@@ -2,6 +2,7 @@
 build/
 local.properties
 .idea/
+/.openidea/
 *.iml
 .DS_Store
 captures/
