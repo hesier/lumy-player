@@ -18,6 +18,7 @@ import com.hesier.lumy.core.*
 import com.hesier.lumy.data.DanmakuOnlineSource
 import com.hesier.lumy.data.DanmakuSettings
 import com.hesier.lumy.data.DanmakuSourceSettings
+import com.hesier.lumy.data.SubtitleMode
 import com.hesier.lumy.databinding.ActivityPlayerBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -62,6 +63,9 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
                     customUrl = ""
                 }
                 DanmakuSettings(prefs).enabled = false
+                app.settings.subtitleMode = SubtitleMode.SERVER
+                app.settings.rememberSubtitleSelection = false
+                app.settings.subtitleScale = 1f
             }
             instrumentation.setInTouchMode(false)
             activity = instrumentation.startActivitySync(PlayerActivity.intent(context, FIXTURE_ID, 0, 0)
@@ -73,13 +77,14 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
                 check(unexpected.isEmpty()) { "Unexpected fixture server calls: $unexpected" }
                 return "Coalesced transcode skips, final target, immediate buffered seeks, explicit seek/version cancellation and late source rejection passed"
             }
+            main { player.pause() }
             check(!hasDanmakuButton()) { "Disabled master switch still exposes the danmaku entry" }
             main { DanmakuSettings(prefs).enabled = true }
             await("master switch adds the danmaku entry") { hasDanmakuButton() }
             verifyControlBar()
             main { DanmakuSettings(prefs).enabled = false }
             await("master switch removes the danmaku entry") { !hasDanmakuButton() }
-            return "Real PlayerActivity: master-switch entry visibility, Speed/Danmaku/Chapters order, D-pad navigation, debug handoff, menu focus return and More separation passed"
+            return "Real PlayerActivity: master-switch visibility, Speed/Danmaku/More order, chapter hint, offline style preferences, live subtitle size and panel focus restoration passed"
         } finally {
             try {
                 if (::activity.isInitialized) {
@@ -106,7 +111,8 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
 
     private fun fakeServer(session: ServerSession, file: File): MediaServer {
         val video = VideoStream("h264", 320, 180, 24f, 8, "High", HdrType.NONE, null, 500)
-        val version = MediaVersion("control-bar-version", 0, "mkv", 600, video, emptyList(), emptyList(),
+        val subtitles = listOf(SubtitleStream("fixture-srt", 1, "srt", "en", "Fixture SRT", false, true, null))
+        val version = MediaVersion("control-bar-version", 0, "mkv", 600, video, emptyList(), subtitles,
             listOf(MediaPart("control-bar-part", "fixture", "mkv", file.length(), 20_000)))
         val item = MediaItem(FIXTURE_ID, MediaType.MOVIE, "Control fixture", durationMs = 20_000)
         val detail = MediaDetail(item, versions = listOf(version), chapters = listOf(
@@ -139,15 +145,18 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
     private fun verifyControlBar() {
         await("PlayerActivity window focused") { main { activity.hasWindowFocus() } }
         if (main { binding.controls.visibility == View.VISIBLE }) key(KeyEvent.KEYCODE_BACK)
-        key(KeyEvent.KEYCODE_DPAD_CENTER)
+        key(KeyEvent.KEYCODE_DPAD_DOWN)
         await("paused controls focused") { main { !player.isPlaying && binding.buttons.getChildAt(0).hasFocus() } }
         val indices = main {
             val labels = (0 until binding.buttons.childCount).map { label(binding.buttons.getChildAt(it)) }
             val speed = labels.indexOf(activity.getString(R.string.player_speed))
             val danmaku = labels.indexOf(activity.getString(R.string.settings_section_danmaku))
-            val chapters = labels.indexOf(activity.getString(R.string.player_chapters))
-            check(speed >= 0 && danmaku == speed + 1 && chapters == danmaku + 1)
-            listOf(speed, danmaku, chapters, labels.indexOf(activity.getString(R.string.player_more)))
+            val more = labels.indexOf(activity.getString(R.string.player_more))
+            check(speed >= 0 && danmaku == speed + 1 && more == danmaku + 1)
+            check(activity.getString(R.string.player_chapters) !in labels)
+            check(binding.rowHint.visibility == View.VISIBLE && !binding.rowHint.isFocusable)
+            check(binding.rowHint.parent == binding.buttons.parent && binding.rowHint.left >= binding.buttons.right)
+            listOf(speed, danmaku, more)
         }
         repeat(indices[0]) { key(KeyEvent.KEYCODE_DPAD_RIGHT) }
         focus(indices[0]); key(KeyEvent.KEYCODE_DPAD_RIGHT); focus(indices[1])
@@ -155,10 +164,9 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
         key(KeyEvent.KEYCODE_DPAD_LEFT); focus(indices[1])
         checkDanmakuMenu(indices[1])
         key(KeyEvent.KEYCODE_DPAD_RIGHT); focus(indices[2])
-        key(KeyEvent.KEYCODE_DPAD_RIGHT); focus(indices[3])
-        checkMoreMenu(indices[3])
-        key(KeyEvent.KEYCODE_DPAD_LEFT); focus(indices[2])
+        checkMoreMenu(indices[2])
         key(KeyEvent.KEYCODE_DPAD_LEFT); focus(indices[1])
+        PlaybackStyleControlsTest(instrumentation, activity, binding).checkSubtitleStyle()
     }
 
     private fun checkDanmakuMenu(index: Int) {
@@ -173,6 +181,7 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
             val testing = PlayerDanmaku::class.java.getDeclaredField("testing").apply { isAccessible = true }
             check(testing.get(controller) == false) { "Debug generator still blocks the formal controller" }
         }
+        PlaybackStyleControlsTest(instrumentation, activity, binding).checkDanmakuStyle()
         key(KeyEvent.KEYCODE_BACK)
         focus(index)
     }
@@ -186,10 +195,15 @@ class DanmakuControlBarTest(private val instrumentation: Instrumentation) {
                 R.string.danmaku_reload, R.string.danmaku_restore_auto, R.string.danmaku_probe_title).forEach { check(activity.getString(it) !in texts) }
         }
         key(KeyEvent.KEYCODE_DPAD_CENTER)
-        awaitPanel(R.string.video_scale, titleOnly = true)
+        awaitPanel(R.string.player_chapters, titleOnly = true)
         key(KeyEvent.KEYCODE_BACK)
         awaitPanel(R.string.player_more, titleOnly = true)
         key(KeyEvent.KEYCODE_DPAD_DOWN); key(KeyEvent.KEYCODE_DPAD_CENTER)
+        awaitPanel(R.string.video_scale, titleOnly = true)
+        key(KeyEvent.KEYCODE_BACK)
+        awaitPanel(R.string.player_more, titleOnly = true)
+        repeat(2) { key(KeyEvent.KEYCODE_DPAD_DOWN) }
+        key(KeyEvent.KEYCODE_DPAD_CENTER)
         awaitPanel(R.string.subtitle_delay, titleOnly = true)
         key(KeyEvent.KEYCODE_BACK)
         awaitPanel(R.string.player_more, titleOnly = true)
