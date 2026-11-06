@@ -45,6 +45,11 @@ class JellyfinConnector(private val client: JellyfinClient) {
         )
     }
 
+    fun quickConnect(server: Server): JellyfinQuickConnect {
+        require(server.kind == ServerKind.JELLYFIN) { "Quick Connect requires Jellyfin" }
+        return JellyfinQuickConnect(client, server)
+    }
+
     companion object {
         /** 两家的默认端口都是 8096 */
         const val DEFAULT_PORT = 8096

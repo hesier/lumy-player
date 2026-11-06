@@ -17,4 +17,7 @@
     <instrumentation
         android:name="com.hesier.lumy.ui.player.PgsInstrumentation"
         android:targetPackage="com.hesier.lumy.debug" />
+    <instrumentation
+        android:name="com.hesier.lumy.ui.login.ServerFeaturesInstrumentation"
+        android:targetPackage="com.hesier.lumy.debug" />
 </manifest>

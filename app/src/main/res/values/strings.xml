@@ -609,4 +609,12 @@
     <string name="danmaku_media_enabled">Danmaku for this media</string>
     <string name="danmaku_master_hint">Master switch. When off, danmaku and its player controls are hidden. Each movie or episode remembers its own switch.</string>
     <string name="card_playback_time">%1$s / %2$s</string>
+    <string name="quick_connect_check">Check server</string>
+    <string name="quick_connect_login">Quick Connect</string>
+    <string name="quick_connect_ready">%1$s supports Quick Connect. Select Quick Connect to sign in without a password.</string>
+    <string name="quick_connect_jellyfin_only">Quick Connect is only available on Jellyfin. Use your username and password for this server.</string>
+    <string name="quick_connect_disabled">Quick Connect is disabled on this server. Enable it in Jellyfin or use your username and password.</string>
+    <string name="quick_connect_expired">The Quick Connect code has expired. Select Quick Connect to get a new code.</string>
+    <string name="quick_connect_code">%1$s\n\nOn a signed-in Jellyfin phone or browser, open Settings → Quick Connect and enter this code. Keep this screen open while waiting for approval.</string>
+    <string name="quick_connect_cancel">Cancel</string>
 </resources>

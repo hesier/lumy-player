@@ -3,6 +3,8 @@ package com.hesier.lumy.ui.login
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.app.AlertDialog
+import androidx.core.widget.doAfterTextChanged
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import com.hesier.lumy.ui.ThemedActivity
@@ -12,6 +14,7 @@ import com.hesier.lumy.core.ServerKind
 import com.hesier.lumy.core.ServerSession
 import com.hesier.lumy.fnos.FnOsConnector
 import com.hesier.lumy.jellyfin.JellyfinConnector
+import com.hesier.lumy.jellyfin.QuickConnectException
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
 import com.hesier.lumy.databinding.ActivityDirectLoginBinding
@@ -21,6 +24,7 @@ import com.hesier.lumy.ui.widget.attempt
 import com.hesier.lumy.ui.widget.enableDpadNavigation
 import com.hesier.lumy.ui.widget.readableMessage
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 /**
  * Jellyfin / Emby：输入地址、用户名、密码登录。
@@ -31,6 +35,9 @@ class DirectLoginActivity : ThemedActivity() {
     private lateinit var binding: ActivityDirectLoginBinding
     private val app get() = LumyApp.instance
     private var busy = false
+    private var quickJob: Job? = null
+    private var quickDialog: AlertDialog? = null
+    private var quickServer: JellyfinConnector.Server? = null
     private var phoneInput: PhoneInputPanel? = null
     private val kind by lazy {
         runCatching { ServerKind.valueOf(intent.getStringExtra(EXTRA_KIND)!!) }.getOrDefault(ServerKind.JELLYFIN)
@@ -46,6 +53,7 @@ class DirectLoginActivity : ThemedActivity() {
             binding.hint.setText(R.string.direct_login_fnos_hint)
             binding.address.setHint(R.string.direct_login_fnos_address_hint)
         }
+        setupQuickConnect()
         setupInputNavigation()
         binding.name.setOnEditorActionListener { _, action, _ ->
             if (action == EditorInfo.IME_ACTION_DONE) connect()
@@ -81,8 +89,14 @@ class DirectLoginActivity : ThemedActivity() {
         binding.phoneInput.refresh.apply {
             nextFocusRightId = R.id.address
             nextFocusLeftId = R.id.refresh
-            nextFocusUpId = R.id.refresh
+            nextFocusUpId = R.id.quick_connect
             nextFocusDownId = R.id.refresh
+        }
+        binding.quickConnect.apply {
+            nextFocusUpId = R.id.quick_connect
+            nextFocusDownId = R.id.refresh
+            nextFocusLeftId = R.id.quick_connect
+            nextFocusRightId = R.id.address
         }
         binding.connect.nextFocusUpId = R.id.name
         binding.connect.nextFocusLeftId = R.id.refresh
@@ -97,7 +111,86 @@ class DirectLoginActivity : ThemedActivity() {
 
     override fun onStop() {
         phoneInput?.close()
+        quickJob?.cancel()
+        quickDialog?.dismiss()
+        quickDialog = null
         super.onStop()
+    }
+
+    private fun setupQuickConnect() {
+        binding.address.doAfterTextChanged {
+            quickServer = null
+            binding.quickConnect.setText(R.string.quick_connect_check)
+        }
+        binding.quickConnect.setOnClickListener {
+            if (!busy) startQuickConnect()
+        }
+    }
+
+    private fun startQuickConnect() {
+        val address = binding.address.text.toString()
+        val normalized = if (kind == ServerKind.FNOS) FnOsConnector.normalizeAddress(address)
+            else JellyfinConnector.normalizeAddress(address)
+        if (normalized == null) {
+            return showStatus(getString(R.string.direct_login_bad_address), binding.address)
+        }
+        busy = true
+        setQuickFieldsEnabled(false)
+        phoneInput?.close()
+        binding.progress.visibility = View.VISIBLE
+        quickJob = lifecycleScope.launch {
+            try {
+                val server = quickServer ?: app.jellyfinConnector.probe(normalized)
+                if (server.kind != ServerKind.JELLYFIN) {
+                    showStatus(getString(R.string.quick_connect_jellyfin_only), binding.connect)
+                    return@launch
+                }
+                if (quickServer == null) {
+                    quickServer = server
+                    binding.quickConnect.setText(R.string.quick_connect_login)
+                    showStatus(getString(R.string.quick_connect_ready, server.info.serverName), binding.quickConnect)
+                    return@launch
+                }
+                pairQuickConnect(server)
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                val message = when ((error as? QuickConnectException)?.reason) {
+                    QuickConnectException.Reason.DISABLED -> getString(R.string.quick_connect_disabled)
+                    QuickConnectException.Reason.EXPIRED -> getString(R.string.quick_connect_expired)
+                    null -> getString(R.string.direct_login_failed, error.readableMessage())
+                }
+                showStatus(message, binding.quickConnect)
+            } finally {
+                quickDialog?.dismiss()
+                quickDialog = null
+                busy = false
+                setQuickFieldsEnabled(true)
+                binding.progress.visibility = View.GONE
+                if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                    phoneInput?.start(binding.phoneInput)
+                }
+            }
+        }
+    }
+
+    private fun setQuickFieldsEnabled(enabled: Boolean) {
+        listOf(binding.address, binding.username, binding.password, binding.name).forEach { it.isEnabled = enabled }
+    }
+
+    private suspend fun pairQuickConnect(server: JellyfinConnector.Server) {
+        val connector = app.jellyfinConnector.quickConnect(server)
+        val pairing = connector.initiate()
+        quickDialog = AlertDialog.Builder(this)
+            .setTitle(R.string.quick_connect_login)
+            .setMessage(getString(R.string.quick_connect_code, pairing.code))
+            .setNegativeButton(R.string.quick_connect_cancel) { _, _ -> quickJob?.cancel() }
+            .setOnCancelListener { quickJob?.cancel() }
+            .show()
+        val login = connector.awaitLogin(pairing)
+        app.addServer(login.session, userName = login.username, customName = binding.name.text.toString())
+        HomeActivity.restart(this)
+        finish()
     }
 
     private fun connect() {

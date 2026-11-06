@@ -593,4 +593,12 @@
     <string name="danmaku_media_enabled">目前媒體彈幕</string>
     <string name="danmaku_master_hint">彈幕總開關。關閉後隱藏播放器彈幕入口並停止顯示；每部影片或單集的開關另行記憶。</string>
     <string name="card_playback_time">%1$s / %2$s</string>
+    <string name="quick_connect_check">偵測伺服器</string>
+    <string name="quick_connect_login">Quick Connect 快速連線</string>
+    <string name="quick_connect_ready">%1$s 支援 Quick Connect，選擇快速連線即可免密碼登入。</string>
+    <string name="quick_connect_jellyfin_only">僅 Jellyfin 支援 Quick Connect，請使用使用者名稱和密碼登入此伺服器。</string>
+    <string name="quick_connect_disabled">伺服器尚未啟用 Quick Connect，請在 Jellyfin 中啟用，或使用使用者名稱和密碼登入。</string>
+    <string name="quick_connect_expired">快速連線碼已過期，請重新選擇快速連線取得新碼。</string>
+    <string name="quick_connect_code">%1$s\n\n在已登入 Jellyfin 的手機或瀏覽器中，開啟「設定 → Quick Connect」，輸入此碼並授權。等待時請保持此頁面開啟。</string>
+    <string name="quick_connect_cancel">取消</string>
 </resources>
