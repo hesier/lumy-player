@@ -55,7 +55,8 @@ class FnOsMediaServer(
         }.getOrNull()?.id == session.serverId
     }
 
-    override suspend fun letterIndex(libraryId: String, query: LibraryQuery): List<LetterBucket> = emptyList()
+    override suspend fun letterIndex(libraryId: String, query: LibraryQuery): List<LetterBucket> =
+        FnOsLetterIndex { offset, limit, filter -> queryItems(libraryId, offset, limit, filter) }.get(query)
 
     // Native progress reports persist the selected tracks.
     override suspend fun saveStreamSelection(version: MediaVersion, audioId: String?, subtitleId: String?) = Unit

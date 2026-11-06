@@ -47,6 +47,22 @@ class JellyfinMediaServer(
     private val userId = session.userId ?: error("Jellyfin / Emby session has no user id")
     /** 旧版本保存的会话没有单独的设备标识，当时用的是客户端默认的 */
     private val deviceId = session.deviceId ?: client.info.deviceId
+    private val letterIndexes = JellyfinLetterIndex { libraryId, query, offset ->
+        get<LetterIndexResult>(
+            userUrl("Items").addAll(
+                "ParentId" to libraryId,
+                "Recursive" to "true",
+                "IncludeItemTypes" to "Movie,Series",
+                "StartIndex" to offset.toString(),
+                "Limit" to JellyfinLetterIndex.PAGE_SIZE.toString(),
+                "Fields" to "SortName",
+                "EnableImages" to "false",
+                "EnableUserData" to "false",
+                "EnableTotalRecordCount" to "true",
+                *query.params(),
+            ),
+        )
+    }
 
     // 两家都能把内封字幕复制进 MKV 转码输出（SubtitleMethod=Embed），见 transcodeUrl
     override val embedsSubtitles: Boolean get() = true
@@ -144,8 +160,8 @@ class JellyfinMediaServer(
         get<ItemsResult>(userUrl("Genres").addAll("ParentId" to libraryId, "SortBy" to "SortName")).items
             .map { FilterOption(it.id, it.name) }
 
-    /** 没有按首字符统计的接口，不显示字母索引 */
-    override suspend fun letterIndex(libraryId: String, query: LibraryQuery): List<LetterBucket> = emptyList()
+    override suspend fun letterIndex(libraryId: String, query: LibraryQuery): List<LetterBucket> =
+        letterIndexes.get(libraryId, query)
 
     override suspend fun search(query: String): List<Hub> {
         val found = items(
@@ -201,6 +217,7 @@ class JellyfinMediaServer(
             val req = client.request(b.build().toString(), kind, session.token, deviceId)
             client.execute((if (watched) req.post(EMPTY_BODY) else req.delete()).build())
         }
+        letterIndexes.invalidateWatched()
     }
 
     /**
@@ -404,6 +421,7 @@ class JellyfinMediaServer(
         }
         val body = client.jsonBody(client.json.encodeToString(PlaybackReport.serializer(), report))
         client.execute(client.request(url(path).build().toString(), kind, session.token, deviceId).post(body).build())
+        letterIndexes.invalidateWatched()
     }
 
     /** 只结束转码任务；不能发不带位置的 Stopped，服务端会因此把影片标记为已看 */
