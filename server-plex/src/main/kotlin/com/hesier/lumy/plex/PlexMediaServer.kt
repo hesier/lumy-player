@@ -43,8 +43,13 @@ class PlexMediaServer(
             .filter { it.type == MediaType.MOVIE || it.type == MediaType.SHOW }
 
     override suspend fun homeHubs(): List<Hub> {
-        val continueWatching = runCatching { get("/hubs/continueWatching").hubs }.getOrDefault(emptyList())
+        val continueResult = runCatching { get("/hubs/continueWatching").hubs }
         val promoted = get("/hubs", "count" to "20").hubs
+        val continueWatching = continueResult.getOrElse { error ->
+            // Only an explicit fallback hub can safely establish an empty resume list.
+            if (promoted.none { it.isContinueHub() }) throw error
+            emptyList()
+        }
         // /hubs 里通常也带一个“继续观看”，标识和 /hubs/continueWatching 不同，按类型和标题去重
         val rest = if (continueWatching.any { it.metadata.isNotEmpty() }) promoted.filterNot { it.isContinueHub() } else promoted
         return (continueWatching + rest)
@@ -340,6 +345,7 @@ internal fun PlexHub.toHub(): Hub? {
         title = title,
         style = if (landscape) HubStyle.LANDSCAPE else HubStyle.POSTER,
         items = items,
+        label = if (isContinueHub()) HubLabel.ContinueWatching else null,
     )
 }
 

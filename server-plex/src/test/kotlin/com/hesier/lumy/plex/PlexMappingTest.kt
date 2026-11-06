@@ -1,5 +1,6 @@
 package com.hesier.lumy.plex
 
+import com.hesier.lumy.core.HubLabel
 import com.hesier.lumy.core.HubStyle
 import com.hesier.lumy.core.MediaType
 import org.junit.Assert.assertEquals
@@ -44,7 +45,21 @@ class PlexMappingTest {
     @Test
     fun `recently added movies use poster style`() {
         val json = """{"hubIdentifier":"movie.recentlyadded.1","title":"Recently Added","Metadata":[{"ratingKey":"1","type":"movie","title":"M"}]}"""
-        assertEquals(HubStyle.POSTER, client.json.decodeFromString<PlexHub>(json).toHub()!!.style)
+        val hub = client.json.decodeFromString<PlexHub>(json).toHub()!!
+        assertEquals(HubStyle.POSTER, hub.style)
+        assertNull(hub.label)
+    }
+
+    @Test
+    fun `continue watching aliases receive semantic label`() {
+        for (identifier in listOf("home.continue", "home.ondeck", "home.inprogress")) {
+            val hub = PlexHub(
+                hubIdentifier = identifier,
+                title = "Continue Watching",
+                metadata = listOf(PlexMetadata(ratingKey = "1", type = "movie", title = "M")),
+            ).toHub()!!
+            assertEquals(identifier, HubLabel.ContinueWatching, hub.label)
+        }
     }
 
     @Test

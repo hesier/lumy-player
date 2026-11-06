@@ -82,16 +82,15 @@ class JellyfinMediaServer(
 
     override suspend fun homeHubs(): List<Hub> = coroutineScope {
         val resume = async {
-            runCatching {
-                items(
-                    "Recursive" to "true",
-                    "Filters" to "IsResumable",
-                    "MediaTypes" to "Video",
-                    "SortBy" to "DatePlayed",
-                    "SortOrder" to "Descending",
-                    "Limit" to "20",
-                )
-            }.getOrDefault(emptyList())
+            // A failed resume request must not clear desktop Continue Watching entries.
+            items(
+                "Recursive" to "true",
+                "Filters" to "IsResumable",
+                "MediaTypes" to "Video",
+                "SortBy" to "DatePlayed",
+                "SortOrder" to "Descending",
+                "Limit" to "20",
+            )
         }
         val nextUp = async {
             runCatching {
