@@ -900,7 +900,7 @@ class PlayerActivity : ThemedActivity() {
         }.show()
     }
 
-    private fun pickSubtitle() {
+    private fun pickSubtitle(focusStyle: Boolean = false) {
         val transcoding = plan?.mode is PlaybackMode.Transcode
         // 视频已在重新编码时，渲染不了的字幕总是交给服务器烧录（见 PlaybackPlanner）
         val reencoding = (plan?.mode as? PlaybackMode.Transcode)?.copyVideo == false
@@ -934,7 +934,37 @@ class PlayerActivity : ThemedActivity() {
             val sameMode = newPlan.mode == plan?.mode
             if (sameMode && oldPgs == newPgs && !nativeSubtitleChanged) applyTrackSelection()
             else start(positionMs, playWhenReady = !sameMode || player.playWhenReady)
+        }.withHeaderAction(getString(R.string.player_subtitle_style), focused = focusStyle) {
+            showSubtitleStyle()
         }.show()
+    }
+
+    private fun showSubtitleStyle() {
+        val authoredCodecs = SupMediaSourceFactory.CODECS + setOf("ass", "ssa", "dvd_subtitle", "vobsub", "dvb_subtitle")
+        val burned = subtitle != null && (plan?.mode as? PlaybackMode.Transcode)?.burnSubtitleId == subtitle?.id
+        val adjustable = !burned && subtitle?.codec?.lowercase() !in authoredCodecs
+        lateinit var panel: SubtitleStylePanel
+        val secondaryStyle: (() -> Unit)? = if (secondarySubtitle?.codec?.lowercase() in setOf("srt", "subrip", "vtt", "webvtt")) {
+            {
+                SecondarySubtitleStylePanel(this, settings, ::refreshSubtitleStyle,
+                    onBack = { panel.show(Int.MAX_VALUE) }).show()
+            }
+        } else null
+        panel = SubtitleStylePanel(this, settings, ::refreshSubtitleStyle, onBack = { pickSubtitle(focusStyle = true) },
+            onSecondaryStyle = secondaryStyle, allowPositionAndBackground = adjustable, allowScale = adjustable)
+        panel.show()
+    }
+
+    private fun refreshSubtitleStyle() {
+        binding.playerView.subtitleView?.apply {
+            val background = if (settings.subtitleBackground) SUBTITLE_BACKGROUND else Color.TRANSPARENT
+            setStyle(CaptionStyleCompat(Color.WHITE, background, Color.TRANSPARENT,
+                CaptionStyleCompat.EDGE_TYPE_OUTLINE, Color.BLACK, null))
+            setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 1.1f * settings.subtitleScale)
+            setBottomPaddingFraction(if (controlsVisible) maxOf(subtitlePadding, SUBTITLE_PADDING_WITH_CONTROLS) else subtitlePadding)
+        }
+        dualSubtitles.refreshStyle()
+        dualSubtitles.setBottomPaddingFraction(if (controlsVisible) maxOf(subtitlePadding, SUBTITLE_PADDING_WITH_CONTROLS) else subtitlePadding)
     }
 
     private fun rememberAudio() = trackPreferences.rememberAudio(version, showId, audio)

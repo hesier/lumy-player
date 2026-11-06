@@ -268,6 +268,9 @@
 
     <string name="player_audio">音轨</string>
     <string name="player_subtitles">字幕</string>
+    <string name="player_subtitle_style">字幕样式</string>
+    <string name="player_style_saved_hint">修改即时生效，并保存为默认设置。</string>
+    <string name="player_subtitle_style_unavailable">ASS、图片和烧录字幕使用自带样式，无法在播放器中调整主字幕样式。</string>
     <string name="player_quality">画质</string>
     <string name="player_speed">倍速</string>
     <string name="player_hold_speed_hint">播放时可长按确认键进入倍速，松手恢复原速。</string>

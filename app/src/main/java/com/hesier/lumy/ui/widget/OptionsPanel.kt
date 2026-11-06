@@ -30,6 +30,15 @@ class OptionsPanel(
 ) : Dialog(context, R.style.Theme_Lumy_Panel) {
 
     private val options = options.toMutableList()
+    private var headerLabel: String? = null
+    private var onHeaderClick: (() -> Unit)? = null
+    private var focusHeader = false
+
+    fun withHeaderAction(label: String, focused: Boolean = false, onClick: () -> Unit) = apply {
+        headerLabel = label
+        onHeaderClick = onClick
+        focusHeader = focused
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,11 +51,25 @@ class OptionsPanel(
         b.title.text = title
         b.hint.text = hint
         b.hint.visibility = if (hint.isNullOrEmpty()) View.GONE else View.VISIBLE
+        if (onHeaderClick != null) {
+            b.headerAction.root.visibility = View.VISIBLE
+            b.headerAction.label.text = headerLabel
+            b.headerAction.check.visibility = View.GONE
+            b.headerAction.icon.setImageResource(R.drawable.ic_settings)
+            b.headerAction.icon.visibility = View.VISIBLE
+            b.headerAction.root.setOnClickListener {
+                dismiss()
+                onHeaderClick?.invoke()
+            }
+        }
         b.list.layoutManager = LinearLayoutManager(context)
         b.list.adapter = Adapter()
         val initial = options.indexOfFirst { it.selected }.coerceAtLeast(0)
         b.list.scrollToPosition(initial)
-        b.list.post { b.list.findViewHolderForAdapterPosition(initial)?.itemView?.requestFocus() }
+        b.list.post {
+            if (focusHeader) b.headerAction.root.requestFocus()
+            else b.list.findViewHolderForAdapterPosition(initial)?.itemView?.requestFocus()
+        }
     }
 
     private inner class Adapter : RecyclerView.Adapter<Adapter.Holder>() {

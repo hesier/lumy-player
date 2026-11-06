@@ -50,7 +50,10 @@ internal class DualSubtitleOverlay(private val playerView: PlayerView, private v
 
     fun setBottomPaddingFraction(fraction: Float) = overlay.setBottomPaddingFraction(fraction)
 
-    fun refreshStyle() = update()
+    fun refreshStyle() {
+        overlay.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 1.1f * settings.subtitleScale)
+        update()
+    }
 
     fun clear() {
         primary = emptyList()
