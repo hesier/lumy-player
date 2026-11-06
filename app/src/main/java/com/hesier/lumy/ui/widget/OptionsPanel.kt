@@ -25,6 +25,7 @@ class OptionsPanel(
     private val title: String,
     options: List<Option>,
     private val multi: Boolean = false,
+    private val hint: String? = null,
     private val onPick: (Int) -> Unit,
 ) : Dialog(context, R.style.Theme_Lumy_Panel) {
 
@@ -39,6 +40,8 @@ class OptionsPanel(
             setGravity(Gravity.END)
         }
         b.title.text = title
+        b.hint.text = hint
+        b.hint.visibility = if (hint.isNullOrEmpty()) View.GONE else View.VISIBLE
         b.list.layoutManager = LinearLayoutManager(context)
         b.list.adapter = Adapter()
         val initial = options.indexOfFirst { it.selected }.coerceAtLeast(0)

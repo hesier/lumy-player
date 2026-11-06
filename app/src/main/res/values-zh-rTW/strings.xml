@@ -267,6 +267,7 @@
     <string name="player_subtitles">字幕</string>
     <string name="player_quality">畫質</string>
     <string name="player_speed">播放速度</string>
+    <string name="player_hold_speed_hint">播放時可長按確認鍵進入倍速，放開恢復原速。</string>
     <string name="speed_unavailable_passthrough">目前音軌正直通給擴大機，無法變速播放</string>
     <string name="player_info">播放資訊</string>
     <string name="subtitles_off">關閉</string>

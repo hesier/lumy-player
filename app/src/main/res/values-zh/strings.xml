@@ -267,6 +267,7 @@
     <string name="player_subtitles">字幕</string>
     <string name="player_quality">画质</string>
     <string name="player_speed">倍速</string>
+    <string name="player_hold_speed_hint">播放时可长按确认键进入倍速，松手恢复原速。</string>
     <string name="speed_unavailable_passthrough">当前音轨正在直通给功放，无法倍速播放</string>
     <string name="player_info">播放信息</string>
     <string name="subtitles_off">关闭</string>

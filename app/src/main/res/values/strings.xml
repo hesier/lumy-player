@@ -280,6 +280,7 @@
     <string name="player_subtitles">Subtitles</string>
     <string name="player_quality">Quality</string>
     <string name="player_speed">Speed</string>
+    <string name="player_hold_speed_hint">During playback, you can hold OK to speed up; release to restore the original speed.</string>
     <string name="speed_unavailable_passthrough">This audio track is passed through to the receiver, so speed can\'t be changed</string>
     <string name="player_info">Playback info</string>
     <string name="subtitles_off">Off</string>

@@ -983,7 +983,8 @@ class PlayerActivity : ThemedActivity() {
             return
         }
         val options = SPEEDS.map { Option(if (it == 1f) getString(R.string.speed_normal) else "${it}x", selected = it == speed) }
-        OptionsPanel(this, getString(R.string.player_speed), options) { i ->
+        OptionsPanel(this, getString(R.string.player_speed), options,
+            hint = getString(R.string.player_hold_speed_hint)) { i ->
             speed = SPEEDS[i]
             player.setPlaybackSpeed(speed)
         }.show()
