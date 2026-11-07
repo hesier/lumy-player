@@ -4,6 +4,35 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.6.2 - 2026-11-07
+
+### Android TV home screen
+
+- Added Continue Watching and Next Up cards on compatible Android TV launchers, scoped to the current server and account, with direct playback from the home screen
+- Added support for displaying server-authenticated poster artwork on the launcher
+- Added Watch Next toggles, manual refresh and card clearing under Settings; automatically hides settings and stops background queries on unsupported devices
+
+### Sign-in and browsing
+
+- Added Quick Connect sign-in for Jellyfin when enabled on the server: enter the server address, then authorize the TV's pairing code from an already signed-in Jellyfin client
+- Added library letter indexing for Jellyfin, Emby and fnOS Media when sorting by title, for fast navigation in large libraries
+- Added fnOS cast filmography browsing and recommendations derived from shared cast and genres; Next Up episodes are derived from the episode playback records returned by the server
+
+### Playback and controls
+
+- Added a style entry in the subtitle menu to adjust ordinary text subtitles' size, vertical position and background, with immediate effect and saved preferences. These adjustments are unavailable for ASS / SSA, bitmap and burned-in primary subtitles
+- Added danmaku settings panel to the playback menu to adjust display area, opacity, text size and scrolling speed during playback
+- Added playback navigation hints, including hold-to-speed on the OK button and down-arrow shortcuts for episodes, chapters and playlists. Moved the chapters entry to More
+
+### Improvements and fixes
+
+- Reorganized player internals to simplify maintenance
+- Merged rapid consecutive seeks that require a new transcoding stream to reduce repeated server requests and playback interruptions
+- Optimized media reads, sidebar animations and settings category switches
+- Improved recovery and manual confirmation when danmaku matching responses are too large
+- Fixed visible comments disappearing, reappearing or changing lanes during continuous playback and automatic density adjustments
+- Prevented failed Continue Watching requests from being treated as empty results on Plex and Jellyfin / Emby, preserving existing launcher cards when no reliable result is available
+
 ## 0.6.1 - 2026-11-03
 
 ### Danmaku and cards
