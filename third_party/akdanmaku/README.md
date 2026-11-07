@@ -31,14 +31,23 @@ instances in this app use manual mode; this process-wide upstream flag is
 not suitable for mixing unrelated automatic/manual Ak players.
 
 Paused cache refreshes invalidate only the render snapshot, preserving existing
-lane assignments and visibility. Seek and runtime density changes invalidate layout
-and its retainer together; upstream clears visibility before re-layout, so retaining
-old lane entries across that invalidation can otherwise hide visible comments.
+lane assignments and visibility. Adaptive density changes preserve cached admission
+and lanes for existing entities, including the short pre-admission buffer; later
+entities use the new divisor. They do not invalidate filter/layout generations,
+which would remove, revive or move comments already on screen. Seek still invalidates
+layout and its retainer together.
 The comment layer uses PlayerView's full-screen overlay rather than its
 aspect-ratio-constrained video content frame.
 
-`AkDanmakuAccess.java` uses the published JVM names of version-pinned internal
-APIs without reflection. An Ak version upgrade must revisit this bridge.
+Continuous window handoffs append only timestamps beyond the previous window's
+end to the same engine. The serial worker trims expired input before the new
+12-second preroll and refreshes slice indices without clearing live entities.
+`AkDanmakuAccess.java` uses version-pinned internal JVM APIs, plus constant-field
+reflection for `DataSystem.sortedData` and `forceUpdate` only at window handoff.
+An Ak version upgrade must revisit this bridge; release/R8 checks must preserve
+these reflected fields. Normal frame updates do not use reflection.
+The app's ProGuard rules retain ECS system and pooled component constructors,
+which Ak/Ashley invoke reflectively; without them R8 can remove engine startup.
 
 `PatchCache.java` modifies CacheManager and its CacheHandler to admit at most eight
 measure/build tasks per update and 64 waiting jobs per manager, plus one active

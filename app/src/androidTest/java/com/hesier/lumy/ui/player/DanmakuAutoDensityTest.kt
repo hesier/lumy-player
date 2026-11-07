@@ -1,9 +1,17 @@
+// Exercise the version-pinned Ak entity admission contract without rendering a View.
+@file:Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+
 package com.hesier.lumy.ui.player
 
 import android.graphics.Color
+import com.badlogic.ashley.core.PooledEngine
 import com.kuaishou.akdanmaku.DanmakuConfig
 import com.kuaishou.akdanmaku.data.DanmakuItem
 import com.kuaishou.akdanmaku.data.DanmakuItemData
+import com.kuaishou.akdanmaku.ecs.DanmakuContext
+import com.kuaishou.akdanmaku.ecs.component.FilterResultComponent
+import com.kuaishou.akdanmaku.ecs.component.ItemDataComponent
+import com.kuaishou.akdanmaku.ecs.system.DataSystem
 import com.kuaishou.akdanmaku.utils.DanmakuTimer
 
 internal object DanmakuAutoDensityTest {
@@ -13,6 +21,7 @@ internal object DanmakuAutoDensityTest {
         recoveryIsGradual()
         idleAndResetClearHistory()
         stableFilterPreservesTypes()
+        engineKeepsAdmissionUntilEntityExpires()
         sessionSamplingPreservesPreferences()
     }
 
@@ -149,5 +158,67 @@ internal object DanmakuAutoDensityTest {
             check(runCatching { filter.divisor = invalid }.exceptionOrNull() is IllegalArgumentException)
             check(4 == filter.divisor)
         }
+    }
+
+    private fun engineKeepsAdmissionUntilEntityExpires() {
+        val filter = DanmakuDensityFilter()
+        val context = DanmakuContext(DanmakuTextRenderer(0.5f))
+        context.updateConfig(DanmakuConfig(dataFilter = listOf(filter)))
+        val engine = PooledEngine()
+        val system = DataSystem(context)
+        engine.addSystem(system)
+        val initial = densityItems(0, 1_000)
+        val preadmitted = densityItems(300, 2_000)
+        val reduced = densityItems(100, 1_000)
+        val recovered = densityItems(200, 1_000)
+        try {
+            // Ak's slice end is exclusive; a later sentinel keeps every tested item inside it.
+            val sentinel = densityItems(400, 60_000).take(1)
+            system.addItems(initial + preadmitted + sentinel)
+            densityFrame(context, engine, 1_000)
+            check(initial.size + preadmitted.size == engine.entities.size())
+            check(admissions(engine).values.none { it })
+            filter.divisor = 4
+            system.addItems(reduced)
+            densityFrame(context, engine, 1_000)
+            val limited = admissions(engine)
+            check((initial + preadmitted).all { limited[it.data.danmakuId] == false }) {
+                "Reduction changed existing admission"
+            }
+            check(reduced.any { limited[it.data.danmakuId] == true })
+            reduced.forEach { check(filter.filter(it, context.timer, context.config) == limited[it.data.danmakuId]) }
+            filter.divisor = 1
+            system.addItems(recovered)
+            densityFrame(context, engine, 1_000)
+            val restored = admissions(engine)
+            check(limited.all { (id, filtered) -> restored[id] == filtered }) { "Recovery revived rejected input" }
+            check(recovered.all { restored[it.data.danmakuId] == false })
+            densityFrame(context, engine, 20_000)
+            check(0 == engine.entities.size())
+            densityFrame(context, engine, 1_000)
+            check(admissions(engine).isNotEmpty())
+            check(admissions(engine).values.none { it }) { "Recreated entities did not use current density" }
+        } finally {
+            engine.removeAllEntities()
+            context.cacheManager.release()
+        }
+    }
+
+    private fun densityItems(firstId: Int, positionMs: Long) = List(32) { index ->
+        DanmakuItem(DanmakuItemData((firstId + index).toLong(), positionMs,
+            "sample", DanmakuItemData.DANMAKU_MODE_ROLLING, 25, Color.WHITE))
+    }
+
+    private fun densityFrame(context: DanmakuContext, engine: PooledEngine, positionMs: Long) {
+        context.timer.start(positionMs)
+        context.timer.paused = true
+        engine.getSystem(DataSystem::class.java).updateEntities()
+        // Engine.update defers timeout removals until system iteration completes.
+        engine.update(0f)
+    }
+
+    private fun admissions(engine: PooledEngine): Map<Long, Boolean> = engine.entities.associate { entity ->
+        entity.getComponent(ItemDataComponent::class.java).item!!.data.danmakuId to
+            entity.getComponent(FilterResultComponent::class.java).filtered
     }
 }

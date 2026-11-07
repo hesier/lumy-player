@@ -6,3 +6,13 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 -keep,includedescriptorclasses class com.hesier.**$$serializer { *; }
+
+# Ak creates ECS systems through Class.getConstructor(DanmakuContext).
+-keepclassmembers class * extends com.kuaishou.akdanmaku.ecs.base.DanmakuEntitySystem {
+    public <init>(com.kuaishou.akdanmaku.ecs.DanmakuContext);
+}
+
+# Ashley creates pooled components through their no-argument constructors.
+-keepclassmembers class * extends com.kuaishou.akdanmaku.ecs.base.DanmakuBaseComponent {
+    public <init>();
+}

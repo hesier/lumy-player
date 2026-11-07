@@ -59,7 +59,7 @@ internal class DanmakuOverlay(
             val window = active
             if (window != null && canDisplay && prepared == null && preparation?.isActive != true &&
                 window.endMs - commentPositionMs <= PREFETCH_MS) {
-                prepare(commentPositionMs + PREFETCH_MS, activate = false)
+                prepare(window.endMs, activate = false)
             }
             if (++ticks % LOG_TICKS == 0) com.hesier.lumy.util.DebugLog.i("LumyDanmaku",
                 "runtime video=${positionMs()} danmaku=$currentTimeMs visible=$visibleCount divisor=${session.divisor} ${metrics.report(engine)}")
@@ -175,8 +175,17 @@ internal class DanmakuOverlay(
         val position = commentPositionMs
         val ready = prepared
         if (ready != null && position in ready.positionMs..ready.endMs) {
-            install(ready)
-            return
+            val previous = active
+            if (!forceSeek && engine != null && previous != null) {
+                // Append only new timestamps; overlapping items keep their entities and lanes.
+                driver?.load(ready.items.filter { it.position > previous.endMs },
+                    ready.positionMs - DanmakuWindow.PREROLL_MS)
+                active = ready
+                prepared = null
+            } else {
+                install(ready)
+                return
+            }
         }
         val window = active
         if (engine == null || window == null || position !in window.positionMs..window.endMs) {

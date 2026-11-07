@@ -36,8 +36,12 @@ internal class DanmakuFrameDriver(
         LumyCacheBudget.onReady(AkDanmakuAccess.cacheManager(comments), ::requestFrame)
     }
 
-    fun load(items: List<DanmakuItemData>) {
-        handler.post { if (!released) comments.updateData(items) }
+    fun load(items: List<DanmakuItemData>, retainAfterMs: Long? = null) {
+        handler.post {
+            if (released) return@post
+            if (retainAfterMs != null) AkDanmakuAccess.trimData(comments, retainAfterMs)
+            comments.updateData(items)
+        }
     }
 
     fun sync(playing: Boolean, speed: Float, seekMs: Long?) {
@@ -70,11 +74,8 @@ internal class DanmakuFrameDriver(
             val config = AkDanmakuAccess.config(comments)
             val filter = config.dataFilter.filterIsInstance<DanmakuDensityFilter>().single()
             if (filter.divisor == divisor) return@post
+            // Ak caches admission per entity; keep active decisions and lane assignments.
             filter.divisor = divisor
-            config.updateFilter()
-            config.updateRetainer()
-            config.updateLayout()
-            comments.updateConfig(config)
             requestFrame()
         }
     }

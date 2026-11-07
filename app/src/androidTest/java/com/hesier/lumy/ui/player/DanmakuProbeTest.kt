@@ -201,7 +201,7 @@ class DanmakuProbeTest(private val instrumentation: Instrumentation) {
         await("paused seek publishes a different visible snapshot") {
             !player.isPlaying && probe.visibleIds.isNotEmpty() && probe.visibleIds != ids && probe.cacheSnapshot[0] == 0L
         }
-        Thread.sleep(500)
+        awaitPausedUpdates()
         main { updates = probe.metrics.update.count; seeks = probe.metrics.seeks }
         Thread.sleep(400)
         main {
@@ -212,6 +212,18 @@ class DanmakuProbeTest(private val instrumentation: Instrumentation) {
         Thread.sleep(2_200)
         main { check(probe.metrics.seeks == seeks) { "Heartbeat forced another seek" } }
         results += "Paused update/draw stopped; paused seek changed visible snapshot and settled; heartbeat deduplicated"
+    }
+
+    private fun awaitPausedUpdates() {
+        var previous = -1L
+        var changedAt = SystemClock.elapsedRealtime()
+        await("paused seek cache callbacks settle") {
+            val count = probe.metrics.update.count
+            val now = SystemClock.elapsedRealtime()
+            if (count != previous) { previous = count; changedAt = now }
+            // An empty queue can still have an active cache build that requests a final frame.
+            probe.cacheSnapshot[0] == 0L && now - changedAt >= 1_000
+        }
     }
 
     private fun checkRelease() {

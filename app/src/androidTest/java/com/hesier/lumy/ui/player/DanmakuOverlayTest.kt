@@ -51,6 +51,9 @@ class DanmakuOverlayTest(private val instrumentation: Instrumentation) {
                 checkPause(binding.playerView, player, overlay)
                 checkFullscreen(binding.playerView)
             }
+            DanmakuContinuityTest(instrumentation, binding.playerView, player).checkWindows(overlay) { target ->
+                baseMs = target - player.currentPosition
+            }
             checkSettingsAndOrigin()
             checkReplacementAndClear()
         } finally {
@@ -122,7 +125,10 @@ class DanmakuOverlayTest(private val instrumentation: Instrumentation) {
         val field = DanmakuOverlay::class.java.getDeclaredField("driver").apply { isAccessible = true }
         var driver: DanmakuFrameDriver? = null
         main { driver = field.get(overlay) as DanmakuFrameDriver }
-        for (divisor in listOf(2, 1)) {
+        var before = emptyMap<Long, android.graphics.RectF>()
+        main { before = geometry() }
+        check(before.isNotEmpty())
+        for (divisor in listOf(2, 4, 2, 1)) {
             main { driver!!.setDensityDivisor(divisor) }
             var previous = -1L
             var changedAt = SystemClock.elapsedRealtime()
@@ -133,8 +139,18 @@ class DanmakuOverlayTest(private val instrumentation: Instrumentation) {
                 val filter = overlay.appliedConfig?.dataFilter?.filterIsInstance<DanmakuDensityFilter>()?.single()
                 now - changedAt >= 500 && filter?.divisor == divisor && overlay.visibleCount > 0
             }
-            main { check(saved == DanmakuSettings(preferences).density) }
+            main {
+                check(before == geometry()) { "Density $divisor changed existing IDs or geometry" }
+                check(saved == DanmakuSettings(preferences).density)
+            }
         }
+    }
+
+    private fun geometry(): Map<Long, android.graphics.RectF> {
+        val engine = DanmakuOverlay::class.java.getDeclaredField("engine").apply { isAccessible = true }
+            .get(overlay) as com.kuaishou.akdanmaku.ui.DanmakuPlayer
+        return engine.getDanmakusInRect(android.graphics.RectF(0f, 0f, binding.playerView.width.toFloat(),
+            binding.playerView.height.toFloat())).orEmpty().associate { it.data.danmakuId to android.graphics.RectF(it.rect) }
     }
 
     private fun checkSeekAndIdle() {
