@@ -128,6 +128,10 @@ class ItemListActivity : ThemedActivity() {
             binding.actions.addActionButton(R.drawable.ic_play, getString(R.string.play_all)) {
                 val first = items.firstOrNull { it.playable } ?: return@addActionButton
                 startActivity(PlayerActivity.intent(this, first.id, 0, 0, playlistId = itemId))
+            }.apply {
+                id = View.generateViewId()
+                nextFocusLeftId = id
+                nextFocusRightId = id
             }
         }
     }

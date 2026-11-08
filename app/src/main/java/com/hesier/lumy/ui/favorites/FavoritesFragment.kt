@@ -67,8 +67,14 @@ class FavoritesFragment : Fragment(), ItemChangeListener {
         TYPES.forEachIndexed { index, _ ->
             binding.categories.addActionButton(R.drawable.ic_favorite, getString(LABELS[index])) {
                 selectCategory(index)
-            }.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) selectCategory(index)
+            }.apply {
+                setOnFocusChangeListener { _, hasFocus ->
+                    if (hasFocus) selectCategory(index)
+                }
+                if (index == TYPES.lastIndex) {
+                    id = View.generateViewId()
+                    nextFocusRightId = id
+                }
             }
         }
         updateCategories()
