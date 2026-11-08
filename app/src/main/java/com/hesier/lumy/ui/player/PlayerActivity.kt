@@ -196,6 +196,7 @@ class PlayerActivity : ThemedActivity() {
                 ?: detail.versions.getOrNull(intent.getIntExtra(EXTRA_VERSION, 0)) ?: detail.versions.firstOrNull()
                 ?: return@launch showError(getString(R.string.no_playable_file))
             selectVersion(v)
+            setResult(RESULT_OK, Intent().putExtra(RESULT_ITEM_ID, item.id))
             doviHevcFallback = intent.getBooleanExtra(EXTRA_DOVI_HEVC, false)
             intent.removeExtra(EXTRA_DOVI_HEVC)
             setupControls()
@@ -779,6 +780,7 @@ class PlayerActivity : ThemedActivity() {
     }
 
     companion object {
+        const val RESULT_ITEM_ID = "played_item_id"
         private const val EXTRA_ID = "id"
         private const val EXTRA_VERSION = "version"
         private const val EXTRA_START = "start"

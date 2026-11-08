@@ -93,6 +93,13 @@ class DetailActivity : ThemedActivity() {
         binding.seasons.post { binding.seasons.findViewHolderForAdapterPosition(index)?.itemView?.requestFocus() }
     }
 
+    private var returnedPlaybackId: String? = null
+    private val playerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            returnedPlaybackId = result.data?.getStringExtra(PlayerActivity.RESULT_ITEM_ID)
+        }
+    }
+
     private val keyThrottle = KeyRepeatThrottle()
 
     /** 长按方向键时放慢移动速度 */
@@ -242,15 +249,26 @@ class DetailActivity : ThemedActivity() {
         d.item.poster?.let { binding.poster.load(server.imageUrl(it, lp.width, lp.height)) }
     }
 
-    /** 从播放器返回：刷新进度和已看状态，保留焦点和选中 */
+    /** Refresh progress and follow the episode returned by the player. */
     private fun refresh() {
         lifecycleScope.launch {
             LumyApp.instance.awaitPendingReports()
             main?.item?.id?.let { id -> attempt { server.detail(id) }.getOrNull()?.let { main = it } }
-            selectedEpisode?.id?.let { id ->
+            val playedId = returnedPlaybackId
+            returnedPlaybackId = null
+            val previousSeason = currentSeasonId
+            (playedId ?: selectedEpisode?.id)?.let { id ->
                 attempt { server.detail(id) }.getOrNull()?.let {
-                    episodeDetails[id] = it
-                    selectedEpisode = it.item
+                    if (isSeries && it.item.type == MediaType.EPISODE) {
+                        headerJob?.cancel()
+                        episodeDetailJob?.cancel()
+                        seasonJob?.cancel()
+                        episodeDetails[id] = it
+                        if (id != selectedEpisode?.id) versionIndex = 0
+                        selectedEpisode = it.item
+                        currentSeasonId = it.item.parentId
+                        episodesAdapter?.selectedId = id
+                    }
                 }
             }
             renderHeader()
@@ -258,7 +276,15 @@ class DetailActivity : ThemedActivity() {
                 focusPlayOnReturn = false
                 binding.actions.getChildAt(0)?.requestFocus()
             }
-            currentSeasonId?.let { refreshEpisodes(it) }
+            currentSeasonId?.let { seasonId ->
+                if (seasonId != previousSeason) {
+                    updateTabStates()
+                    binding.seasons.scrollToPosition(seasons.indexOfFirst { it.id == seasonId }.coerceAtLeast(0))
+                    loadEpisodes(seasonId, scrollTo = selectedEpisode?.id)
+                } else {
+                    refreshEpisodes(seasonId, scrollTo = playedId)
+                }
+            }
         }
     }
 
@@ -419,7 +445,7 @@ class DetailActivity : ThemedActivity() {
 
     private fun startPlayer(id: String, version: Int, startMs: Long) {
         focusPlayOnReturn = true
-        startActivity(PlayerActivity.intent(this, id, version, startMs))
+        playerLauncher.launch(PlayerActivity.intent(this, id, version, startMs))
     }
 
     // ---- 分季标签 ----
@@ -553,12 +579,16 @@ class DetailActivity : ThemedActivity() {
         }
     }
 
-    private fun refreshEpisodes(seasonId: String) {
+    private fun refreshEpisodes(seasonId: String, scrollTo: String? = null) {
         lifecycleScope.launch {
             val episodes = attempt { server.children(seasonId) }.getOrNull() ?: return@launch
             if (seasonId != currentSeasonId) return@launch
             seasonEpisodes = episodes
             episodesAdapter?.submit(episodes)
+            val target = episodes.indexOfFirst { it.id == scrollTo }
+            if (target >= 0) {
+                (binding.episodes.layoutManager as StartAlignedLayoutManager).scrollToPositionWithOffset(target, 0)
+            }
             renderHeader()
         }
     }
