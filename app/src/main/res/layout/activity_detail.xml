@@ -103,6 +103,8 @@
                     <!-- 固定 3 行高：切换剧集时页面不跳动；显示不全时按上键选中、确认键看全文 -->
                     <TextView
                         android:id="@+id/summary"
+                        android:nextFocusLeft="@id/summary"
+                        android:nextFocusRight="@id/summary"
                         style="@style/Text.Body"
                         android:layout_width="match_parent"
                         android:layout_height="80sp"

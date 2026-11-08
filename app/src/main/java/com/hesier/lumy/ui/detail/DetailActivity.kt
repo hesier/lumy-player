@@ -11,7 +11,6 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import com.hesier.lumy.ui.ThemedActivity
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.hesier.lumy.core.HubStyle
 import com.hesier.lumy.core.MediaDetail
@@ -175,15 +174,15 @@ class DetailActivity : ThemedActivity() {
         setContentView(binding.root)
         binding.posterFrame.clipToRoundedBackground()
         fileInfo = FileInfoSection(binding.fileInfoTitle, binding.fileInfo, LumyApp.instance.settings.detailShowFileInfo)
-        // 标签很短，用普通布局：焦点移动时整行不滚动，不会左右闪动
-        binding.seasons.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
+        // Keep horizontal navigation inside each detail row.
+        binding.seasons.layoutManager = StartAlignedLayoutManager(this, RecyclerView.HORIZONTAL, stayAtStart = true)
         binding.summary.setOnClickListener {
             val text = binding.summary.text?.toString().orEmpty()
             if (text.isNotBlank()) TextPanel(this, binding.title.text.toString(), text).show()
         }
-        binding.episodes.layoutManager = StartAlignedLayoutManager(this, RecyclerView.HORIZONTAL)
-        binding.cast.layoutManager = StartAlignedLayoutManager(this, RecyclerView.HORIZONTAL)
-        binding.similar.layoutManager = StartAlignedLayoutManager(this, RecyclerView.HORIZONTAL)
+        binding.episodes.layoutManager = StartAlignedLayoutManager(this, RecyclerView.HORIZONTAL, stayAtStart = true)
+        binding.cast.layoutManager = StartAlignedLayoutManager(this, RecyclerView.HORIZONTAL, stayAtStart = true)
+        binding.similar.layoutManager = StartAlignedLayoutManager(this, RecyclerView.HORIZONTAL, stayAtStart = true)
         // 进入分季行落到当前季，进入剧集行落到选中的那集
         binding.seasons.preferredPosition = { seasons.indexOfFirst { it.id == currentSeasonId } }
         binding.episodes.preferredPosition = { selectedEpisode?.id?.let { episodesAdapter?.indexOf(it) } ?: -1 }
@@ -381,6 +380,12 @@ class DetailActivity : ThemedActivity() {
             ItemMenu.toggleWatched(this, server, item) { afterWatchedChange() }
         }
         addFavoriteAction(item)
+        val buttons = (0 until binding.actions.childCount).map { binding.actions.getChildAt(it) }
+        buttons.forEach { it.id = View.generateViewId() }
+        buttons.forEachIndexed { index, button ->
+            button.nextFocusLeftId = buttons[(index - 1).coerceAtLeast(0)].id
+            button.nextFocusRightId = buttons[(index + 1).coerceAtMost(buttons.lastIndex)].id
+        }
         if (focused >= 0) binding.actions.getChildAt(focused.coerceAtMost(binding.actions.childCount - 1))?.requestFocus()
     }
 
