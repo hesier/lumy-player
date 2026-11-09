@@ -34,11 +34,14 @@ internal class PlayerControllersTest(
         checkChapters()
         checkEpisodes()
         checkPlaylist()
+        checkCreditsModes()
         checkMarkers()
         checkCancelledQueries()
+        checkUnmarkedEnding()
+        checkDismissedEnding()
         return "Chapters: D-pad entry, boundaries, button focus restoration and seek passed\n" +
             "Episodes: selection, in-player switch, next episode and playlist order passed\n" +
-            "Markers: manual/automatic skip, countdown pause, dismissal and switch reset passed\n" +
+            "Markers: credits modes, unmarked final 10 seconds, natural completion, countdown pause and dismissal through completion passed\n" +
             "Late row and next-episode results cannot replace the current media state"
     }
 
@@ -113,7 +116,7 @@ internal class PlayerControllersTest(
         await("seek back into intro") { player.currentPosition < 1_000 && player.playbackState == Player.STATE_READY }
         Thread.sleep(700)
         main { check(player.currentPosition < 1_000) { "An already skipped marker ran twice" } }
-        main { settings.autoPlayNext = true }
+        main { settings.autoPlayNext = true; settings.skipCredits = SkipMode.AUTO }
         switchTo(first, 16_000)
         await("up-next card") { overlays.upNextVisible && binding.upNextPlay.hasFocus() }
         Thread.sleep(1_300)
@@ -126,6 +129,86 @@ internal class PlayerControllersTest(
         main { check(!overlays.upNextDismissed && !overlays.upNextVisible) }
         Thread.sleep(700)
         main { check(binding.skip.visibility == View.GONE && !overlays.upNextVisible) }
+        switchTo(first, 5_000)
+        main {
+            overlays.reset()
+            overlays.bind(field("server") as MediaServer, (field("detail") as MediaDetail).copy(
+                markers = listOf(Marker(MarkerType.CREDITS, 0, 20_000))))
+        }
+        await("automatic credits countdown") { overlays.upNextVisible }
+        main { player.play() }
+        await("automatic credits countdown advances before completion") { currentItem().id == second.id }
+        main { player.pause() }
+    }
+
+    private fun checkCreditsModes() {
+        main { settings.autoPlayNext = true; settings.skipIntro = SkipMode.OFF }
+        for (mode in listOf(SkipMode.OFF, SkipMode.BUTTON)) {
+            main { settings.skipCredits = mode }
+            switchTo(first, 16_000)
+            Thread.sleep(700)
+            main {
+                check(!overlays.upNextVisible) { "$mode credits must not start an up-next countdown" }
+                check((binding.skip.visibility == View.VISIBLE) == (mode == SkipMode.BUTTON))
+            }
+        }
+        key(KeyEvent.KEYCODE_DPAD_CENTER)
+        await("manual credits skip advances to next episode") { currentItem().id == second.id }
+        main { settings.skipCredits = SkipMode.OFF }
+        switchTo(first, 18_500)
+        main { player.play() }
+        await("credits off preserves natural completion and auto-play") { currentItem().id == second.id }
+        main { player.pause() }
+    }
+
+    private fun checkUnmarkedEnding() {
+        switchTo(first, 18_500)
+        main {
+            overlays.reset()
+            overlays.bind(field("server") as MediaServer, (field("detail") as MediaDetail).copy(markers = emptyList()))
+            player.play()
+        }
+        await("unmarked ending auto-plays after natural completion") { currentItem().id == second.id }
+        // Use a stable clock to check both sides of the fallback boundary.
+        var position = 49_999L
+        var playedNext = false
+        lateinit var probe: PlayerOverlayController
+        main {
+            player.pause()
+            overlays.reset()
+            settings.skipCredits = SkipMode.AUTO
+            probe = PlayerOverlayController(activity, binding, player, settings,
+                positionMs = { position }, durationMs = { 60_000L }, nextEpisode = { first },
+                onSeek = { error("Unmarked ending must not seek") },
+                onEnded = { error("Unmarked ending must not end early") },
+                onPlayNext = { playedNext = true })
+            probe.bind(field("server") as MediaServer, (field("detail") as MediaDetail).copy(markers = emptyList()))
+        }
+        try {
+            Thread.sleep(700)
+            main { check(!probe.upNextVisible) { "Up-next appeared before the last 10 seconds" }; position = 50_000 }
+            await("unmarked final 10 seconds prompt") { probe.upNextVisible && binding.upNextPlay.hasFocus() }
+            main {
+                check(binding.upNextPlay.text == activity.getString(R.string.play_now)) { "Unmarked ending must not count down" }
+                check(!playedNext)
+            }
+            key(KeyEvent.KEYCODE_DPAD_CENTER)
+            main { check(playedNext) { "Manual play-next must remain available" }; position = 49_999 }
+            await("seeking out of unmarked ending hides card") { !probe.upNextVisible }
+        } finally {
+            main { probe.reset() }
+        }
+    }
+
+    private fun checkDismissedEnding() {
+        main { settings.skipCredits = SkipMode.AUTO }
+        switchTo(first, 16_000)
+        await("up-next before cancellation") { overlays.upNextVisible }
+        key(KeyEvent.KEYCODE_BACK)
+        Thread.sleep(1_200)
+        main { check(!activity.isFinishing && currentItem().id == first.id && player.currentPosition < 17_000) }
+        main { player.play() }
+        await("cancelled auto-play exits after natural completion") { activity.isDestroyed }
     }
 
     private fun switchTo(item: MediaItem, start: Long = 0) {

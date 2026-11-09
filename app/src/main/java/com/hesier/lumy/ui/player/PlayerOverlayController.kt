@@ -81,10 +81,11 @@ internal class PlayerOverlayController(
         val duration = durationMs()
         val active = detail.markers.firstOrNull { pos >= it.startMs && pos < it.endMs - 1_000 }
         val next = nextEpisode()?.takeIf { settings.autoPlayNext && !upNextDismissed }
-        val inCredits = active?.type == MarkerType.CREDITS ||
-            (detail.markers.none { it.type == MarkerType.CREDITS } && duration > 0 && duration - pos in 1..UP_NEXT_FALLBACK_MS)
-        if (next != null && inCredits) {
-            showUpNext(next)
+        val autoSkipCredits = active?.type == MarkerType.CREDITS && settings.skipCredits == SkipMode.AUTO
+        val unmarkedEnding = detail.markers.none { it.type == MarkerType.CREDITS } &&
+            duration > 0 && duration - pos in 1..UP_NEXT_FALLBACK_MS
+        if (next != null && (autoSkipCredits || unmarkedEnding)) {
+            showUpNext(next, countdown = autoSkipCredits)
             return
         }
         // Seeking out of credits hides the card without dismissing it permanently.
@@ -92,9 +93,10 @@ internal class PlayerOverlayController(
             upNextJob?.cancel()
             binding.upNext.visibility = View.GONE
         }
+        // Cancelling up-next keeps the remaining credits playing until natural completion.
         val mode = when (active?.type) {
             MarkerType.INTRO -> settings.skipIntro
-            MarkerType.CREDITS -> settings.skipCredits
+            MarkerType.CREDITS -> if (upNextDismissed) SkipMode.OFF else settings.skipCredits
             null -> SkipMode.OFF
         }
         when {
@@ -127,7 +129,7 @@ internal class PlayerOverlayController(
         if (duration > 0 && target >= duration - 2_000) onEnded() else onSeek(target)
     }
 
-    private fun showUpNext(next: MediaItem) {
+    private fun showUpNext(next: MediaItem, countdown: Boolean) {
         if (upNextVisible || controlsVisible) return
         DebugLog.i(TAG, "up next ${next.id} at ${positionMs()}")
         hideSkip()
@@ -139,6 +141,9 @@ internal class PlayerOverlayController(
         binding.upNext.visibility = View.VISIBLE
         binding.upNextPlay.requestFocus()
         upNextJob?.cancel()
+        binding.upNextPlay.setText(R.string.play_now)
+        // Without a credits marker, only natural completion may advance automatically.
+        if (!countdown) return
         upNextJob = activity.lifecycleScope.launch {
             for (left in UP_NEXT_SECONDS downTo 1) {
                 binding.upNextPlay.text = activity.getString(R.string.play_now) + " · " + activity.getString(R.string.up_next_countdown, left)
@@ -166,6 +171,6 @@ internal class PlayerOverlayController(
         const val TAG = "LumyPlayer"
         const val MARKER_POLL_MS = 500L
         const val UP_NEXT_SECONDS = 10
-        const val UP_NEXT_FALLBACK_MS = 20_000L
+        const val UP_NEXT_FALLBACK_MS = 10_000L
     }
 }
