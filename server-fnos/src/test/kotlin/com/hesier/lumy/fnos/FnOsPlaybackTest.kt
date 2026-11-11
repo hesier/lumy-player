@@ -1,6 +1,7 @@
 package com.hesier.lumy.fnos
 
 import com.hesier.lumy.core.MediaItem
+import com.hesier.lumy.core.MediaPart
 import com.hesier.lumy.core.MediaType
 import com.hesier.lumy.core.MediaVersion
 import com.hesier.lumy.core.PlaybackMode
@@ -54,6 +55,25 @@ class FnOsPlaybackTest {
 
     private fun data(body: String) = web.enqueue(MockResponse().setBody("""{"code":0,"data":$body}"""))
     private fun RecordedRequest.bodyJson(): JsonObject = client.json.parseToJsonElement(body.readUtf8()).jsonObject
+
+    @Test
+    fun `version switch routes direct and transcoded playback to selected file`() = runBlocking {
+        val playback = playback()
+        val original = request()
+        val selected = original.copy(version = original.version.copy(id = "selected-file", parts = listOf(
+            MediaPart("item-id", "Videos/selected-file/stream", "mkv", null, 120000),
+        )))
+        val direct = playback.source(selected.copy(mode = PlaybackMode.Direct)).urls.single().toHttpUrl()
+        assertEquals("/Videos/selected-file/stream", direct.encodedPath)
+        assertEquals("item-id", direct.queryParameter("MediaSourceId"))
+        bootstrap()
+        data(STREAM.replace("file-id", "selected-file"))
+        data("""{"play_link":"/v/media/selected/preset.m3u8"}""")
+        assertTrue(playback.source(selected).isHls)
+        repeat(2) { web.takeRequest() }
+        assertEquals("\"selected-file\"", web.takeRequest().bodyJson()["media_guid"].toString())
+        assertEquals("\"selected-file\"", web.takeRequest().bodyJson()["media_guid"].toString())
+    }
 
     @Test
     fun `transcode selects bounded quality and selected audio without burning UI subtitle`() = runBlocking {

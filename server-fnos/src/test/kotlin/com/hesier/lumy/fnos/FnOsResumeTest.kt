@@ -8,6 +8,8 @@ import com.hesier.lumy.core.PlaybackState
 import com.hesier.lumy.core.ServerKind
 import com.hesier.lumy.core.ServerSession
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.QueueDispatcher
@@ -115,6 +117,8 @@ internal class FnOsTestDispatcher : QueueDispatcher() {
     @Volatile var tags = """{"genres":[]}"""
     @Volatile var genres = "[]"
     @Volatile var streams = "{}"
+    @Volatile var files: String? = null
+    val streamsByFile = mutableMapOf<String, String>()
     @Volatile var favorites = """{"list":[],"total":0}"""
     @Volatile var favoriteResult = "true"
     @Volatile var favoriteCode = 0
@@ -138,9 +142,15 @@ internal class FnOsTestDispatcher : QueueDispatcher() {
             "/v/api/v1/tag/list" -> data(tags)
             "/v/api/v1/tag/genres" -> data(genres)
             "/v/api/v1/play/info" -> data(info)
-            "/v/api/v1/stream" -> data(streams)
+            "/v/api/v1/stream" -> {
+                val fileId = kotlinx.serialization.json.Json.parseToJsonElement(request.body.clone().readUtf8())
+                    .jsonObject["media_guid"]?.jsonPrimitive?.content
+                data(streamsByFile[fileId] ?: streams)
+            }
             "/v/api/v1/item/watched", "/v/api/v1/play/record" -> data("true")
-            else -> if (path.startsWith("/v/api/v1/item/")) data(itemState)
+            else -> if (path.startsWith("/v/api/v1/media/itemfile/")) {
+                files?.let(::data) ?: MockResponse().setResponseCode(404)
+            } else if (path.startsWith("/v/api/v1/item/")) data(itemState)
             else MockResponse().setResponseCode(404)
         }
     }

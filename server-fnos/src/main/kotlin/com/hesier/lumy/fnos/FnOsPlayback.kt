@@ -75,9 +75,9 @@ internal class FnOsPlayback(
         fun url(path: String) = base.toHttpUrl().resolve(path)!!.newBuilder()
             .addQueryParameter("ApiKey", session.token)
         return PlaybackSource(
-            urls = listOf(url("Videos/${request.item.id}/stream")
+            urls = listOf(url("Videos/${request.fnOsFileId}/stream")
                 .addQueryParameter("Static", "true")
-                .addQueryParameter("MediaSourceId", request.version.id)
+                .addQueryParameter("MediaSourceId", request.version.fnOsItemId)
                 .addQueryParameter("PlaySessionId", request.sessionId)
                 .addQueryParameter("DeviceId", session.deviceId ?: client.info.deviceId)
                 .build().toString()),
@@ -118,7 +118,7 @@ internal class FnOsPlayback(
 
     private suspend fun playbackBody(request: PlaybackRequest, mode: PlaybackMode.Transcode): JsonObject {
         val streams = native.post("stream", buildJsonObject {
-            put("media_guid", request.item.id)
+            put("media_guid", request.fnOsFileId)
             put("ip", session.deviceId ?: "Lumy")
             put("header", buildJsonObject { put("User-Agent", buildJsonArray { add(JsonPrimitive("Lumy")) }) })
             put("level", 1)
@@ -139,7 +139,7 @@ internal class FnOsPlayback(
         } ?: mode
         val quality = selectQuality(streams.objects("qualities"), boundedMode)
         return buildJsonObject {
-            put("media_guid", request.item.id)
+            put("media_guid", request.fnOsFileId)
             put("video_guid", video.text("guid") ?: throw IOException("fnOS video GUID is missing"))
             // The native protocol has no verified explicit stream-copy switch.
             put("video_encoder", "h264")

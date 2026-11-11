@@ -2,7 +2,7 @@
 
 English | [简体中文](server-support.zh-CN.md)
 
-Updated: 2026-11-06.
+Updated: 2026-11-11.
 
 This page describes **the integrations currently implemented in Lumy Player**, rather than the complete capabilities of each server product. “Integrated” is based on code and API tests; availability still depends on server version, permissions, metadata and device capabilities. “Not integrated” does not mean the server itself lacks the feature.
 
@@ -41,7 +41,7 @@ All integrations support multiple saved entries, switching, renaming and removal
 | Cast filmographies | Integrated within the source library | Integrated across libraries | Integrated across libraries | Integrated through native pagination, with catalog mapping |
 | More Like This / recommendations | Integrated | Integrated | Integrated | Derived locally from shared cast / genres |
 | Show, season and episode details and lists | Integrated | Integrated | Integrated | Integrated |
-| Version selection | Integrated | Integrated | Integrated | Compatibility mapping implemented; not independently playback-tested |
+| Version selection | Integrated | Integrated | Integrated | Integrated through native file lists, with independent tracks and playback URLs per version |
 | Personal favorites (movies, shows, episodes) | Not offered | Integrated, server sync | Integrated, server sync | Integrated, native API sync |
 | Mark watched / unwatched | Integrated | Integrated | Integrated | Integrated through native API |
 | Auto-play next episode, including across seasons | Integrated | Integrated | Integrated | Integrated |
@@ -104,7 +104,8 @@ The fnOS checks in this integration were limited to **media service version 0.8.
 - Native cast-filmography pagination was verified against this service version and is now integrated. `ServerCatalogInstrumentation` also exercised native cast filmographies, local recommendations and Next Up on an emulator against this instance; that result does not cover all service versions or devices.
 - Collections and playlists remain unintegrated: no usable native routes were found on the tested 0.8.43 instance, and compatibility queries returned empty results. No usable native recommendation endpoint was found; recommendations instead use the local metadata heuristic above. These findings do not establish that the fnOS product lacks those features.
 - Next Up also has unit tests for returned episode playback records; neither these tests nor the emulator check establish that the server provides complete watch history or validate every show’s follow-up queue.
-- Native chapter and intro/credits endpoints have not been integrated. These features and version selection have not received independent playback validation.
+- Version selection enumerates native `media/itemfile` entries. Files can share one compatibility `MediaSourceId`; Lumy distinguishes versions by file ID and uses the selected file for direct playback, transcoding and progress reports. The local Zootopia 4K HDR10 / 1080p SDR pair passed independent file reads and native transcode manifest checks. Emulator remote input switched 1080p → 4K → 1080p, rendered each source through 720p transcoding and retained playback position. Progress writes are covered by unit tests and were suppressed during live playback checks. This does not validate every version combination.
+- Native chapter and intro/credits endpoints have not been integrated. Native `play/info` exposes `play_config.skip_opening` / `skip_ending` in seconds; the web client saves custom skip durations per season through `play/setConfigByItem`. This is user-configured skipping; automatic server analysis and intro/credits detection were not confirmed. Lumy does not read this configuration yet and only retains compatibility chapter-marker mapping.
 
 Native requests reuse the signed-in session and discover signing parameters from the server's public web assets. Changes to that web protocol may require an adapter update.
 

@@ -21,7 +21,6 @@ import com.hesier.lumy.core.ResolutionFilter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -186,15 +185,7 @@ class FnOsMediaServer(
             put("item_guid", canonicalId)
         }).jsonObject else null
         val detail = normalized.fnOsDetail()
-        val versions = detail.versions.map { version ->
-            val streams = native.post("stream", buildJsonObject {
-                put("media_guid", item.id)
-                put("level", 1)
-                put("ip", session.deviceId ?: client.info.deviceId)
-                put("header", JsonObject(mapOf("User-Agent" to JsonArray(listOf(JsonPrimitive("Lumy"))))))
-            }).jsonObject
-            version.withFnOsStreams(streams).withFnOsStreamSelection(info)
-        }
+        val versions = FnOsVersions(native, ::item, session.deviceId ?: client.info.deviceId).load(normalized, info)
         val duration = versions.firstOrNull()?.part?.durationMs
         return detail.copy(item = normalized.withProgress(progress.resume()).copy(durationMs = duration ?: detail.item.durationMs),
             versions = versions)

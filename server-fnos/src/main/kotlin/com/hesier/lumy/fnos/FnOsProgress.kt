@@ -86,18 +86,21 @@ internal class FnOsProgress(private val native: FnOsNativeClient) {
     }
 
     private suspend fun context(request: PlaybackRequest): Context {
-        // MediaSource.id identifies the native item; BaseItem.id identifies its file.
-        val info = playInfo(request.version.id)
+        // The selected file can differ from the detail page's original file.
+        val info = playInfo(request.version.fnOsItemId, request.fnOsFileId)
         return Context(
             itemId = info.text("guid") ?: throw IOException("fnOS playback item ID is missing"),
-            mediaId = request.item.id,
+            mediaId = request.fnOsFileId,
             durationSeconds = (info["item"] as? JsonObject)?.seconds("duration")?.takeIf { it > 0 },
             tracks = info.filterKeys { it in TRACK_KEYS },
         )
     }
 
-    private suspend fun playInfo(itemId: String): JsonObject =
-        native.post("play/info", JsonObject(mapOf("item_guid" to JsonPrimitive(itemId)))) as? JsonObject
+    private suspend fun playInfo(itemId: String, mediaId: String? = null): JsonObject =
+        native.post("play/info", JsonObject(buildMap {
+            put("item_guid", JsonPrimitive(itemId))
+            mediaId?.let { put("media_guid", JsonPrimitive(it)) }
+        })) as? JsonObject
             ?: throw IOException("Invalid fnOS playback info")
 
     private fun JsonObject.text(key: String): String? =

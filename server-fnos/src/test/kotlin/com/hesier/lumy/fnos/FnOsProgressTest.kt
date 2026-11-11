@@ -1,6 +1,7 @@
 package com.hesier.lumy.fnos
 
 import com.hesier.lumy.core.MediaItem
+import com.hesier.lumy.core.MediaPart
 import com.hesier.lumy.core.AudioStream
 import com.hesier.lumy.core.SubtitleStream
 import com.hesier.lumy.core.MediaType
@@ -48,6 +49,25 @@ class FnOsProgressTest {
     private fun data(value: String) = web.enqueue(MockResponse().setBody("""{"code":0,"data":$value}"""))
 
     private fun discardBootstrap() = repeat(2) { web.takeRequest() }
+
+    @Test
+    fun `switched version records selected file and resolves tracks for that file`() = runBlocking {
+        val progress = progress()
+        data(INFO)
+        data("true")
+        val original = request()
+        val selected = original.copy(version = original.version.copy(id = "selected-file", parts = listOf(
+            MediaPart("canonical-id", "Videos/selected-file/stream", "mkv", null, 900000),
+        )))
+        progress.report(selected, PlaybackState.PLAYING, 30000, 900000)
+        discardBootstrap()
+        val lookup = client.json.parseToJsonElement(web.takeRequest().body.readUtf8()).jsonObject
+        assertEquals("canonical-id", lookup["item_guid"]!!.jsonPrimitive.content)
+        assertEquals("selected-file", lookup["media_guid"]!!.jsonPrimitive.content)
+        val record = client.json.parseToJsonElement(web.takeRequest().body.readUtf8()).jsonObject
+        assertEquals("selected-file", record["media_guid"]!!.jsonPrimitive.content)
+        assertEquals("canonical-id", record["item_guid"]!!.jsonPrimitive.content)
+    }
 
     @Test
     fun `every state records canonical and file IDs while preserving native track preferences`() = runBlocking {
