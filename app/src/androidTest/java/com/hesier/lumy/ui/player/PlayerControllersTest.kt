@@ -30,6 +30,7 @@ internal class PlayerControllersTest(
     private val settings get() = LumyApp.instance.settings
 
     fun runAll(): String {
+        FnOsPlaybackMarkersTest.runAll()
         main { player.pause(); settings.autoPlayNext = false; settings.skipIntro = SkipMode.OFF }
         checkChapters()
         checkEpisodes()

@@ -186,9 +186,9 @@ class FnOsMediaServer(
         }).jsonObject else null
         val detail = normalized.fnOsDetail()
         val versions = FnOsVersions(native, ::item, session.deviceId ?: client.info.deviceId).load(normalized, info)
-        val duration = versions.firstOrNull()?.part?.durationMs
-        return detail.copy(item = normalized.withProgress(progress.resume()).copy(durationMs = duration ?: detail.item.durationMs),
-            versions = versions)
+        val duration = versions.firstOrNull()?.part?.durationMs ?: detail.item.durationMs
+        return detail.copy(item = normalized.withProgress(progress.resume()).copy(durationMs = duration),
+            versions = versions, markers = fnOsMarkers(info, duration, detail.markers))
     }
 
     override suspend fun children(id: String): List<MediaItem> {

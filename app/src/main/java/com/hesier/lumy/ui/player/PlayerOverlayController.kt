@@ -13,6 +13,7 @@ import com.hesier.lumy.core.MediaDetail
 import com.hesier.lumy.core.MediaItem
 import com.hesier.lumy.core.MediaServer
 import com.hesier.lumy.core.MediaType
+import com.hesier.lumy.core.ServerKind
 import com.hesier.lumy.data.Settings
 import com.hesier.lumy.data.SkipMode
 import com.hesier.lumy.databinding.ActivityPlayerBinding
@@ -79,10 +80,11 @@ internal class PlayerOverlayController(
     private fun checkMarkers() {
         val pos = positionMs()
         val duration = durationMs()
-        val active = detail.markers.firstOrNull { pos >= it.startMs && pos < it.endMs - 1_000 }
+        val markers = if (server.session.kind == ServerKind.FNOS) detail.fnOsPlaybackMarkers(duration) else detail.markers
+        val active = markers.firstOrNull { pos >= it.startMs && pos < it.endMs - 1_000 }
         val next = nextEpisode()?.takeIf { settings.autoPlayNext && !upNextDismissed }
         val autoSkipCredits = active?.type == MarkerType.CREDITS && settings.skipCredits == SkipMode.AUTO
-        val unmarkedEnding = detail.markers.none { it.type == MarkerType.CREDITS } &&
+        val unmarkedEnding = markers.none { it.type == MarkerType.CREDITS } &&
             duration > 0 && duration - pos in 1..UP_NEXT_FALLBACK_MS
         if (next != null && (autoSkipCredits || unmarkedEnding)) {
             showUpNext(next, countdown = autoSkipCredits)
@@ -173,4 +175,19 @@ internal class PlayerOverlayController(
         const val UP_NEXT_SECONDS = 10
         const val UP_NEXT_FALLBACK_MS = 10_000L
     }
+}
+
+/** Keep tail-anchored fnOS credits relative to the selected file without moving other ranges. */
+internal fun MediaDetail.fnOsPlaybackMarkers(durationMs: Long): List<Marker> {
+    if (durationMs <= 0 || durationMs == item.durationMs) return markers
+    val adjusted = markers.mapNotNull { marker ->
+        val current = if (marker.type == MarkerType.CREDITS && marker.endMs == item.durationMs) {
+            marker.copy(startMs = durationMs - (marker.endMs - marker.startMs), endMs = durationMs)
+        } else marker
+        current.takeIf {
+            it.startMs >= 0 && it.endMs > it.startMs && it.endMs <= durationMs && it.endMs - it.startMs < durationMs
+        }
+    }
+    val openingEnd = adjusted.filter { it.type == MarkerType.INTRO }.maxOfOrNull { it.endMs } ?: 0
+    return adjusted.filter { it.type != MarkerType.CREDITS || it.startMs > openingEnd }.sortedBy { it.startMs }
 }

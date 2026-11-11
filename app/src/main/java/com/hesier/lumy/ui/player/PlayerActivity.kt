@@ -357,7 +357,9 @@ class PlayerActivity : ThemedActivity() {
         get() = pendingSeekMs ?: (partBase(player.currentMediaItemIndex) + player.currentPosition)
     private val bufferedMs: Long get() = partBase(player.currentMediaItemIndex) + player.bufferedPosition
     private val durationMs: Long
-        get() = item.durationMs
+        get() = selection.version.parts.sumOf { it.durationMs ?: 0 }
+            .takeIf { server.session.kind == ServerKind.FNOS && it > 0 }
+            ?: item.durationMs
             ?: selection.version.parts.sumOf { it.durationMs ?: 0 }.takeIf { it > 0 }
             ?: (player.duration.takeIf { it != C.TIME_UNSET }?.plus(partBase(player.currentMediaItemIndex)) ?: 0)
 

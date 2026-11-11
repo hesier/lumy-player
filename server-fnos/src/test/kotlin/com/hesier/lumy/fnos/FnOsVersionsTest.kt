@@ -1,6 +1,8 @@
 package com.hesier.lumy.fnos
 
 import com.hesier.lumy.core.HdrType
+import com.hesier.lumy.core.Marker
+import com.hesier.lumy.core.MarkerType
 import com.hesier.lumy.core.ServerKind
 import com.hesier.lumy.core.ServerSession
 import kotlinx.coroutines.runBlocking
@@ -22,6 +24,7 @@ class FnOsVersionsTest {
 
     @Test fun `native files sharing one source retain unique versions and independent streams`() = runBlocking {
         fixture.files = """[{"media_guid":"file-b"},{"media_guid":"file-a"},{"media_guid":"file-b"}]"""
+        fixture.info = """{"item":{"duration":5000},"play_config":{"skip_opening":46,"skip_ending":40}}"""
         fixture.streamsByFile["file-a"] = streams("file-a", 3840, "HDR10")
         fixture.streamsByFile["file-b"] = streams("file-b", 1920, "SDR")
         enqueue(item("file-a"))
@@ -30,6 +33,7 @@ class FnOsVersionsTest {
             ServerSession(ServerKind.FNOS, "server", "TV", web.url("/").toString().trimEnd('/'), "token"), client,
         )
         val detail = server.detail("file-a")
+        assertEquals(listOf(Marker(MarkerType.INTRO, 0, 46_000), Marker(MarkerType.CREDITS, 80_000, 120_000)), detail.markers)
         assertEquals(listOf("file-a", "file-b"), detail.versions.map { it.id })
         assertEquals(listOf(0, 1), detail.versions.map { it.index })
         assertEquals(listOf("canonical", "canonical"), detail.versions.map { it.fnOsItemId })
