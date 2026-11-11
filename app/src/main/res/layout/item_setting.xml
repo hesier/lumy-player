@@ -14,7 +14,7 @@
     android:paddingEnd="16dp"
     android:paddingBottom="10dp">
 
-    <!-- 只有服务器行有：类型图标 -->
+    <!-- 服务器类型图标或 Plex 用户头像 -->
     <ImageView
         android:id="@+id/icon"
         android:layout_width="32dp"

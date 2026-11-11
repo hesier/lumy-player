@@ -27,6 +27,10 @@ enum class AppLanguage(val locale: Locale?) {
 /** 用户偏好设置，播放器每次起播时读取 */
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    var plexHomeAutoSignIn: Boolean
+        get() = prefs.getBoolean("plex_home_auto_sign_in", true)
+        set(value) = prefs.edit().putBoolean("plex_home_auto_sign_in", value).apply()
+
     val danmaku = DanmakuSettings(prefs)
     val danmakuSource = DanmakuSourceSettings(prefs)
 

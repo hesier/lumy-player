@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.hesier.lumy.plex.PlexHttpException
 import com.hesier.lumy.plex.PlexResource
+import com.hesier.lumy.data.PlexHomeIdentity
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
 import com.hesier.lumy.databinding.ActivityServersBinding
@@ -31,6 +32,13 @@ class ServersActivity : ThemedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val entry = intent.getStringExtra(EXTRA_REPLACE_ID)?.let { id -> app.store.servers.firstOrNull { it.id == id } }
+        if (entry != null && !intent.hasExtra("plex_home_account_token") &&
+            (entry.id != app.currentEntry?.id || app.needsPlexHomeSelection(entry))) {
+            com.hesier.lumy.ui.login.PlexHomeNavigation.open(this, entry)
+            finish()
+            return
+        }
         binding = ActivityServersBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.list.layoutManager = LinearLayoutManager(this)
@@ -82,7 +90,13 @@ class ServersActivity : ThemedActivity() {
                 return@launch
             }
             val replaceId = intent.getStringExtra(EXTRA_REPLACE_ID)
-            if (replaceId != null) app.replaceServer(replaceId, session, token) else app.addServer(session, accountToken = token)
+            val home = intent.getStringExtra("plex_home_account_token")?.let { account ->
+                PlexHomeIdentity(account, intent.getStringExtra("plex_home_user_id") ?: return@let null,
+                    intent.getStringExtra("plex_home_user_name").orEmpty(), intent.getStringExtra("plex_home_user_thumb"))
+            } ?: replaceId?.let { id -> app.store.servers.firstOrNull { it.id == id && it.accountToken == token }?.plexHome }
+            if (replaceId != null) app.replaceServer(replaceId, session, token, home)
+            else app.addServer(session, accountToken = token, userName = home?.userName, plexHome = home)
+            if (intent.hasExtra("plex_home_account_token")) app.currentEntry?.let { app.unlockPlexHome(it.id) }
             HomeActivity.restart(this@ServersActivity)
             finish()
         }

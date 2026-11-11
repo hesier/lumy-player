@@ -121,6 +121,7 @@ class PlayerActivity : ThemedActivity() {
             val target = app.store.servers.firstOrNull { it.id == sid } ?: return finish()
             if (target.id != app.currentEntry?.id) app.switchTo(target.id)
         }
+        if (com.hesier.lumy.ui.login.PlexHomeNavigation.gate(this)) return
         server = app.currentServer() ?: return finish()
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)

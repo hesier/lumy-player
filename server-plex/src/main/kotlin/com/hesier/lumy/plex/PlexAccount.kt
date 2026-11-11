@@ -1,5 +1,8 @@
 package com.hesier.lumy.plex
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /** plex.tv 账号层：PIN 登录、列出账号下的服务器 */
@@ -29,6 +32,27 @@ class PlexAccount(private val client: PlexClient) {
         return resources
             .filter { it.isServer && it.accessToken != null }
             .sortedWith(compareByDescending<PlexResource> { it.owned }.thenByDescending { it.presence }.thenBy { it.name })
+    }
+
+    suspend fun homeUsers(token: String): List<PlexHomeUser> {
+        val body = client.execute(
+            client.request("$PLEX_TV/api/home/users", token)
+                .header("Accept", "application/xml").build(),
+        )
+        return withContext(Dispatchers.Default) { PlexHomeXml.users(body) }
+    }
+
+    suspend fun switchHomeUser(token: String, userId: String, pin: String? = null): String {
+        require(userId.isNotBlank()) { "Plex Home user ID is required" }
+        val url = "$PLEX_TV/api/home/users".toHttpUrl().newBuilder()
+            .addPathSegment(userId).addPathSegment("switch")
+            .apply { if (!pin.isNullOrEmpty()) addQueryParameter("pin", pin) }
+            .build()
+        val body = client.execute(
+            client.request(url.toString(), token).header("Accept", "application/xml")
+                .post(ByteArray(0).toRequestBody()).build(),
+        )
+        return withContext(Dispatchers.Default) { PlexHomeXml.token(body) }
     }
 
     /** 校验已保存的账号 token 是否仍有效 */

@@ -19,6 +19,7 @@ data class SavedServer(
     val userName: String? = null,
     /** 用户自己起的名字，优先于服务端返回的名称 */
     val customName: String? = null,
+    val plexHome: PlexHomeIdentity? = null,
 ) {
     val kind: ServerKind get() = session.kind
 
@@ -103,7 +104,11 @@ class SessionStore(context: Context) {
                     .putOpt("deviceId", s.session.deviceId)
                     .putOpt("accountToken", s.accountToken)
                     .putOpt("userName", s.userName)
-                    .putOpt("customName", s.customName),
+                    .putOpt("customName", s.customName)
+                    .putOpt("plexHome", s.plexHome?.let { home ->
+                        JSONObject().put("accountToken", home.accountToken).put("userId", home.userId)
+                            .put("userName", home.userName).putOpt("thumb", home.thumb)
+                    }),
             )
         }
     }.toString()
@@ -128,6 +133,10 @@ class SessionStore(context: Context) {
                     accountToken = o.optStringOrNull("accountToken"),
                     userName = o.optStringOrNull("userName"),
                     customName = o.optStringOrNull("customName"),
+                    plexHome = o.optJSONObject("plexHome")?.let { home ->
+                        PlexHomeIdentity(home.getString("accountToken"), home.getString("userId"),
+                            home.getString("userName"), home.optStringOrNull("thumb"))
+                    },
                 )
             }.getOrNull()
         }

@@ -52,6 +52,11 @@
             android:screenOrientation="landscape" />
 
         <activity
+            android:name=".ui.login.PlexHomeActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:screenOrientation="landscape" />
+
+        <activity
             android:name=".ui.servers.AddServerActivity"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:screenOrientation="landscape" />

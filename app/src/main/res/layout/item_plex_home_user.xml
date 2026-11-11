@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_margin="8dp"
+    android:background="@drawable/list_item_bg" android:focusable="true" android:clickable="true"
+    android:gravity="center" android:orientation="vertical" android:padding="12dp">
+    <ImageView android:id="@+id/avatar" android:layout_width="88dp" android:layout_height="88dp" android:scaleType="centerCrop" android:importantForAccessibility="no" android:background="@drawable/card_placeholder" />
+    <TextView android:id="@+id/name" style="@style/Text.Title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:gravity="center" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/lock" style="@style/Text.Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/plex_home_locked" />
+    <TextView android:id="@+id/current" style="@style/Text.Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/plex_home_current" />
+</LinearLayout>
