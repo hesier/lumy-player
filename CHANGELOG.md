@@ -4,6 +4,15 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.6.3 - 2026-11-11
+
+### Playback and controls
+
+- Fixed the selected episode, title and focus when returning to details after continuous playback, including transitions to another season
+- Automatic next-episode countdowns now respect the credits skip setting. Without credits markers, the next-episode prompt appears only in the final 10 seconds and waits for playback to finish naturally; cancelling the countdown preserves the remaining credits
+- Fixed horizontal D-pad focus escaping detail action buttons, season tabs, episode, cast and recommendation rows
+- Fixed D-pad focus boundaries on the last Favorites category and the playlist Play All button
+
 ## 0.6.2 - 2026-11-07
 
 ### Android TV home screen
