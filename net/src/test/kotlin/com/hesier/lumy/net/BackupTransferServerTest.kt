@@ -40,7 +40,8 @@ class BackupTransferServerTest {
             socket.soTimeout = 7000
             val text = "$method $path HTTP/1.1\r\n" + fields.entries
                 .filter { it.value != null }.joinToString("") { "${it.key}: ${it.value}\r\n" } + extra + "\r\n"
-            socket.getOutputStream().apply { write(text.toByteArray()); write(body); flush() }
+            // Rejections can close the socket after headers, before a second write reaches the server.
+            socket.getOutputStream().apply { write(text.toByteArray() + body); flush() }
             readResponse(socket)
         }
     }
