@@ -602,4 +602,25 @@
     <string name="quick_connect_expired">快速連線碼已過期，請重新選擇快速連線取得新碼。</string>
     <string name="quick_connect_code">%1$s\n\n在已登入 Jellyfin 的手機或瀏覽器中，開啟「設定 → Quick Connect」，輸入此碼並授權。等待時請保持此頁面開啟。</string>
     <string name="quick_connect_cancel">取消</string>
+
+    <string name="plex_home_title">誰在觀看？</string>
+    <string name="plex_home_hint">選擇 Plex Home 成員</string>
+    <string name="plex_home_locked">需要 PIN</string>
+    <string name="plex_home_current">目前成員</string>
+    <string name="plex_home_retry">重試</string>
+    <string name="plex_home_pin_title">輸入 %1$s 的 PIN</string>
+    <string name="plex_home_pin_hint">輸入 4 位數字 PIN</string>
+    <string name="plex_home_pin_invalid">PIN 不正確，請重試。</string>
+    <string name="plex_home_network_error">無法連線 Plex，請重試。</string>
+    <string name="plex_home_auth_error">Plex 登入已過期，請重新登入。</string>
+    <string name="plex_home_login">重新登入</string>
+    <string name="plex_home_empty">找不到 Plex Home 成員，請重試。</string>
+    <string name="plex_home_switching">正在切換成員…</string>
+    <string name="plex_home_delete">刪除</string>
+    <string name="plex_home_cancel">取消</string>
+    <string name="plex_home_pin_count">已輸入 4 位 PIN 中的 %1$d 位</string>
+    <string name="plex_home_switch_user">切換成員</string>
+    <string name="plex_home_auto_sign_in">自動登入</string>
+    <string name="plex_home_auto_sign_in_detail">啟動時略過成員選擇和 PIN 驗證</string>
+
 </resources>

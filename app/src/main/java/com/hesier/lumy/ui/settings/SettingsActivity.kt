@@ -1,5 +1,8 @@
 package com.hesier.lumy.ui.settings
 
+import coil.dispose
+import coil.load
+import coil.transform.CircleCropTransformation
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.KeyEvent
@@ -55,7 +58,7 @@ import com.hesier.lumy.ui.player.formatDelay
 class SettingsActivity : ThemedActivity() {
 
     internal data class Row(val label: String, val value: String, val detail: String? = null, val icon: Int? = null,
-        val detailMaxLines: Int = 2, val onClick: () -> Unit)
+        val detailMaxLines: Int = 2, val avatarUrl: String? = null, val onClick: () -> Unit)
 
     private lateinit var binding: ActivitySettingsBinding
     private val app get() = LumyApp.instance
@@ -358,7 +361,7 @@ class SettingsActivity : ThemedActivity() {
                 render()
             },
             ),
-            serverRows() + Row(getString(R.string.settings_add_server), "", getString(R.string.settings_add_server_detail)) {
+            plexHomeRows() + serverRows() + Row(getString(R.string.settings_add_server), "", getString(R.string.settings_add_server_detail)) {
                 startActivity(AddServerActivity.intent(this))
             },
             listOf(
@@ -394,6 +397,22 @@ class SettingsActivity : ThemedActivity() {
         render()
     }
 
+    private fun plexHomeRows(): List<Row> {
+        val entry = app.currentEntry
+        if (!com.hesier.lumy.ui.login.PlexHomeNavigation.isAvailable(entry)) return emptyList()
+        return listOf(
+            Row(getString(R.string.plex_home_switch_user), entry?.plexHome?.userName.orEmpty(),
+                icon = R.drawable.ic_person, avatarUrl = entry?.plexHome?.thumb) {
+                entry?.let { com.hesier.lumy.ui.login.PlexHomeNavigation.open(this, it) }
+            },
+            Row(getString(R.string.plex_home_auto_sign_in), onOff(settings.plexHomeAutoSignIn),
+                getString(R.string.plex_home_auto_sign_in_detail)) {
+                settings.plexHomeAutoSignIn = !settings.plexHomeAutoSignIn
+                render()
+            },
+        )
+    }
+
     private fun serverRows(): List<Row> {
         val currentId = app.currentEntry?.id
         return app.store.servers.map { s ->
@@ -414,7 +433,9 @@ class SettingsActivity : ThemedActivity() {
             val token = server.accountToken
             if (server.kind == ServerKind.PLEX && token != null) {
                 add(getString(R.string.server_repick) to {
-                    startActivity(ServersActivity.intent(this@SettingsActivity, token, replaceId = server.id))
+                    if (!current || app.needsPlexHomeSelection(server)) {
+                        com.hesier.lumy.ui.login.PlexHomeNavigation.open(this@SettingsActivity, server)
+                    } else startActivity(ServersActivity.intent(this@SettingsActivity, token, replaceId = server.id))
                 })
             }
             add(getString(R.string.server_rename) to { renameServer(server) })
@@ -639,14 +660,21 @@ class SettingsActivity : ThemedActivity() {
             b.detail.text = row.detail
             b.detail.maxLines = row.detailMaxLines
             b.detail.visibility = if (row.detail == null) View.GONE else View.VISIBLE
-            b.icon.visibility = if (row.icon == null) View.GONE else View.VISIBLE
-            row.icon?.let(b.icon::setImageResource)
+            b.icon.dispose()
+            b.icon.visibility = if (row.icon == null && row.avatarUrl == null) View.GONE else View.VISIBLE
+            if (row.avatarUrl != null) {
+                b.icon.load(row.avatarUrl) {
+                    placeholder(R.drawable.ic_person)
+                    error(R.drawable.ic_person)
+                    transformations(CircleCropTransformation())
+                }
+            } else b.icon.setImageResource(row.icon ?: 0)
         }
     }
 
     private fun Row.hasSameContent(other: Row): Boolean =
         label == other.label && value == other.value && detail == other.detail &&
-            icon == other.icon && detailMaxLines == other.detailMaxLines
+            icon == other.icon && detailMaxLines == other.detailMaxLines && avatarUrl == other.avatarUrl
 
     private companion object {
         const val MAX_RECYCLED_SETTING_ROWS = 16

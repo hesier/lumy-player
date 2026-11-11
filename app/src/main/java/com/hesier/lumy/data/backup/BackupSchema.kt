@@ -10,7 +10,7 @@ internal object BackupSchema {
     const val FORMAT = "lumy-backup"
     const val VERSION = 1
     private val serverFields = setOf("id", "kind", "serverId", "name", "baseUrl", "token", "userId",
-        "deviceId", "accountToken", "userName", "customName")
+        "deviceId", "accountToken", "userName", "customName", "plexHome")
 
     fun parse(bytes: ByteArray): JSONObject {
         require(bytes.size in 1..MAX_BYTES) { "Invalid backup size" }
@@ -49,6 +49,15 @@ internal object BackupSchema {
         require(string(server, "token").isNotBlank()) { "Server is not authenticated" }
         listOf("accountToken", "deviceId").forEach {
             if (server.has(it)) string(server, it)
+        }
+        if (server.has("plexHome")) {
+            val home = server.getJSONObject("plexHome")
+            require(home.keys().asSequence().all { it in setOf("accountToken", "userId", "userName", "thumb") })
+            require(string(home, "accountToken").isNotBlank())
+            require(string(home, "userId").isNotBlank())
+            string(home, "userName")
+            if (home.has("thumb")) string(home, "thumb")
+            require(server.getString("kind") == ServerKind.PLEX.name)
         }
         return id
     }

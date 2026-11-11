@@ -25,6 +25,7 @@ import com.hesier.lumy.plex.PlexClientInfo
 import com.hesier.lumy.plex.PlexConnectionResolver
 import com.hesier.lumy.plex.PlexMediaServer
 import com.hesier.lumy.data.AppLanguage
+import com.hesier.lumy.data.PlexHomeIdentity
 import com.hesier.lumy.data.SavedServer
 import com.hesier.lumy.data.SessionStore
 import com.hesier.lumy.util.DebugLog
@@ -161,6 +162,22 @@ class LumyApp : Application(), ImageLoaderFactory {
         createConfigurationContext(Configuration(resources.configuration).apply { setLocale(it) })
     } ?: this
 
+    private val unlockedPlexHomes = mutableSetOf<String>()
+    private var requireHomeSelection = false
+
+    fun needsPlexHomeSelection(entry: SavedServer): Boolean =
+        entry.kind == ServerKind.PLEX && entry.accountToken != null && entry.id !in unlockedPlexHomes &&
+            (requireHomeSelection || entry.plexHome == null || !settings.plexHomeAutoSignIn)
+
+    fun lockPlexHome() {
+        unlockedPlexHomes.clear()
+    }
+
+    fun unlockPlexHome(id: String) {
+        unlockedPlexHomes += id
+        requireHomeSelection = false
+    }
+
     /** 当前服务器的本地记录（不是服务端的 id）；没有添加任何服务器时为 null */
     val currentEntry: SavedServer? get() = store.current
 
@@ -172,17 +189,19 @@ class LumyApp : Application(), ImageLoaderFactory {
     }
 
     /** 添加一台服务器并切换过去；同一台服务器重复添加也是新的一项 */
-    fun addServer(session: ServerSession, accountToken: String? = null, userName: String? = null, customName: String? = null) {
-        val saved = SavedServer(UUID.randomUUID().toString(), session, accountToken, userName, customName?.trim()?.takeIf { it.isNotEmpty() })
+    fun addServer(session: ServerSession, accountToken: String? = null, userName: String? = null, customName: String? = null, plexHome: PlexHomeIdentity? = null) {
+        val saved = SavedServer(UUID.randomUUID().toString(), session, accountToken, userName, customName?.trim()?.takeIf { it.isNotEmpty() }, plexHome)
         store.add(saved)
         switchTo(saved.id)
+        if (plexHome != null) unlockPlexHome(saved.id)
     }
 
     /** 把已有的一项换成新的连接（重新选择 Plex 服务器、地址变了），侧边栏设置跟着 id 保留 */
-    fun replaceServer(id: String, session: ServerSession, accountToken: String?) {
-        val entry = store.servers.firstOrNull { it.id == id } ?: return addServer(session, accountToken)
-        if (currentEntry?.id == id && entry.session != session) WatchNextManager.onServerChanged(this)
-        store.update(entry.copy(session = session, accountToken = accountToken ?: entry.accountToken))
+    fun replaceServer(id: String, session: ServerSession, accountToken: String?, plexHome: PlexHomeIdentity? = null) {
+        val entry = store.servers.firstOrNull { it.id == id } ?: return addServer(session, accountToken, plexHome = plexHome)
+        if (currentEntry?.id == id && (entry.session != session || entry.plexHome?.userId != plexHome?.userId)) WatchNextManager.onServerChanged(this)
+        store.update(entry.copy(session = session, accountToken = accountToken ?: entry.accountToken,
+            userName = plexHome?.userName, plexHome = plexHome))
         switchTo(id)
     }
 
@@ -194,6 +213,10 @@ class LumyApp : Application(), ImageLoaderFactory {
 
     fun switchTo(id: String, forceReset: Boolean = false) {
         if (forceReset || store.currentId != id) {
+            unlockedPlexHomes.clear()
+            requireHomeSelection = true
+        }
+        if (forceReset || store.currentId != id) {
             WatchNextManager.onServerChanged(this)
         }
         store.currentId = id
@@ -204,7 +227,11 @@ class LumyApp : Application(), ImageLoaderFactory {
     fun removeServer(id: String) {
         val wasCurrent = currentEntry?.id == id
         store.remove(id)
-        if (wasCurrent) WatchNextManager.onServerChanged(this)
+        if (wasCurrent) {
+            unlockedPlexHomes.clear()
+            requireHomeSelection = true
+            WatchNextManager.onServerChanged(this)
+        }
         settings.forgetServer(id)
         trackMemory.forgetServer(id)
         server = null
@@ -227,6 +254,7 @@ class LumyApp : Application(), ImageLoaderFactory {
         val resource = runCatching { plexAccount.servers(token) }.getOrNull()
             ?.firstOrNull { it.clientIdentifier == entry.session.serverId } ?: return false
         val fresh = runCatching { plexResolver.resolve(resource) }.getOrNull() ?: return false
+        if (store.current != entry) return false
         store.update(entry.copy(session = fresh))
         server = null
         true
@@ -246,8 +274,9 @@ class LumyApp : Application(), ImageLoaderFactory {
         val resource = runCatching { plexAccount.servers(token) }.getOrNull()
             ?.firstOrNull { it.clientIdentifier == session.serverId } ?: return false
         val best = runCatching { plexResolver.resolve(resource) }.getOrNull() ?: return false
-        if (best.baseUrl == session.baseUrl) return false
+        if (best == session) return false
         DebugLog.i("LumyConn", "switch ${session.baseUrl} -> ${best.baseUrl}")
+        if (store.current != entry) return false
         store.update(entry.copy(session = best))
         server = null
         true

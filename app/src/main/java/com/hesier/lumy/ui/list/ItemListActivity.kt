@@ -52,6 +52,7 @@ class ItemListActivity : ThemedActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (com.hesier.lumy.ui.login.PlexHomeNavigation.gate(this)) return
         server = LumyApp.instance.currentServer() ?: return finish()
         binding = ActivityItemListBinding.inflate(layoutInflater)
         setContentView(binding.root)

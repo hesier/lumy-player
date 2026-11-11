@@ -23,4 +23,10 @@
     <instrumentation
         android:name="com.hesier.lumy.ui.login.ServerCatalogInstrumentation"
         android:targetPackage="com.hesier.lumy.debug" />
+    <instrumentation
+        android:name="com.hesier.lumy.ui.login.PlexHomeDataInstrumentation"
+        android:targetPackage="com.hesier.lumy.debug" />
+    <instrumentation
+        android:name="com.hesier.lumy.ui.login.PlexHomeUiInstrumentation"
+        android:targetPackage="com.hesier.lumy.debug" />
 </manifest>

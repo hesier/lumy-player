@@ -86,7 +86,7 @@ class LoginActivity : ThemedActivity() {
         // 修复已有服务器时重新登录：登录后仍然替换那一项，而不是新增一台
         val replaceId = intent.getStringExtra(EXTRA_REPLACE_ID)
         val preferredId = intent.getStringExtra(EXTRA_PREFERRED_ID)
-        startActivity(ServersActivity.intent(this, token, autoConnect = true, preferredId = preferredId, replaceId = replaceId))
+        startActivity(PlexHomeActivity.intent(this, token, preferredId = preferredId, replaceId = replaceId))
         finish()
     }
 

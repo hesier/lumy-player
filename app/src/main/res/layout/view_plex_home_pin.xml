@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/bg"
+    android:orientation="vertical" android:gravity="center" android:padding="24dp">
+    <TextView android:id="@+id/title" style="@style/Text.Title" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" />
+    <TextView android:id="@+id/digits" android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center" android:textSize="28sp" android:letterSpacing="0.3" android:textColor="@color/text_primary" android:importantForAccessibility="no" android:saveEnabled="false" />
+    <TextView android:id="@+id/status" style="@style/Text.Body" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="40dp" android:gravity="center" android:accessibilityLiveRegion="polite" />
+    <GridLayout android:id="@+id/keypad" android:layout_width="wrap_content" android:layout_height="wrap_content" android:columnCount="3" />
+    <TextView android:id="@+id/cancel" style="@style/Button.Lumy" android:layout_width="wrap_content" android:layout_height="40dp" android:layout_marginTop="8dp" android:text="@string/plex_home_cancel" />
+</LinearLayout>

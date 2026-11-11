@@ -1,5 +1,6 @@
 package com.hesier.lumy.ui.home
 
+import com.hesier.lumy.ui.login.PlexHomeNavigation
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
@@ -91,6 +92,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
         setTheme(R.style.Theme_Lumy)
         super.onCreate(savedInstanceState)
         val app = LumyApp.instance
+        if (PlexHomeNavigation.gate(this)) return
         val current = app.currentServer()
         val entry = app.currentEntry
         if (current == null || entry == null) {
@@ -244,6 +246,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (!::binding.isInitialized) return super.dispatchTouchEvent(ev)
         // 侧边栏展开时点内容区只收起侧边栏，不点到下面的卡片
         // Entering touch mode may clear sidebar focus before this DOWN reaches the Activity.
         val panelVisible = sidebarExpanded || binding.sidebar.revealedWidth >
@@ -379,6 +382,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
     private var exitToast: Toast? = null
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (!::binding.isInitialized) return super.dispatchKeyEvent(event)
         // 长按限速只用于内容区（卡片要布局、加载图片）；侧边栏项目少，保持系统速度
         val inSidebar = currentFocus?.isInside(binding.sidebar) == true
         if (!inSidebar && keyThrottle.shouldDrop(event)) return true
@@ -408,6 +412,7 @@ class HomeActivity : ThemedActivity(), HomeHost {
             val now = SystemClock.uptimeMillis()
             if (now - lastBackAt < EXIT_WINDOW_MS) {
                 exitToast?.cancel()
+                LumyApp.instance.lockPlexHome()
                 finish()
             } else {
                 lastBackAt = now

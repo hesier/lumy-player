@@ -618,4 +618,25 @@
     <string name="quick_connect_expired">The Quick Connect code has expired. Select Quick Connect to get a new code.</string>
     <string name="quick_connect_code">%1$s\n\nOn a signed-in Jellyfin phone or browser, open Settings → Quick Connect and enter this code. Keep this screen open while waiting for approval.</string>
     <string name="quick_connect_cancel">Cancel</string>
+
+    <string name="plex_home_title">Who is watching?</string>
+    <string name="plex_home_hint">Choose a Plex Home member</string>
+    <string name="plex_home_locked">PIN required</string>
+    <string name="plex_home_current">Current member</string>
+    <string name="plex_home_retry">Retry</string>
+    <string name="plex_home_pin_title">Enter the PIN for %1$s</string>
+    <string name="plex_home_pin_hint">Enter your 4-digit PIN</string>
+    <string name="plex_home_pin_invalid">Incorrect PIN. Try again.</string>
+    <string name="plex_home_network_error">Could not reach Plex. Please try again.</string>
+    <string name="plex_home_auth_error">Your Plex sign-in has expired. Sign in again.</string>
+    <string name="plex_home_login">Sign in again</string>
+    <string name="plex_home_empty">No Plex Home members were found. Please retry.</string>
+    <string name="plex_home_switching">Switching member…</string>
+    <string name="plex_home_delete">Delete</string>
+    <string name="plex_home_cancel">Cancel</string>
+    <string name="plex_home_pin_count">%1$d of 4 PIN digits entered</string>
+    <string name="plex_home_switch_user">Switch member</string>
+    <string name="plex_home_auto_sign_in">Automatic sign-in</string>
+    <string name="plex_home_auto_sign_in_detail">Skip member selection and PIN at startup</string>
+
 </resources>
