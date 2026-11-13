@@ -15,7 +15,7 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
 
 - **Sign-in and servers**
   - Plex: sign in with a plex.tv PIN, discover the servers on your account, and probe for a reachable address (local / remote / relay), reconnecting automatically when the connection drops
-  - Plex Home: switch between members with PIN protection; automatically enter the last member by default (configurable under Settings → Servers)
+  - Plex Home: switch between members with PIN protection; automatically enter the last member by default (configurable under Settings → Servers). Turning off automatic sign-in clears and pauses Plex home screen Continue Watching cards; turning it back on resumes sync if Continue Watching is enabled
   - Jellyfin / Emby: sign in with server address, username and password (a bare IP defaults to http and port 8096), or scan a QR code and type them on your phone; Jellyfin also supports Quick Connect when enabled on the server
   - fnOS Media: sign in with server address, media account and password (a bare IP defaults to http and port 8005)
   - HTTPS servers with Let's Encrypt certificates also work on Android 5.0–7.0, whose built-in trust store is too old (see [TLS compatibility](docs/tls-compatibility.md))

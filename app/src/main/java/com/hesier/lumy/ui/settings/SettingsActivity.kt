@@ -30,6 +30,7 @@ import com.hesier.lumy.BuildConfig
 import com.hesier.lumy.LumyApp
 import com.hesier.lumy.R
 import com.hesier.lumy.data.AppLanguage
+import com.hesier.lumy.tv.WatchNextManager
 import com.hesier.lumy.data.Settings
 import com.hesier.lumy.data.SkipMode
 import com.hesier.lumy.data.SubtitleMode
@@ -407,8 +408,14 @@ class SettingsActivity : ThemedActivity() {
             },
             Row(getString(R.string.plex_home_auto_sign_in), onOff(settings.plexHomeAutoSignIn),
                 getString(R.string.plex_home_auto_sign_in_detail)) {
-                settings.plexHomeAutoSignIn = !settings.plexHomeAutoSignIn
-                render()
+                lifecycleScope.launch {
+                    attempt { WatchNextManager.setPlexHomeAutoSignIn(applicationContext, !settings.plexHomeAutoSignIn) }
+                        .onFailure {
+                            Toast.makeText(this@SettingsActivity,
+                                getString(R.string.settings_watch_next_failed, it.readableMessage()), Toast.LENGTH_LONG).show()
+                        }
+                    render()
+                }
             },
         )
     }

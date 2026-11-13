@@ -23,7 +23,7 @@ internal object WatchNextAccess {
     private var lastSnapshotSequence = 0L
 
     fun capture(server: MediaServer): WatchNextSession? {
-        if (!LumyApp.instance.settings.watchNextEnabled || WatchNextSupport.isUnavailable(LumyApp.instance)) return null
+        if (!WatchNextManager.isEnabled() || WatchNextSupport.isUnavailable(LumyApp.instance)) return null
         val revision = generation.get()
         val entry = LumyApp.instance.currentEntry ?: return null
         if (entry.session != server.session) return null
@@ -31,7 +31,7 @@ internal object WatchNextAccess {
     }
 
     fun isCurrent(session: WatchNextSession): Boolean = session.generation == generation.get() &&
-        session.serverId == LumyApp.instance.currentEntry?.id && LumyApp.instance.settings.watchNextEnabled
+        session.serverId == LumyApp.instance.currentEntry?.id && WatchNextManager.isEnabled()
 
     fun invalidate() {
         generation.incrementAndGet()
@@ -63,7 +63,7 @@ internal object WatchNextAccess {
                     val revision = generation.get()
                     if (session != null && (session.generation != revision ||
                             session.serverId != LumyApp.instance.currentEntry?.id ||
-                            !LumyApp.instance.settings.watchNextEnabled)) return@withLock Result.success(Unit)
+                            !WatchNextManager.isEnabled())) return@withLock Result.success(Unit)
                     // A new account must be cleared before its first write, even if cleanup is still queued.
                     if (clearedGeneration != revision) {
                         WatchNextManager.clearInternal(context)

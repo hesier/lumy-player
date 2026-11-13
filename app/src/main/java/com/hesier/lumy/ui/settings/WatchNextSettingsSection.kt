@@ -31,7 +31,8 @@ internal class WatchNextSettingsSection(
         return listOf(
             SettingsActivity.Row(text(R.string.settings_watch_next),
                 text(if (settings.watchNextEnabled) R.string.on else R.string.off),
-                text(R.string.settings_watch_next_detail)) {
+                text(if (settings.watchNextEnabled && !WatchNextManager.isEnabled())
+                    R.string.settings_watch_next_plex_sign_in_required else R.string.settings_watch_next_detail)) {
                 perform { WatchNextManager.setEnabled(activity, !settings.watchNextEnabled) }
             },
             SettingsActivity.Row(text(R.string.settings_watch_next_refresh), status(),
@@ -45,8 +46,9 @@ internal class WatchNextSettingsSection(
 
     private fun refresh() {
         if (busy) return
-        if (!settings.watchNextEnabled) {
-            toast(text(R.string.settings_watch_next_disabled))
+        if (!WatchNextManager.isEnabled()) {
+            toast(text(if (settings.watchNextEnabled) R.string.settings_watch_next_plex_sign_in_required
+                else R.string.settings_watch_next_disabled))
             return
         }
         perform(R.string.settings_watch_next_refreshed) { WatchNextManager.refresh(activity) }

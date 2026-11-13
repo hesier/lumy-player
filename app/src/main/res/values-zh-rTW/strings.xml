@@ -88,6 +88,7 @@
     <string name="settings_watch_next_refreshed">已重新整理桌面卡片</string>
     <string name="settings_watch_next_cleared">已清空桌面卡片</string>
     <string name="settings_watch_next_disabled">請先開啟桌面繼續觀看，再重新整理卡片</string>
+    <string name="settings_watch_next_plex_sign_in_required">請先開啟 Plex 自動登入，再同步桌面卡片</string>
     <string name="settings_watch_next_working">正在處理…</string>
     <string name="settings_watch_next_failed">更新桌面卡片失敗：%1$s</string>
     <string name="reorder_moving">移動中 ↑↓</string>
@@ -621,6 +622,6 @@
     <string name="plex_home_pin_count">已輸入 4 位 PIN 中的 %1$d 位</string>
     <string name="plex_home_switch_user">切換成員</string>
     <string name="plex_home_auto_sign_in">自動登入</string>
-    <string name="plex_home_auto_sign_in_detail">啟動時略過成員選擇和 PIN 驗證</string>
+    <string name="plex_home_auto_sign_in_detail">啟動時略過成員選擇和 PIN 驗證。關閉後清空並暫停 Plex 桌面卡片。</string>
 
 </resources>

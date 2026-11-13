@@ -8,6 +8,7 @@ import com.hesier.lumy.core.MediaItem
 import com.hesier.lumy.core.MediaServer
 import com.hesier.lumy.core.MediaType
 import com.hesier.lumy.core.PlaybackState
+import com.hesier.lumy.core.ServerKind
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -19,6 +20,8 @@ object WatchNextManager {
     private const val COMPLETION_REMAINING_MS = 30_000L
 
     fun isSupported(): Boolean = WatchNextSupport.isSupported(LumyApp.instance)
+    fun isEnabled(): Boolean = LumyApp.instance.settings.watchNextEnabled &&
+        (LumyApp.instance.currentEntry?.kind != ServerKind.PLEX || LumyApp.instance.settings.plexHomeAutoSignIn)
     suspend fun isAvailable(context: Context): Boolean = WatchNextSupport.ensure(context)
     fun captureSession(server: MediaServer): WatchNextSession? = WatchNextAccess.capture(server)
 
@@ -36,8 +39,17 @@ object WatchNextManager {
         if (enabled && LumyApp.instance.currentEntry != null) refresh(context)
     }
 
+    suspend fun setPlexHomeAutoSignIn(context: Context, enabled: Boolean) {
+        LumyApp.instance.settings.plexHomeAutoSignIn = enabled
+        if (LumyApp.instance.currentEntry?.kind != ServerKind.PLEX) return
+        WatchNextAccess.invalidate()
+        if (!isAvailable(context)) return
+        WatchNextAccess.run(context) {}.getOrThrow()
+        if (isEnabled()) refresh(context)
+    }
+
     suspend fun refresh(context: Context) {
-        if (!LumyApp.instance.settings.watchNextEnabled || !isAvailable(context)) return
+        if (!isEnabled() || !isAvailable(context)) return
         val server = LumyApp.instance.currentServer()
             ?: error(context.getString(com.hesier.lumy.R.string.no_server))
         val session = captureSession(server) ?: return

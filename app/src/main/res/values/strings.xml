@@ -101,6 +101,7 @@
     <string name="settings_watch_next_refreshed">Home screen cards refreshed</string>
     <string name="settings_watch_next_cleared">Home screen cards cleared</string>
     <string name="settings_watch_next_disabled">Enable home screen Continue Watching before refreshing</string>
+    <string name="settings_watch_next_plex_sign_in_required">Enable Plex automatic sign-in to sync home screen cards</string>
     <string name="settings_watch_next_working">Working…</string>
     <string name="settings_watch_next_failed">Could not update home screen cards: %1$s</string>
     <string name="reorder_moving">Moving ↑↓</string>
@@ -637,6 +638,6 @@
     <string name="plex_home_pin_count">%1$d of 4 PIN digits entered</string>
     <string name="plex_home_switch_user">Switch member</string>
     <string name="plex_home_auto_sign_in">Automatic sign-in</string>
-    <string name="plex_home_auto_sign_in_detail">Skip member selection and PIN at startup</string>
+    <string name="plex_home_auto_sign_in_detail">Skip member selection and PIN at startup. Turning this off clears and pauses Plex home screen cards.</string>
 
 </resources>

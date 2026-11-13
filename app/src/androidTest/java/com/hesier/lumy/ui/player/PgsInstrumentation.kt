@@ -264,7 +264,8 @@ class PgsInstrumentation : Instrumentation() {
             if (watchNextOnly) {
                 waitForIdleSync()
                 com.hesier.lumy.tv.WatchNextManagerTest(targetContext).runAll()
-                result.putString("stream", "Watch Next progress ordering, completion, NEXT validation, account binding, resume context, disabled publishing and concurrent writes passed\n")
+                kotlinx.coroutines.runBlocking { com.hesier.lumy.tv.WatchNextPlexPolicyTest(targetContext).runAll() }
+                result.putString("stream", "Watch Next progress ordering, completion, NEXT validation, account binding, resume context, disabled publishing, concurrent writes and Plex automatic sign-in policy passed\n")
                 finish(Activity.RESULT_OK, result)
                 return
             }

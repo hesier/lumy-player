@@ -133,7 +133,7 @@ class LumyApp : Application(), ImageLoaderFactory {
             plex.http,
         )
         store.migrateLegacy()?.let(settings::migrateSidebar)
-        if (!settings.watchNextEnabled) WatchNextManager.onServerChanged(this)
+        if (!WatchNextManager.isEnabled()) WatchNextManager.onServerChanged(this)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
