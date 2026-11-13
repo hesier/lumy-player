@@ -31,6 +31,7 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
     private var playback: PlayerActivity? = null
     private val show = MediaItem("detail-show", MediaType.SHOW, "Detail show")
     private val seasons = (1..2).map { MediaItem("detail-season-$it", MediaType.SEASON, "Season $it", seasonNumber = it) }
+    private var availableSeasons = seasons
     private val episodes = (1..13).map {
         val season = if (it < 13) 1 else 2
         MediaItem("detail-episode-$it", MediaType.EPISODE, "Episode $it", parentId = seasons[season - 1].id,
@@ -59,6 +60,7 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
             app.settings.watchNextEnabled = false
             serverField.set(app, server)
             runScenario()
+            checkSingleSeason()
         } finally {
             instrumentation.runOnMainSync {
                 playback?.finish()
@@ -76,7 +78,45 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
             app.settings.watchNextEnabled = oldPlayback.third
             serverField.set(app, oldServer)
         }
-        return "Horizontal row boundaries, vertical navigation, same-season autoplay return and cross-season autoplay return passed"
+        return "Horizontal row boundaries, vertical navigation, single-season navigation, same-season autoplay return and cross-season autoplay return passed"
+    }
+
+    private fun checkSingleSeason() {
+        instrumentation.runOnMainSync { detail.finish() }
+        instrumentation.waitForIdleSync()
+        availableSeasons = listOf(seasons[0].copy(title = "Named season", seasonNumber = 3))
+        detail = instrumentation.startActivitySync(DetailActivity.intent(instrumentation.targetContext, episodes[0].id)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as DetailActivity
+        binding = field(detail, "binding") as ActivityDetailBinding
+        await("single season episodes loaded") { binding.episodes.adapter?.itemCount == 12 && binding.cast.childCount > 0 }
+        mainCheck("single season title stays visible") {
+            binding.seasons.visibility == View.VISIBLE &&
+                (binding.seasons.findViewHolderForAdapterPosition(0)?.itemView as? android.widget.TextView)
+                    ?.text?.toString() == availableSeasons.single().title
+        }
+        for (position in listOf(0, 5, 11)) {
+            instrumentation.runOnMainSync { binding.episodes.scrollToPosition(position) }
+            await("single season card attached") { binding.episodes.findViewHolderForAdapterPosition(position) != null }
+            instrumentation.runOnMainSync { binding.episodes.findViewHolderForAdapterPosition(position)!!.itemView.requestFocus() }
+            press(KeyEvent.KEYCODE_DPAD_UP)
+            mainCheck("single season up reaches actions") { binding.actions.hasFocus() }
+            press(KeyEvent.KEYCODE_DPAD_DOWN)
+            mainCheck("single season down restores selected episode") {
+                binding.episodes.findViewHolderForAdapterPosition(position)?.itemView?.hasFocus() == true
+            }
+            press(KeyEvent.KEYCODE_DPAD_DOWN)
+            mainCheck("single season down reaches cast") { binding.cast.hasFocus() }
+            press(KeyEvent.KEYCODE_DPAD_UP)
+            mainCheck("single season cast up restores selected episode") {
+                binding.episodes.findViewHolderForAdapterPosition(position)?.itemView?.hasFocus() == true
+            }
+        }
+        instrumentation.runOnMainSync { binding.seasons.findViewHolderForAdapterPosition(0)!!.itemView.requestFocus() }
+        press(KeyEvent.KEYCODE_DPAD_UP)
+        mainCheck("single season tab up reaches actions") { binding.actions.hasFocus() }
+        instrumentation.runOnMainSync { binding.seasons.findViewHolderForAdapterPosition(0)!!.itemView.requestFocus() }
+        press(KeyEvent.KEYCODE_DPAD_DOWN)
+        mainCheck("single season tab down reaches episodes") { binding.episodes.hasFocus() }
     }
 
     private fun runScenario() {
@@ -193,7 +233,7 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
                 "isReachable" -> true
                 "detail" -> if (args!![0] == show.id) MediaDetail(show, people = people, onDeck = episodes[0])
                     else MediaDetail(episodes.first { it.id == args[0] }, versions = listOf(version))
-                "children" -> if (args!![0] == show.id) seasons else episodes.filter { it.parentId == args[0] }
+                "children" -> if (args!![0] == show.id) availableSeasons else episodes.filter { it.parentId == args[0] }
                 "similar" -> listOf(show)
                 "nextEpisode" -> episodes.getOrNull(episodes.indexOfFirst { it.id == (args!![0] as MediaItem).id } + 1)
                 "playbackSource" -> PlaybackSource(listOf(video.toURI().toString()), false, emptyList(), 0, 0)

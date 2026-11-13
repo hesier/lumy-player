@@ -125,6 +125,8 @@ class DetailActivity : ThemedActivity() {
         val focused = currentFocus ?: return false
         val rows = listOf(binding.actions, binding.seasons, binding.episodes, binding.cast, binding.similar, binding.fileInfo)
             .filter { it.visibility == View.VISIBLE && it.hasFocusable() }
+            // Keep the single season visible, but skip it when entering from another row.
+            .filter { it !== binding.seasons || seasons.size > 1 || it.hasFocus() }
         val index = rows.indexOfFirst { it.hasFocus() }
         if (index < 0 || (index == 0 && direction == View.FOCUS_UP)) return false
         val target = rows.getOrNull(index + if (direction == View.FOCUS_DOWN) 1 else -1) ?: return true
