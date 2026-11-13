@@ -82,6 +82,10 @@ class LibraryFragment : Fragment(), ItemChangeListener {
                 if (direction == View.FOCUS_UP && position in 0 until spanCount) {
                     return binding.filters.getChildAt(0)
                 }
+                // Down at the last row must not enter the adjacent letter index.
+                if (direction == View.FOCUS_DOWN && position != RecyclerView.NO_POSITION &&
+                    position / spanCount == (itemCount - 1) / spanCount
+                ) return focused
                 return super.onInterceptFocusSearch(focused, direction)
             }
         }
