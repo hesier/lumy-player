@@ -55,7 +55,7 @@ class LibraryNavigationTest(private val instrumentation: Instrumentation) {
                 app.settings.watchNextEnabled = oldWatch
             }
         }
-        return "Library full, partial and single-item last rows, first-row Up, letter-index access and sidebar focus restoration passed"
+        return "Library full, partial and single-item last rows, filter focus memory, first-row Up, letter-index access and sidebar focus restoration passed"
     }
 
     private fun checkGrid() {
@@ -77,11 +77,40 @@ class LibraryNavigationTest(private val instrumentation: Instrumentation) {
         main { grid.findViewHolderForAdapterPosition(0)!!.itemView.requestFocus() }
         key(KeyEvent.KEYCODE_DPAD_UP)
         main { check(home.findViewById<ViewGroup>(R.id.filters).hasFocus()) { "Up skipped filters" } }
+        checkFilterMemory(grid)
         main { grid.findViewHolderForAdapterPosition(0)!!.itemView.requestFocus() }
         key(KeyEvent.KEYCODE_DPAD_LEFT)
         main { check(home.findViewById<View>(R.id.sidebar).hasFocus()) }
         key(KeyEvent.KEYCODE_DPAD_RIGHT)
         main { check(grid.findViewHolderForAdapterPosition(0)!!.itemView.hasFocus()) }
+    }
+
+    private fun checkFilterMemory(grid: RecyclerView) {
+        val filters = main { home.findViewById<ViewGroup>(R.id.filters) }
+        main { check(filters.getChildAt(0).requestFocus()) }
+        val columns = main { (grid.layoutManager as GridLayoutManager).spanCount }
+        val firstRowSize = minOf(columns, itemCount)
+        for (index in 0 until filters.childCount) {
+            if (index > 0) key(KeyEvent.KEYCODE_DPAD_RIGHT)
+            main { check(filters.getChildAt(index).hasFocus()) { "Right skipped filter $index" } }
+            repeat(2) {
+                key(KeyEvent.KEYCODE_DPAD_DOWN)
+                main { check(grid.hasFocus()) { "Down did not reach grid" } }
+                for (position in 0 until firstRowSize) {
+                    main { check(grid.findViewHolderForAdapterPosition(position)!!.itemView.requestFocus()) }
+                    key(KeyEvent.KEYCODE_DPAD_UP)
+                    main {
+                        check(filters.getChildAt(index).hasFocus()) {
+                            "Card $position did not restore filter $index"
+                        }
+                    }
+                }
+            }
+        }
+        for (index in filters.childCount - 2 downTo 0) {
+            key(KeyEvent.KEYCODE_DPAD_LEFT)
+            main { check(filters.getChildAt(index).hasFocus()) { "Left skipped filter $index" } }
+        }
     }
 
     private fun checkLetters(grid: RecyclerView) {

@@ -80,7 +80,7 @@ class LibraryFragment : Fragment(), ItemChangeListener {
                     ?: RecyclerView.NO_POSITION
                 // The sidebar can be geometrically closer than the filters above the first row.
                 if (direction == View.FOCUS_UP && position in 0 until spanCount) {
-                    return binding.filters.getChildAt(0)
+                    return binding.filters
                 }
                 // Down at the last row must not enter the adjacent letter index.
                 if (direction == View.FOCUS_DOWN && position != RecyclerView.NO_POSITION &&

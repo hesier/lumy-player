@@ -35,7 +35,7 @@
                 android:textSize="13sp" />
 
             <!-- 排序 / 筛选按钮 -->
-            <LinearLayout
+            <com.hesier.lumy.ui.widget.FocusMemoryLinearLayout
                 android:id="@+id/filters"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
