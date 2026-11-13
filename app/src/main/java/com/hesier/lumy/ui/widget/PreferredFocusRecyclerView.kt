@@ -14,10 +14,18 @@ class PreferredFocusRecyclerView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : RecyclerView(context, attrs) {
 
-    var preferredPosition: () -> Int = { -1 }
+    private var lastFocusedPosition = 0
+
+    // Rows without an explicit selection restore the last focused card.
+    var preferredPosition: () -> Int = { lastFocusedPosition.coerceAtMost((adapter?.itemCount ?: 0) - 1) }
 
     /** 为 true 时上下键不离开这个列表，到头就停住（避免斜着跳到旁边的列表） */
     var keepVerticalFocus = false
+
+    override fun requestChildFocus(child: View, focused: View) {
+        getChildAdapterPosition(child).takeIf { it != NO_POSITION }?.let { lastFocusedPosition = it }
+        super.requestChildFocus(child, focused)
+    }
 
     override fun focusSearch(focused: View, direction: Int): View? {
         val next = super.focusSearch(focused, direction)

@@ -176,7 +176,7 @@
                 android:textSize="16sp"
                 android:visibility="gone" />
 
-            <androidx.recyclerview.widget.RecyclerView
+            <com.hesier.lumy.ui.widget.PreferredFocusRecyclerView
                 android:id="@+id/cast"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -199,7 +199,7 @@
                 android:textSize="16sp"
                 android:visibility="gone" />
 
-            <androidx.recyclerview.widget.RecyclerView
+            <com.hesier.lumy.ui.widget.PreferredFocusRecyclerView
                 android:id="@+id/similar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -223,7 +223,7 @@
                 android:visibility="gone" />
 
             <!-- 文件、视频、每条音轨、字幕（多条一张）各一张卡片，左右切换 -->
-            <androidx.recyclerview.widget.RecyclerView
+            <com.hesier.lumy.ui.widget.PreferredFocusRecyclerView
                 android:id="@+id/file_info"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

@@ -127,6 +127,7 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as DetailActivity
         binding = field(detail, "binding") as ActivityDetailBinding
         await("episode rows loaded") { binding.episodes.adapter?.itemCount == 12 && binding.cast.childCount > 0 }
+        DetailRowFocusTest(instrumentation, detail, binding).runAll()
         checkRows()
         checkEpisodeVerticalNavigation()
         checkPlaybackReturn(1)
@@ -238,7 +239,7 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
                 "detail" -> if (args!![0] == show.id) MediaDetail(show, people = people, onDeck = episodes[0])
                     else MediaDetail(episodes.first { it.id == args[0] }, versions = listOf(version))
                 "children" -> if (args!![0] == show.id) availableSeasons else episodes.filter { it.parentId == args[0] }
-                "similar" -> listOf(show)
+                "similar" -> (1..12).map { show.copy(id = "similar-$it", title = "Similar $it") }
                 "nextEpisode" -> episodes.getOrNull(episodes.indexOfFirst { it.id == (args!![0] as MediaItem).id } + 1)
                 "playbackSource" -> PlaybackSource(listOf(video.toURI().toString()), false, emptyList(), 0, 0)
                 "playbackHeaders" -> emptyMap<String, String>()

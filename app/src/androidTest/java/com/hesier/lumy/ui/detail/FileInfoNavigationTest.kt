@@ -38,6 +38,15 @@ internal class FileInfoNavigationTest(
         main { checkCard(scrollY) }
         repeat(2) { key(KeyEvent.KEYCODE_DPAD_RIGHT) }
         main { check(position() == count - 1); checkCard(scrollY) }
+        val offset = main { binding.fileInfo.computeHorizontalScrollOffset() }
+        key(KeyEvent.KEYCODE_DPAD_UP)
+        key(KeyEvent.KEYCODE_DPAD_DOWN)
+        await("last file card restored at page bottom") { binding.fileInfo.hasFocus() && atBottom() }
+        main {
+            check(position() == count - 1) { "File row lost its last focused card" }
+            check(offset == binding.fileInfo.computeHorizontalScrollOffset()) { "File row shifted on reentry" }
+            checkCard(scrollY)
+        }
         repeat(count * 2) { key(KeyEvent.KEYCODE_DPAD_LEFT) }
         main { check(position() == 0); checkCard(scrollY) }
         key(KeyEvent.KEYCODE_DPAD_DOWN)
