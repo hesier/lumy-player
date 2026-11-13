@@ -4,6 +4,30 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.6.4 - 2026-11-13
+
+### Plex Home
+
+- Added Home member selection, switching and PIN verification. Automatically sign in to the last member by default, with member switching and automatic sign-in controls under Settings → Servers
+- Turning off Plex automatic sign-in clears and pauses system home screen Continue Watching and next-episode cards. Turning it back on resumes sync when Continue Watching is enabled; Jellyfin, Emby and fnOS cards are unaffected
+
+### fnOS Media
+
+- Added native multi-version selection, with playback and progress reporting following the selected file
+- Read server-configured intro and credits durations and apply the existing skip modes and next-episode controls. Credits ranges follow the selected file's duration; configure these durations in fnOS, not in Lumy
+
+### Navigation and details
+
+- Fixed vertical focus skipping adjacent detail rows when an episode near the end of a season is selected
+- Keep the season name visible for single-season shows while skipping the season row during up/down navigation
+- Fixed Down escaping the last library row into the letter index, and focus restoration after a failed connection in a scrolled server list
+- Entering the file information row now scrolls to the page bottom. Narrower text cards use a focus border and background instead of scaling, keeping text steady and fully visible
+
+### Compatibility
+
+- Existing servers signed in through a Plex account require an online Home member selection on first use after upgrading, even with automatic sign-in enabled
+- Existing sessions and older backups remain readable. Backups containing the new Plex Home identity or automatic sign-in setting require Lumy 0.6.4 or later to restore
+
 ## 0.6.3 - 2026-11-11
 
 ### Playback and controls

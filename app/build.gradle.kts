@@ -45,8 +45,8 @@ android {
         applicationId = "com.hesier.lumy"
         minSdk = 21
         targetSdk = 35
-        versionCode = 15
-        versionName = "0.6.3"
+        versionCode = 16
+        versionName = "0.6.4"
         // Only relay configuration enters the APK; upstream secrets stay on the server.
         val proxyFile = rootProject.file(".local/danmaku-proxy.properties")
         val proxyProperties = Properties().apply {
