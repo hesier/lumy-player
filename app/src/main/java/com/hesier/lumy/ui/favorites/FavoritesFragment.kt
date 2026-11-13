@@ -140,6 +140,13 @@ class FavoritesFragment : Fragment(), ItemChangeListener {
         return currentBinding.categories.getChildAt(category).requestFocus()
     }
 
+    fun focusCardOnDown(): Boolean {
+        val currentBinding = _binding ?: return false
+        if (!currentBinding.categories.hasFocus()) return false
+        if (items.isNotEmpty()) restoreCardFocus()
+        return true
+    }
+
     private fun selectCategory(index: Int) {
         if (category == index) return
         category = index

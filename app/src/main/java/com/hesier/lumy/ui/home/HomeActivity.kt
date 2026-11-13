@@ -354,6 +354,14 @@ class HomeActivity : ThemedActivity(), HomeHost {
         }
         if (focused.isInside(binding.content)) {
             if (event.action != KeyEvent.ACTION_DOWN) return false
+            // Restore favorites before geometry can prefer the sidebar over a distant card.
+            val favorites = supportFragmentManager.findFragmentById(R.id.content) as? FavoritesFragment
+            if (!up && favorites?.focusCardOnDown() == true) {
+                binding.content.post {
+                    if (currentFocus !== focused) playFocusSound(View.FOCUS_DOWN)
+                }
+                return true
+            }
             // 用 View.focusSearch 而不是 FocusFinder：它会经过列表，下一行还没滚进屏幕时列表会先布局出来再找；
             // FocusFinder 只看屏幕上已有的 View，找不到就会被误判为“到头了”
             val direction = if (up) View.FOCUS_UP else View.FOCUS_DOWN
