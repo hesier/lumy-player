@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="@color/fill" />
-    <corners android:radius="@dimen/card_radius" />
-</shape>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape>
+            <solid android:color="@color/item_focused_bg" />
+            <corners android:radius="@dimen/card_radius" />
+        </shape>
+    </item>
+    <item>
+        <shape>
+            <solid android:color="@color/fill" />
+            <corners android:radius="@dimen/card_radius" />
+        </shape>
+    </item>
+</selector>

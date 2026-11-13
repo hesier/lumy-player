@@ -49,10 +49,12 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
         val entry = SavedServer("detail-navigation-fixture", server.session)
         val oldPlayback = Triple(app.settings.defaultQuality, app.settings.danmaku.enabled, app.settings.watchNextEnabled)
         val oldDetail = Triple(app.settings.detailShowCast, app.settings.detailShowSimilar, app.settings.autoPlayNext)
+        val oldFileInfo = app.settings.detailShowFileInfo
         try {
             app.settings.detailShowCast = true
             app.settings.detailShowSimilar = true
             app.settings.autoPlayNext = true
+            app.settings.detailShowFileInfo = true
             app.store.add(entry)
             app.store.currentId = entry.id
             app.settings.defaultQuality = 0
@@ -70,6 +72,7 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
             app.settings.detailShowCast = oldDetail.first
             app.settings.detailShowSimilar = oldDetail.second
             app.settings.autoPlayNext = oldDetail.third
+            app.settings.detailShowFileInfo = oldFileInfo
             kotlinx.coroutines.runBlocking { app.awaitPendingReports() }
             app.store.remove(entry.id)
             app.store.currentId = oldId
@@ -78,7 +81,7 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
             app.settings.watchNextEnabled = oldPlayback.third
             serverField.set(app, oldServer)
         }
-        return "Horizontal row boundaries, vertical navigation, single-season navigation, same-season autoplay return and cross-season autoplay return passed"
+        return "Horizontal row boundaries, vertical navigation, single-season navigation, file-info footer/scale/content, same-season autoplay return and cross-season autoplay return passed"
     }
 
     private fun checkSingleSeason() {
@@ -128,6 +131,7 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
         checkEpisodeVerticalNavigation()
         checkPlaybackReturn(1)
         checkPlaybackReturn(12)
+        FileInfoNavigationTest(instrumentation, detail, binding).runAll()
     }
 
     private fun checkEpisodeVerticalNavigation() {

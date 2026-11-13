@@ -8,7 +8,7 @@
 
     <LinearLayout
         android:id="@+id/frame"
-        android:layout_width="300dp"
+        android:layout_width="280dp"
         android:layout_height="212dp"
         android:background="@drawable/info_card_bg"
         android:duplicateParentState="true"

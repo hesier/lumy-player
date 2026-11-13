@@ -135,7 +135,12 @@ class DetailActivity : ThemedActivity() {
         focused.getDrawingRect(rect)
         binding.root.offsetDescendantRectToMyCoords(focused, rect)
         binding.root.offsetRectIntoDescendantCoords(target, rect)
-        target.requestFocus(direction, rect)
+        if (target.requestFocus(direction, rect) && direction == View.FOCUS_DOWN && target === binding.fileInfo) {
+            // Focus scrolling only reveals the card bounds, leaving the page footer below the viewport.
+            binding.scroll.post {
+                if (binding.fileInfo.hasFocus()) binding.scroll.smoothScrollTo(0, binding.scroll.getChildAt(0).bottom)
+            }
+        }
         return true
     }
 

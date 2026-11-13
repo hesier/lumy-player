@@ -23,8 +23,6 @@ import com.hesier.lumy.core.SubtitleStream
 import com.hesier.lumy.core.VideoStream
 import com.hesier.lumy.ui.formatClock
 import com.hesier.lumy.ui.widget.StartAlignedLayoutManager
-import com.hesier.lumy.ui.widget.scaleOnFocus
-import com.hesier.lumy.ui.widget.syncFocusScale
 import java.util.Locale
 
 /**
@@ -161,19 +159,17 @@ class FileInfoSection(private val title: View, private val row: RecyclerView, pr
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
             val view = LayoutInflater.from(parent.context).inflate(R.layout.item_file_info_card, parent, false)
-            return Holder(view).also { view.scaleOnFocus(it.frame) }
+            return Holder(view)
         }
 
         override fun onBindViewHolder(holder: Holder, position: Int) {
             val card = cards[position]
-            holder.itemView.syncFocusScale(holder.frame)
             holder.header.text = card.header
             holder.lines.removeAllViews()
             card.lines.forEachIndexed { i, line -> holder.lines.addView(lineView(line, first = i == 0)) }
         }
 
         inner class Holder(view: View) : RecyclerView.ViewHolder(view) {
-            val frame: View = view.findViewById(R.id.frame)
             val header: TextView = view.findViewById(R.id.header)
             val lines: LinearLayout = view.findViewById(R.id.lines)
         }
