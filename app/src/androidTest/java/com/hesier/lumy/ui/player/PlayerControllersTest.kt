@@ -32,6 +32,7 @@ internal class PlayerControllersTest(
     fun runAll(): String {
         FnOsPlaybackMarkersTest.runAll()
         main { player.pause(); settings.autoPlayNext = false; settings.skipIntro = SkipMode.OFF }
+        PlayerButtonFocusTest(instrumentation, binding).runAll()
         checkChapters()
         checkEpisodes()
         checkPlaylist()
@@ -40,7 +41,7 @@ internal class PlayerControllersTest(
         checkCancelledQueries()
         checkUnmarkedEnding()
         checkDismissedEnding()
-        return "Chapters: D-pad entry, boundaries, button focus restoration and seek passed\n" +
+        return "Playback buttons: seek-bar focus memory; chapters: D-pad entry, boundaries, button focus restoration and seek passed\n" +
             "Episodes: selection, in-player switch, next episode and playlist order passed\n" +
             "Markers: credits modes, unmarked final 10 seconds, natural completion, countdown pause and dismissal through completion passed\n" +
             "Late row and next-episode results cannot replace the current media state"

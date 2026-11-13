@@ -180,7 +180,7 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <LinearLayout
+            <com.hesier.lumy.ui.widget.FocusMemoryLinearLayout
                 android:id="@+id/buttons"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
