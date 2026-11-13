@@ -31,8 +31,8 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
     private var playback: PlayerActivity? = null
     private val show = MediaItem("detail-show", MediaType.SHOW, "Detail show")
     private val seasons = (1..2).map { MediaItem("detail-season-$it", MediaType.SEASON, "Season $it", seasonNumber = it) }
-    private val episodes = (1..3).map {
-        val season = if (it < 3) 1 else 2
+    private val episodes = (1..13).map {
+        val season = if (it < 13) 1 else 2
         MediaItem("detail-episode-$it", MediaType.EPISODE, "Episode $it", parentId = seasons[season - 1].id,
             grandparentId = show.id, seasonNumber = season, episodeNumber = it, durationMs = 600_000,
             summary = "Episode summary")
@@ -83,10 +83,37 @@ class DetailNavigationTest(private val instrumentation: Instrumentation) {
         detail = instrumentation.startActivitySync(DetailActivity.intent(instrumentation.targetContext, episodes[0].id)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as DetailActivity
         binding = field(detail, "binding") as ActivityDetailBinding
-        await("episode rows loaded") { binding.episodes.adapter?.itemCount == 2 && binding.cast.childCount > 0 }
+        await("episode rows loaded") { binding.episodes.adapter?.itemCount == 12 && binding.cast.childCount > 0 }
         checkRows()
+        checkEpisodeVerticalNavigation()
         checkPlaybackReturn(1)
-        checkPlaybackReturn(2)
+        checkPlaybackReturn(12)
+    }
+
+    private fun checkEpisodeVerticalNavigation() {
+        instrumentation.runOnMainSync {
+            DetailActivity::class.java.getDeclaredMethod("switchSeason", MediaItem::class.java)
+                .apply { isAccessible = true }.invoke(detail, seasons[0])
+        }
+        await("long season loaded") { binding.episodes.adapter?.itemCount == 12 }
+        instrumentation.runOnMainSync {
+            binding.episodes.scrollToPosition(11)
+        }
+        await("last episode attached") { binding.episodes.findViewHolderForAdapterPosition(11) != null }
+        instrumentation.runOnMainSync { binding.episodes.findViewHolderForAdapterPosition(11)!!.itemView.requestFocus() }
+        await("last episode focused") { binding.episodes.findViewHolderForAdapterPosition(11)?.itemView?.hasFocus() == true }
+        press(KeyEvent.KEYCODE_DPAD_UP)
+        mainCheck("last episode up reaches seasons") { binding.seasons.hasFocus() }
+        press(KeyEvent.KEYCODE_DPAD_DOWN)
+        mainCheck("season down restores last episode") {
+            binding.episodes.findViewHolderForAdapterPosition(11)?.itemView?.hasFocus() == true
+        }
+        press(KeyEvent.KEYCODE_DPAD_DOWN)
+        mainCheck("last episode down reaches cast") { binding.cast.hasFocus() }
+        press(KeyEvent.KEYCODE_DPAD_UP)
+        mainCheck("cast up restores last episode") {
+            binding.episodes.findViewHolderForAdapterPosition(11)?.itemView?.hasFocus() == true
+        }
     }
 
     private fun checkRows() {

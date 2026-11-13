@@ -2,6 +2,7 @@ package com.hesier.lumy.ui.detail
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -106,12 +107,34 @@ class DetailActivity : ThemedActivity() {
         if (handleLoadingConfirm(event)) return true
         if (keyThrottle.shouldDrop(event)) return true
         val wasInActions = binding.actions.hasFocus()
-        val handled = super.dispatchKeyEvent(event)
+        val handled = handleRowNavigation(event) || super.dispatchKeyEvent(event)
         // 从下方回到操作按钮时显示完整详情，不只把按钮滚进可见区域。
         if (event.action == android.view.KeyEvent.ACTION_DOWN &&
             event.keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP && !wasInActions && binding.actions.hasFocus()
         ) binding.scroll.smoothScrollTo(0, 0)
         return handled
+    }
+
+    private fun handleRowNavigation(event: KeyEvent): Boolean {
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+        val direction = when (event.keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP -> View.FOCUS_UP
+            KeyEvent.KEYCODE_DPAD_DOWN -> View.FOCUS_DOWN
+            else -> return false
+        }
+        val focused = currentFocus ?: return false
+        val rows = listOf(binding.actions, binding.seasons, binding.episodes, binding.cast, binding.similar, binding.fileInfo)
+            .filter { it.visibility == View.VISIBLE && it.hasFocusable() }
+        val index = rows.indexOfFirst { it.hasFocus() }
+        if (index < 0 || (index == 0 && direction == View.FOCUS_UP)) return false
+        val target = rows.getOrNull(index + if (direction == View.FOCUS_DOWN) 1 else -1) ?: return true
+        // Navigate by row so a distant preferred card cannot make geometry skip a row.
+        val rect = Rect()
+        focused.getDrawingRect(rect)
+        binding.root.offsetDescendantRectToMyCoords(focused, rect)
+        binding.root.offsetRectIntoDescendantCoords(target, rect)
+        target.requestFocus(direction, rect)
+        return true
     }
 
     private fun handleLoadingConfirm(event: KeyEvent): Boolean {
