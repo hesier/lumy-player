@@ -52,7 +52,7 @@ class PgsInstrumentation : Instrumentation() {
         startupHttpItem = arguments?.getString("startup_http_item")
         performanceCheck = listOf("settings_frame_probe", "settings_layout_probe", "settings_row_measure_probe",
             "settings_navigation_only", "danmaku_oversize_only", "playback_startup_timing_only", "startup_http_timing_only", "buffered_http_only",
-            "player_controllers_only", "detail_navigation_only", "library_navigation_only")
+            "player_controllers_only", "detail_navigation_only", "library_navigation_only", "servers_navigation_only")
             .firstOrNull { arguments?.getString(it) == "true" }
         danmakuCacheOnly = arguments?.getString("danmaku_cache_only") == "true"
         danmakuOfficialLive = arguments?.getString("danmaku_official_live")
@@ -321,6 +321,7 @@ class PgsInstrumentation : Instrumentation() {
     }
 
     private fun runPerformanceCheck(check: String): String = when (check) {
+        "servers_navigation_only" -> com.hesier.lumy.ui.servers.ServersNavigationTest(this).runAll()
         "library_navigation_only" -> com.hesier.lumy.ui.library.LibraryNavigationTest(this).runAll()
         "detail_navigation_only" -> com.hesier.lumy.ui.detail.DetailNavigationTest(this).runAll()
         "player_controllers_only" -> DanmakuControlBarTest(this).runAll(controllersOnly = true)

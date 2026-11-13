@@ -86,7 +86,7 @@ class ServersActivity : ThemedActivity() {
             binding.progress.visibility = View.GONE
             if (session == null) {
                 showStatus(getString(R.string.servers_unreachable, resource.name), retry = false)
-                binding.list.getChildAt(adapter.indexOf(resource).coerceAtLeast(0))?.requestFocus()
+                restoreServerFocus(resource)
                 return@launch
             }
             val replaceId = intent.getStringExtra(EXTRA_REPLACE_ID)
@@ -99,6 +99,17 @@ class ServersActivity : ThemedActivity() {
             if (intent.hasExtra("plex_home_account_token")) app.currentEntry?.let { app.unlockPlexHome(it.id) }
             HomeActivity.restart(this@ServersActivity)
             finish()
+        }
+    }
+
+    private fun restoreServerFocus(resource: PlexResource) {
+        val position = adapter.indexOf(resource).takeIf { it >= 0 } ?: return
+        val target = binding.list.findViewHolderForAdapterPosition(position)?.itemView
+        if (target?.requestFocus() == true) return
+        // Adapter positions differ from attached-child indices after scrolling.
+        binding.list.scrollToPosition(position)
+        binding.list.post {
+            binding.list.findViewHolderForAdapterPosition(position)?.itemView?.requestFocus()
         }
     }
 
