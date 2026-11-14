@@ -20,6 +20,21 @@ looper. Upstream engine release also omits `context.cacheManager.release()`, lea
 `AkDanmaku-Cache` workers alive. A second patch calls that existing cleanup method
 at the end of `DanmakuEngine.release()`.
 
+## Data slice boundaries
+
+Upstream `DataSystem.updateCurrentSlice()` passes its boundary search results
+directly to `subList(start, end)`. The end search never returns `size`, so the
+last loaded comment is excluded even when its timestamp lies inside the slice.
+At a 60-second app window handoff, appending later comments finally admits that
+old tail. It may already be seconds late and first appear inside the screen.
+Exact timestamp matches also produce incorrect indices in the upstream searches.
+
+`PatchData.java` redirects only these two searches to `LumyDataBounds.java`.
+The lower bound includes all items at the start timestamp; the upper bound is
+exclusive and includes all items at the end timestamp, returning `size` when
+appropriate. Empty ranges remain valid empty slices. Rendering coordinates,
+comment timestamps and lane assignments are unchanged.
+
 ## Bounded scheduling and cache work
 
 The production and debug controllers drive the existing engine in its upstream manual mode.
@@ -73,15 +88,29 @@ JAVA_HOME="$(/usr/libexec/java_home -v 17)" ANDROID_HOME="/path/to/android-sdk" 
 ```
 
 `build.py` checks pinned SHA-256 hashes for the upstream AAR and ASM 9.7.1,
-then applies the release and cache patches with checked hook counts and compiles
-the runtime helper for Java 8/API 21. Inputs and compiler
+then applies the release, cache and data slice patches with checked hook counts
+and compiles the runtime helpers for Java 8/API 21. Inputs and compiler
 outputs stay under ignored `.local/akdanmaku/`. Normal app builds use the bundled
 AAR; they do not download ASM or run this script. Gradle declares the original
 libGDX/Ashley runtime dependencies explicitly because a local AAR has no POM.
 The app's existing ARM ABI filters remain in effect.
 
 Expected patched AAR SHA-256:
-`fee88cb172ac3a7089023d4469f0a5dae9cb97f4d353d10a6c9c6249667259c3`.
+`962920cae875d12d26f86cbd99a262343be66f779550a631851c96759bdfa524`.
+
+Run the data slice regression without a device after Gradle has cached the app's
+Kotlin, Ashley and libGDX dependencies:
+
+```sh
+JAVA_HOME="$(/usr/libexec/java_home -v 17)" ANDROID_HOME="/path/to/android-sdk" \
+  python3 third_party/akdanmaku/tests/test_data_slice.py
+```
+
+The test executes the bundled AAR's actual private slice method. Host stubs replace
+only Android logging and timestamp-only comment items; it does not test drawing.
+It covers the tail before/after window append, empty/single slices, duplicate and
+exact timestamps, and 500 deterministic random slices against a linear oracle.
+Use `--aar /path/to/old.aar` to reproduce the failure on the previous runtime.
 
 See [the performance guide](../../docs/playback-compatibility-performance.md#12-danmaku-performance-probe)
 for measurements, device checks and the instrumentation command.

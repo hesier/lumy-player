@@ -1,4 +1,4 @@
-"""Reproduce the debug-only AkDanmaku AAR using JDK 17 and verified Maven inputs."""
+"""Reproduce the bundled AkDanmaku AAR using JDK 17 and verified Maven inputs."""
 import hashlib
 import io
 import os
@@ -26,6 +26,7 @@ CLASSES = ["com/kuaishou/akdanmaku/ui/DanmakuPlayer.class",
            "com/kuaishou/akdanmaku/ecs/DanmakuEngine.class"]
 CACHE_CLASSES = ["com/kuaishou/akdanmaku/cache/CacheManager.class",
                  "com/kuaishou/akdanmaku/cache/CacheManager$CacheHandler.class"]
+DATA_CLASS = "com/kuaishou/akdanmaku/ecs/system/DataSystem.class"
 
 
 def download(name, spec):
@@ -53,7 +54,8 @@ def compile_helpers(classes, java_bin):
         helpers = Path(directory)
         subprocess.run([str(java_bin / "javac"), "--release", "8", "-cp",
                         os.pathsep.join([str(WORK / "classes.jar"), str(sdk / "platforms/android-35/android.jar")]),
-                        "-d", str(helpers), str(SOURCE / "LumyCacheBudget.java")], check=True)
+                        "-d", str(helpers), str(SOURCE / "LumyCacheBudget.java"),
+                        str(SOURCE / "LumyDataBounds.java")], check=True)
         output = io.BytesIO(classes)
         with zipfile.ZipFile(output, "a") as jar:
             for helper in sorted(helpers.rglob("*.class")):
@@ -67,14 +69,16 @@ def main():
     inputs = {name: download(name, spec) for name, spec in INPUTS.items()}
     java_bin = Path(os.environ["JAVA_HOME"]) / "bin"
     subprocess.run([str(java_bin / "javac"), "--release", "17", "-cp", str(inputs["asm.jar"]),
-                    "-d", str(WORK), str(SOURCE / "PatchRelease.java"), str(SOURCE / "PatchCache.java")], check=True)
+                    "-d", str(WORK), str(SOURCE / "PatchRelease.java"), str(SOURCE / "PatchCache.java"),
+                    str(SOURCE / "PatchData.java")], check=True)
     with zipfile.ZipFile(inputs["upstream.aar"]) as aar:
         classes = aar.read("classes.jar")
-    for name in CLASSES + CACHE_CLASSES:
+    for name in CLASSES + CACHE_CLASSES + [DATA_CLASS]:
         with zipfile.ZipFile(io.BytesIO(classes)) as jar:
             (WORK / "original.class").write_bytes(jar.read(name))
+        patcher = "PatchData" if name == DATA_CLASS else "PatchCache" if name in CACHE_CLASSES else "PatchRelease"
         subprocess.run([str(java_bin / "java"), "-cp", os.pathsep.join([str(WORK), str(inputs["asm.jar"])]),
-                        "PatchCache" if name in CACHE_CLASSES else "PatchRelease", str(WORK / "original.class"), str(WORK / "patched.class")], check=True)
+                        patcher, str(WORK / "original.class"), str(WORK / "patched.class")], check=True)
         classes = replace_entry(classes, name, (WORK / "patched.class").read_bytes())
     patched_classes = compile_helpers(classes, java_bin)
     output = SOURCE / "akdanmaku-1.0.3+1-lumy1.aar"
