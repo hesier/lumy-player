@@ -4,6 +4,19 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.6.5 - 2026-11-15
+
+### Navigation and focus
+
+- Detail cast, recommendation and file information rows now remember the last focused card and restore focus and horizontal scroll position when moving between rows
+- Returning from library cards to the sort / filter bar now restores the last focused button
+- Returning from the playback seek bar to the action buttons now restores the last focused button
+- Returning from Favorites categories to the card grid now restores the previous card and scroll position instead of jumping to the sidebar; pressing Down in an empty category keeps focus on the category
+
+### Danmaku
+
+- Fixed some scrolling comments appearing late inside the screen during continuous playback, preventing the last comment in a loaded batch from missing its normal entry
+
 ## 0.6.4 - 2026-11-13
 
 ### Plex Home
