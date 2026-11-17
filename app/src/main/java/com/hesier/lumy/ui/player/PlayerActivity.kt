@@ -126,6 +126,15 @@ class PlayerActivity : ThemedActivity() {
     private lateinit var episodes: PlayerEpisodeController
     private lateinit var overlays: PlayerOverlayController
     private var progressJob: Job? = null
+    private val sleepTimer by lazy {
+        SleepTimer(lifecycleScope, onExpired = {
+            qualityRecovery.clear()
+            startJob?.cancel()
+            player.pause()
+            Toast.makeText(this, R.string.sleep_timer_finished, Toast.LENGTH_LONG).show()
+            finish()
+        })
+    }
 
     private val offsets = SyncOffsets()
     private lateinit var refreshRate: RefreshRateMatcher
@@ -175,7 +184,8 @@ class PlayerActivity : ThemedActivity() {
         episodes = PlayerEpisodeController(this, binding, positionMs = { positionMs },
             onSeek = ::seekTo, onSwitch = ::switchTo, onFocusMoved = ::playFocusSound)
         overlays = PlayerOverlayController(this, binding, player, settings = settings,
-            positionMs = { positionMs }, durationMs = { durationMs }, nextEpisode = { episodes.nextEpisode },
+            positionMs = { positionMs }, durationMs = { durationMs },
+            nextEpisode = { episodes.nextEpisode.takeUnless { sleepTimer.endOfItem } },
             onSeek = ::seekTo, onEnded = ::onEnded, onPlayNext = ::playNext)
         seek = PlayerSeekController(this, binding, settings, positionMs = { positionMs }, durationMs = { durationMs },
             bufferedMs = { bufferedMs }, onSeek = ::seekTo, needsRestart = ::needsTranscodeRestart,
@@ -184,7 +194,8 @@ class PlayerActivity : ThemedActivity() {
             durationMs = { durationMs }, isReady = { ::detail.isInitialized }, onShow = { holdSpeedGesture.cancel() })
         menus = PlayerMenus(this, binding, player, selection = selection, server = { server }, tracks = tracks,
             info = info, offsets = offsets, detail = { detail }, positionMs = { positionMs }, onSeek = ::seekTo,
-            onRestart = ::restartPlayback, onQuality = ::switchQuality, onVersion = { v ->
+            onRestart = ::restartPlayback, onQuality = ::switchQuality, sleepTimer = sleepTimer,
+            onSleepChanged = { overlays.reset(); overlays.bind(server, detail) }, onVersion = { v ->
                 val position = positionMs
                 selectVersion(v)
                 start(position)
@@ -229,6 +240,10 @@ class PlayerActivity : ThemedActivity() {
     }
 
     private fun onEnded() {
+        if (sleepTimer.endOfItem) {
+            sleepTimer.expire()
+            return
+        }
         DebugLog.i(TAG, "ended at ${positionMs}/${durationMs} next=${episodes.nextEpisode?.id}")
         if (episodes.nextEpisode != null && settings.autoPlayNext && !overlays.upNextDismissed) {
             playNext()
@@ -240,6 +255,10 @@ class PlayerActivity : ThemedActivity() {
 
     /** 连续播放：在同一个播放器里换成下一集，省去重新创建解码器的时间 */
     private fun playNext() {
+        if (sleepTimer.endOfItem) {
+            sleepTimer.expire()
+            return
+        }
         val next = episodes.nextEpisode ?: return finish()
         DebugLog.i(TAG, "play next ${next.id} from ${positionMs}")
         switchTo(next, 0L)
@@ -848,6 +867,7 @@ class PlayerActivity : ThemedActivity() {
         super.onStop()
         if (!::player.isInitialized) return
         qualityRecovery.clear()
+        sleepTimer.clear()
         loadJob?.cancel()
         startupTiming?.end(PlaybackStartupTiming.End.CANCELLED)
         seek.cancel()

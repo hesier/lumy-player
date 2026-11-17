@@ -38,6 +38,8 @@ internal class PlayerMenus(
     private val onRestart: (Boolean) -> Unit,
     private val onVersion: (MediaVersion) -> Unit,
     private val onQuality: (Quality) -> Unit,
+    private val sleepTimer: SleepTimer,
+    private val onSleepChanged: () -> Unit,
 ) {
     private var playPauseIcon: ImageView? = null
     private val settings get() = selection.settings
@@ -96,6 +98,7 @@ internal class PlayerMenus(
 
     fun showMore(focusedLabel: Int? = null) {
         val actions = buildList<Pair<Option, () -> Unit>> {
+            add(Option(activity.getString(R.string.sleep_timer), sleepTimerLabel()) to ::pickSleepTimer)
             if (detail().chapters.size > 1) add(Option(activity.getString(R.string.player_chapters)) to ::pickChapter)
             if (detail().versions.size > 1) add(Option(activity.getString(R.string.action_version), selection.version.summary) to ::pickVersion)
             add(Option(activity.getString(R.string.video_scale), videoScaleLabel(activity, videoScale)) to ::pickVideoScale)
@@ -115,6 +118,27 @@ internal class PlayerMenus(
         OptionsPanel(activity, activity.getString(R.string.player_more), actions.map {
             it.first.copy(selected = focusedLabel != null && it.first.label == activity.getString(focusedLabel))
         }) { actions[it].second() }.show()
+    }
+
+    private fun sleepTimerLabel(): String = when {
+        sleepTimer.endOfItem -> activity.getString(R.string.sleep_timer_end_of_item)
+        sleepTimer.remainingMinutes != null -> activity.getString(R.string.sleep_timer_remaining, sleepTimer.remainingMinutes)
+        else -> activity.getString(R.string.sleep_timer_off)
+    }
+
+    private fun pickSleepTimer() {
+        val options = SleepTimer.OPTIONS.map { minutes ->
+            val label = when (minutes) {
+                0 -> activity.getString(R.string.sleep_timer_off)
+                SleepTimer.END_OF_ITEM -> activity.getString(R.string.sleep_timer_end_of_item)
+                else -> activity.getString(R.string.sleep_timer_minutes, minutes)
+            }
+            Option(label, selected = minutes == sleepTimer.optionMinutes)
+        }
+        OptionsPanel(activity, activity.getString(R.string.sleep_timer), options) { index ->
+            sleepTimer.set(SleepTimer.OPTIONS[index])
+            onSleepChanged()
+        }.returnToMore(R.string.sleep_timer).show()
     }
 
     fun Dialog.returnToMore(label: Int): Dialog {

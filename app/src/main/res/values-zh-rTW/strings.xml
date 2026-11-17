@@ -630,6 +630,12 @@
     <string name="quality_switch_timeout">切換畫質逾時。</string>
     <string name="quality_switch_restored">切換畫質失敗，已恢復原播放設定。</string>
     <string name="quality_switch_restore_failed">無法恢復播放，請重試。</string>
+    <string name="sleep_timer">睡眠定時</string>
+    <string name="sleep_timer_off">關閉</string>
+    <string name="sleep_timer_end_of_item">播完目前影片後停止</string>
+    <string name="sleep_timer_minutes">%1$d 分鐘</string>
+    <string name="sleep_timer_remaining">剩餘 %1$d 分鐘</string>
+    <string name="sleep_timer_finished">睡眠定時已停止播放。</string>
 
     <string name="search_view_all">查看全部</string>
     <string name="search_view_all_category">查看全部%1$s</string>

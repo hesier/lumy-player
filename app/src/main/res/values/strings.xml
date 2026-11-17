@@ -646,6 +646,12 @@
     <string name="quality_switch_timeout">The quality change timed out.</string>
     <string name="quality_switch_restored">Quality change failed. Restored the previous playback settings.</string>
     <string name="quality_switch_restore_failed">Could not restore playback. Please retry.</string>
+    <string name="sleep_timer">Sleep timer</string>
+    <string name="sleep_timer_off">Off</string>
+    <string name="sleep_timer_end_of_item">Stop after this video</string>
+    <string name="sleep_timer_minutes">%1$d minutes</string>
+    <string name="sleep_timer_remaining">%1$d minutes remaining</string>
+    <string name="sleep_timer_finished">Sleep timer ended playback.</string>
 
     <string name="search_view_all">View all</string>
     <string name="search_view_all_category">View all %1$s</string>

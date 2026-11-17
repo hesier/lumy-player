@@ -45,6 +45,7 @@ internal class FeaturePlaybackFixture(val instrumentation: Instrumentation) {
     val player get() = activity.readPlaybackField("player") as ExoPlayer
     val binding get() = activity.readPlaybackField("binding") as ActivityPlayerBinding
     val selection get() = activity.readPlaybackField("selection") as PlaybackSelection
+    val timer get() = activity.readPlaybackField("sleepTimer\$delegate").let { (it as Lazy<*>).value as SleepTimer }
     private val version by lazy {
         MediaVersion("v", 0, "mkv", 600, VideoStream("h264", 320, 180, 24f, 8, "High", HdrType.NONE, null, 500),
             emptyList(), emptyList(), listOf(MediaPart("p", "fixture", "mkv", file.length(), 20_000)))
