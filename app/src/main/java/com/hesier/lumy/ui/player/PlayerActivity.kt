@@ -93,7 +93,20 @@ class PlayerActivity : ThemedActivity() {
 
     private var request: PlaybackRequest? = null
     private var startJob: Job? = null
+    private var loadJob: Job? = null
     private val playbackNotice by lazy { PlaybackNotice(binding.playbackNotice, lifecycleScope) }
+    private var qualitySourceReady = false
+    private val qualityRecovery by lazy {
+        QualitySwitchRecovery(lifecycleScope, onTimeout = {
+            val position = positionMs
+            startJob?.cancel()
+            player.stop()
+            showError(getString(R.string.quality_switch_timeout), retryAt = position)
+        }, onResult = { recovered ->
+            Toast.makeText(this, if (recovered) R.string.quality_switch_restored else R.string.quality_switch_restore_failed,
+                Toast.LENGTH_LONG).show()
+        })
+    }
     /** 网络错误已自动重试的次数，恢复播放后清零 */
     private var networkRetries = 0
     private var tracksApplied = false
@@ -171,7 +184,7 @@ class PlayerActivity : ThemedActivity() {
             durationMs = { durationMs }, isReady = { ::detail.isInitialized }, onShow = { holdSpeedGesture.cancel() })
         menus = PlayerMenus(this, binding, player, selection = selection, server = { server }, tracks = tracks,
             info = info, offsets = offsets, detail = { detail }, positionMs = { positionMs }, onSeek = ::seekTo,
-            onRestart = { start(positionMs, it) }, onVersion = { v ->
+            onRestart = ::restartPlayback, onQuality = ::switchQuality, onVersion = { v ->
                 val position = positionMs
                 selectVersion(v)
                 start(position)
@@ -189,10 +202,13 @@ class PlayerActivity : ThemedActivity() {
     }
 
     private fun load() {
+        loadJob?.cancel()
         val startupAttempt = startupTiming?.begin(withDetail = true)
-        lifecycleScope.launch {
+        loadJob = lifecycleScope.launch {
             val id = intent.getStringExtra(EXTRA_ID)!!
-            detail = attempt { LumyApp.instance.withReconnect { it.detail(id) } }.getOrElse {
+            val loaded = attempt { LumyApp.instance.withReconnect { it.detail(id) } }
+            if (!isActive || isFinishing || isDestroyed) return@launch
+            detail = loaded.getOrElse {
                 return@launch showError(it.readableMessage())
             }
             startupTiming?.mark(startupAttempt, Stage.DETAIL_END)
@@ -231,6 +247,7 @@ class PlayerActivity : ThemedActivity() {
 
     /** 在同一个播放器里换成另一集（下一集 / 从剧集行选的） */
     private fun switchTo(next: MediaItem, startMs: Long) {
+        qualityRecovery.clear()
         startupTiming?.end(PlaybackStartupTiming.End.REPLACED)
         seek.cancel()
         playbackNotice.clear()
@@ -261,6 +278,7 @@ class PlayerActivity : ThemedActivity() {
      * 某一级没有符合的轨道时交给下一级。
      */
     private fun selectVersion(v: MediaVersion) {
+        qualityRecovery.clear()
         seek.cancel()
         playbackNotice.clear()
         danmakuProbe.reset()
@@ -276,8 +294,42 @@ class PlayerActivity : ThemedActivity() {
 
     // ---- 起播 ----
 
+    private fun restartPlayback(playWhenReady: Boolean) {
+        qualityRecovery.clear()
+        start(positionMs, playWhenReady)
+    }
+
+    private fun switchQuality(quality: Quality) {
+        if (quality == selection.quality || qualityRecovery.active) return
+        qualityRecovery.begin(QualitySwitchRecovery.Previous(selection.snapshot(), positionMs,
+            player.playWhenReady, doviHevcFallback, codecs.softwareVideoMime))
+        qualitySourceReady = false
+        val position = positionMs
+        val playing = player.playWhenReady
+        player.pause()
+        player.stop()
+        selection.quality = quality
+        // A quality request must not inherit a previous plan's forced fallback.
+        selection.fellBack = false
+        selection.videoDecodeFailed = false
+        selection.fallbackReason = null
+        start(position, playing)
+    }
+
+    private fun recoverQuality(): Boolean {
+        val previous = qualityRecovery.rollback() ?: return false
+        qualitySourceReady = false
+        selection.restore(previous.selection)
+        doviHevcFallback = previous.hevcFallback
+        codecs.softwareVideoMime = previous.softwareVideoMime
+        player.stop()
+        start(previous.positionMs, previous.playWhenReady)
+        return true
+    }
+
     private fun start(positionMs: Long, playWhenReady: Boolean = true,
         startupAttempt: PlaybackStartupTiming.Attempt? = null) {
+        qualitySourceReady = false
         val timingAttempt = startupAttempt?.takeIf { startupTiming?.isActive(it) == true } ?: startupTiming?.begin()
         seek.cancel()
         holdSpeedGesture.cancel()
@@ -333,7 +385,10 @@ class PlayerActivity : ThemedActivity() {
                 return@launch
             }
             // A decision request may finish after another seek, track change or episode switch.
-            if (request !== req) return@launch
+            if (request !== req) {
+                stopSession(req)
+                return@launch
+            }
             startupTiming?.mark(timingAttempt, Stage.SOURCE_END)
             val media = mediaItems.build(req, source, timingAttempt)
             // 带内封字幕的转码流已从起播点开始，而且不能跳转
@@ -343,6 +398,7 @@ class PlayerActivity : ThemedActivity() {
             if (nativeHls) hlsAligned = true
             player.setMediaItems(media, source.startPart,
                 if ((source.isHls && !nativeHls) || embedded) 0 else source.startOffsetMs)
+            qualitySourceReady = true
             player.setPlaybackSpeed(selection.speed)
             startupTiming?.mark(timingAttempt, Stage.PREPARE)
             player.prepare()
@@ -371,6 +427,7 @@ class PlayerActivity : ThemedActivity() {
             ?: (player.duration.takeIf { it != C.TIME_UNSET }?.plus(partBase(player.currentMediaItemIndex)) ?: 0)
 
     private fun seekTo(target: Long) {
+        qualityRecovery.clear()
         seek.cancel()
         val t = target.coerceIn(0, (durationMs - 1_000).coerceAtLeast(0))
         val part = selection.version.partAt(t)
@@ -418,6 +475,7 @@ class PlayerActivity : ThemedActivity() {
             binding.buffering.visibility = if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
             if (state == Player.STATE_READY || state == Player.STATE_IDLE) pendingSeekMs = null
             if (state == Player.STATE_READY) networkRetries = 0
+            if (state == Player.STATE_READY && qualitySourceReady && !player.playWhenReady) qualityRecovery.ready()
             if (state == Player.STATE_READY && !hlsAligned) alignHlsTimeline()
             // 起播位置没生效（文件不能跳转，播放器从头开始）
             if (state == Player.STATE_READY && selection.plan?.mode is PlaybackMode.Direct) {
@@ -458,6 +516,7 @@ class PlayerActivity : ThemedActivity() {
 
         override fun onRenderedFirstFrame() {
             firstFrameRendered = true
+            if (qualitySourceReady) qualityRecovery.ready()
             doviWatchJob?.cancel()
         }
 
@@ -467,6 +526,10 @@ class PlayerActivity : ThemedActivity() {
             val current = positionMs
             PlaybackDiagnostics.record(Event.ERROR, mapOf(Metric.ERROR_CODE to error.errorCode.toLong(), Metric.POSITION_MS to current))
             DebugLog.i(TAG, "error ${error.errorCodeName} at $current mode=${selection.plan?.mode} retries=$networkRetries: ${error.cause?.message}")
+            if (qualityRecovery.active) {
+                showError(error.errorCodeName, retryAt = current)
+                return
+            }
             val failedFormat = (error as? ExoPlaybackException)?.rendererFormat ?: player.videoFormat
             if (selection.plan?.mode is PlaybackMode.Direct && !codecs.hevcOnly &&
                 dolbyVisionProfile(failedFormat?.codecs) == 5 && error.isVideoDecodeError()
@@ -764,6 +827,7 @@ class PlayerActivity : ThemedActivity() {
     }
 
     private fun showError(message: String, retryAt: Long? = null) {
+        if (recoverQuality()) return
         startupTiming?.end(PlaybackStartupTiming.End.ERROR)
         holdSpeedGesture.cancel()
         binding.buffering.visibility = View.GONE
@@ -783,6 +847,8 @@ class PlayerActivity : ThemedActivity() {
     override fun onStop() {
         super.onStop()
         if (!::player.isInitialized) return
+        qualityRecovery.clear()
+        loadJob?.cancel()
         startupTiming?.end(PlaybackStartupTiming.End.CANCELLED)
         seek.cancel()
         holdSpeedGesture.cancel()

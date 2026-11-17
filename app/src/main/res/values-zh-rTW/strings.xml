@@ -627,5 +627,8 @@
     <string name="diagnostics_export">匯出播放診斷</string>
     <string name="diagnostics_detail">使用同一區域網路的手機下載近期播放診斷。包含裝置、解碼器、播放方案和錯誤碼，不含影片標題、檔案路徑、伺服器位址和帳號憑證。不會自動上傳。</string>
 
+    <string name="quality_switch_timeout">切換畫質逾時。</string>
+    <string name="quality_switch_restored">切換畫質失敗，已恢復原播放設定。</string>
+    <string name="quality_switch_restore_failed">無法恢復播放，請重試。</string>
 
 </resources>

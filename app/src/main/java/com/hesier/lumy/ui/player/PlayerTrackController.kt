@@ -100,7 +100,7 @@ internal class PlayerTrackController(
                 // Burn an unrecognized subtitle only when the user allows server transcoding.
                 selection.fellBack = true
                 selection.fallbackReason = PlaybackIssue.SubtitleNeedsBurn(s.codec)
-                onRestart(true)
+                onRestart(player.playWhenReady)
                 return
             } else {
                 params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)

@@ -643,5 +643,8 @@
     <string name="diagnostics_export">Export playback diagnostics</string>
     <string name="diagnostics_detail">Download recent playback diagnostics to a phone on the same network. Includes device, codecs, playback plans and error codes; excludes media titles, file paths, server addresses and account credentials. Nothing is uploaded automatically.</string>
 
+    <string name="quality_switch_timeout">The quality change timed out.</string>
+    <string name="quality_switch_restored">Quality change failed. Restored the previous playback settings.</string>
+    <string name="quality_switch_restore_failed">Could not restore playback. Please retry.</string>
 
 </resources>

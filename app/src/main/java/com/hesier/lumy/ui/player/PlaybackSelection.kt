@@ -52,6 +52,31 @@ internal class PlaybackSelection(
     fun createPlan(): Plan = planner.plan(version, audio, subtitle, quality, policy,
         forceTranscode = fellBack, videoDecodeFailed = videoDecodeFailed, fallbackReason = fallbackReason)
 
+    fun snapshot() = Snapshot(quality, speed, audio, subtitle, secondarySubtitle,
+        fellBack, videoDecodeFailed, fallbackReason)
+
+    fun restore(snapshot: Snapshot) = with(snapshot) {
+        this@PlaybackSelection.quality = quality
+        this@PlaybackSelection.speed = speed
+        this@PlaybackSelection.audio = audio
+        this@PlaybackSelection.subtitle = subtitle
+        this@PlaybackSelection.secondarySubtitle = secondarySubtitle
+        this@PlaybackSelection.fellBack = fellBack
+        this@PlaybackSelection.videoDecodeFailed = videoDecodeFailed
+        this@PlaybackSelection.fallbackReason = fallbackReason
+    }
+
+    data class Snapshot(
+        val quality: Quality,
+        val speed: Float,
+        val audio: AudioStream?,
+        val subtitle: SubtitleStream?,
+        val secondarySubtitle: SubtitleStream?,
+        val fellBack: Boolean,
+        val videoDecodeFailed: Boolean,
+        val fallbackReason: PlaybackIssue?,
+    )
+
     fun rememberAudio() = preferences.rememberAudio(version, showId, audio)
     fun rememberSubtitle() = preferences.rememberSubtitle(version, showId, subtitle)
 

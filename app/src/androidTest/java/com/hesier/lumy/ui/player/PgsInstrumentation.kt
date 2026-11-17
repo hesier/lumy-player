@@ -102,6 +102,7 @@ class PgsInstrumentation : Instrumentation() {
                 waitForIdleSync()
                 val message = when (feature) {
                     "diagnostics" -> com.hesier.lumy.ui.diagnostics.DiagnosticExportTest(this).runAll()
+                    "playback" -> PlaybackFeaturesTest(this).runAll()
                     else -> error("Unknown feature check: $feature")
                 }
                 result.putString("stream", "$message\n")

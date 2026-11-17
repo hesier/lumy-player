@@ -37,6 +37,7 @@ internal class PlayerMenus(
     private val onSeek: (Long) -> Unit,
     private val onRestart: (Boolean) -> Unit,
     private val onVersion: (MediaVersion) -> Unit,
+    private val onQuality: (Quality) -> Unit,
 ) {
     private var playPauseIcon: ImageView? = null
     private val settings get() = selection.settings
@@ -56,8 +57,7 @@ internal class PlayerMenus(
             }
         }
         OptionsPanel(activity, activity.getString(R.string.player_quality), options) { i ->
-            selection.quality = Quality.presets[i]
-            onRestart(true)
+            onQuality(Quality.presets[i])
         }.show()
     }
 
