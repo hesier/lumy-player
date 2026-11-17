@@ -43,6 +43,9 @@ interface MediaServer {
     /** 按类型分组的搜索结果 */
     suspend fun search(query: String): List<Hub>
 
+    /** Full results for a preview row, without applying its preview limit. */
+    suspend fun searchItems(query: String, scope: SearchScope, offset: Int, limit: Int): Page<MediaItem>
+
     /** 标记已看/未看；对剧和季会作用到其下所有剧集 */
     suspend fun setWatched(id: String, watched: Boolean)
 

@@ -71,6 +71,7 @@ data class PlexDirectory(
 @Serializable
 data class PlexHub(
     val hubIdentifier: String = "",
+    val more: JsonElement? = null,
     val title: String = "",
     val type: String = "",
     @SerialName("Metadata") val metadata: List<PlexMetadata> = emptyList(),

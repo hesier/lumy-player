@@ -19,6 +19,7 @@ import com.hesier.lumy.databinding.FragmentSearchBinding
 import com.hesier.lumy.ui.home.HomeHost
 import com.hesier.lumy.ui.home.ItemChangeListener
 import com.hesier.lumy.ui.widget.HubRowAdapter
+import com.hesier.lumy.ui.widget.displayTitle
 import com.hesier.lumy.ui.widget.StartAlignedLayoutManager
 import com.hesier.lumy.ui.widget.attempt
 import com.hesier.lumy.ui.widget.enableDpadNavigation
@@ -35,6 +36,8 @@ class SearchFragment : Fragment(), ItemChangeListener {
     private val host get() = requireActivity() as HomeHost
     private var searchJob: Job? = null
     private var adapter: HubRowAdapter? = null
+    private var requestVersion = 0
+    private var resultQuery = ""
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentSearchBinding.inflate(inflater, container, false)
@@ -75,6 +78,8 @@ class SearchFragment : Fragment(), ItemChangeListener {
     }
 
     override fun onDestroyView() {
+        requestVersion++
+        searchJob?.cancel()
         adapter = null
         _binding = null
         super.onDestroyView()
@@ -84,8 +89,10 @@ class SearchFragment : Fragment(), ItemChangeListener {
 
     private fun schedule(query: String, delayMs: Long) {
         searchJob?.cancel()
+        val version = ++requestVersion
         val q = query.trim()
         if (q.isEmpty()) {
+            binding.progress.visibility = View.GONE
             binding.rows.adapter = null
             binding.empty.visibility = View.GONE
             return
@@ -94,19 +101,27 @@ class SearchFragment : Fragment(), ItemChangeListener {
             delay(delayMs)
             binding.progress.visibility = View.VISIBLE
             val result = attempt { host.server.search(q) }
+            if (version != requestVersion || _binding == null) return@launch
             binding.progress.visibility = View.GONE
             val hubs = result.getOrElse {
                 binding.empty.text = getString(R.string.load_failed, it.readableMessage())
                 binding.empty.visibility = View.VISIBLE
                 return@launch
             }
+            resultQuery = q
             binding.empty.text = getString(R.string.search_empty, q)
             binding.empty.visibility = if (hubs.isEmpty()) View.VISIBLE else View.GONE
             val existing = adapter
             if (existing != null && binding.rows.adapter === existing) {
                 existing.update(hubs)
             } else {
-                adapter = HubRowAdapter(host.server, hubs, host::showBackdrop, host::openItem, host::showItemMenu)
+                adapter = HubRowAdapter(host.server, hubs, host::showBackdrop, host::openItem, host::showItemMenu,
+                    onViewAll = { hub ->
+                        hub.searchScope?.let { scope ->
+                            hideKeyboard()
+                            startActivity(SearchResultsActivity.intent(requireContext(), resultQuery, scope, hub.displayTitle(requireContext())))
+                        }
+                    })
                 binding.rows.adapter = adapter
             }
         }

@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.Looper
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.view.View
+import android.view.KeyEvent
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.hesier.lumy.core.Hub
@@ -22,6 +24,7 @@ class HubRowAdapter(
     private val onFocused: (MediaItem) -> Unit,
     private val onClick: (MediaItem) -> Unit,
     private val onLongClick: (MediaItem) -> Unit,
+    private val onViewAll: ((Hub) -> Unit)? = null,
 ) : RecyclerView.Adapter<HubRowAdapter.Holder>() {
 
     // 各行共用卡片 View 池，减少滚动时的 inflate。默认每种只留 5 张，一行就有十来张，不够用
@@ -93,6 +96,14 @@ class HubRowAdapter(
         private var cards: CardAdapter? = null
 
         init {
+            b.viewAll.tag = R.id.view_all
+            b.viewAll.id = View.generateViewId()
+            b.items.addOnChildAttachStateChangeListener(object : RecyclerView.OnChildAttachStateChangeListener {
+                override fun onChildViewAttachedToWindow(view: View) {
+                    view.nextFocusUpId = if (b.viewAll.visibility == View.VISIBLE) b.viewAll.id else View.NO_ID
+                }
+                override fun onChildViewDetachedFromWindow(view: View) = Unit
+            })
             b.items.preferredPosition = {
                 val layout = b.items.layoutManager as LinearLayoutManager
                 boundId?.let { lastPositions[it] } ?: layout.findFirstCompletelyVisibleItemPosition()
@@ -101,6 +112,17 @@ class HubRowAdapter(
 
         fun bind(hub: Hub) {
             b.title.text = hub.displayTitle(b.root.context)
+            b.viewAll.visibility = if (hub.searchScope != null && onViewAll != null) View.VISIBLE else View.GONE
+            b.viewAll.contentDescription = b.root.context.getString(R.string.search_view_all_category, b.title.text)
+            b.viewAll.setOnClickListener { onViewAll?.invoke(hub) }
+            for (index in 0 until b.items.childCount) {
+                b.items.getChildAt(index).nextFocusUpId = if (b.viewAll.visibility == View.VISIBLE) b.viewAll.id else View.NO_ID
+            }
+            b.viewAll.setOnKeyListener { _, key, event ->
+                if (key != KeyEvent.KEYCODE_DPAD_DOWN) return@setOnKeyListener false
+                if (event.action == KeyEvent.ACTION_DOWN) b.items.requestFocus()
+                true
+            }
             val existing = cards
             if (existing != null && boundId == hub.id) {
                 existing.submit(hub.items)

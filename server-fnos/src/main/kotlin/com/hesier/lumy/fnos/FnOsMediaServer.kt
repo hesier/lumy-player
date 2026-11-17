@@ -15,6 +15,7 @@ import com.hesier.lumy.core.MediaVersion
 import com.hesier.lumy.core.Page
 import com.hesier.lumy.core.PlaybackRequest
 import com.hesier.lumy.core.PlaybackState
+import com.hesier.lumy.core.SearchScope
 import com.hesier.lumy.core.ServerSession
 import com.hesier.lumy.core.SortOrder
 import com.hesier.lumy.core.ResolutionFilter
@@ -165,16 +166,33 @@ class FnOsMediaServer(
             val rows = found.filter { it["ancestor_guid"]?.jsonPrimitive?.content == library.id }
             if (rows.isEmpty()) return@mapNotNull null
             val catalog = catalog(library.id)
-            val matches = rows.mapNotNull { it.fnOsMatch(catalog) }
+            val matches = searchMatches(rows, catalog, library.type)
             matches.takeIf { it.isNotEmpty() }?.let {
                 Hub(
                     "search.${library.id}", library.title, HubStyle.POSTER,
                     it.take(SEARCH_LIMIT).map { item -> item.withProgress(records) },
                     HubLabel.SearchResults(library.type, library.title),
+                    searchScope = SearchScope(library.type, library.id),
                 )
             }
         }
     }
+
+    override suspend fun searchItems(query: String, scope: SearchScope, offset: Int, limit: Int): Page<MediaItem> {
+        require(offset >= 0 && limit > 0)
+        require(scope.type == MediaType.MOVIE || scope.type == MediaType.SHOW) { "Unsupported search type: ${scope.type}" }
+        val libraryId = requireNotNull(scope.libraryId) { "fnOS search requires a library ID" }
+        if (query.isBlank()) return Page(emptyList(), offset, 0)
+        val rows = queries.search(query).filter { it["ancestor_guid"]?.jsonPrimitive?.content == libraryId }
+        val matches = searchMatches(rows, catalog(libraryId), scope.type)
+        val records = progress.resume()
+        // Native search returns the entire array; page only after compatibility mapping.
+        return Page(matches.drop(offset).take(limit).map { it.withProgress(records) }, offset, matches.size)
+    }
+
+    private fun searchMatches(rows: List<JsonObject>, catalog: List<BaseItem>, type: MediaType): List<BaseItem> =
+        rows.mapNotNull { it.fnOsMatch(catalog) }.filter { it.toItem().type == type }
+            .distinctBy { it.id }.sortedBy { it.id }
 
     override suspend fun detail(id: String): MediaDetail {
         val item = item(id)

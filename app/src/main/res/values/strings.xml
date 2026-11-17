@@ -647,4 +647,10 @@
     <string name="quality_switch_restored">Quality change failed. Restored the previous playback settings.</string>
     <string name="quality_switch_restore_failed">Could not restore playback. Please retry.</string>
 
+    <string name="search_view_all">View all</string>
+    <string name="search_view_all_category">View all %1$s</string>
+    <string name="search_results_title">%1$s · “%2$s”</string>
+    <string name="search_load_more">Load more</string>
+    <string name="search_loading_more">Loading…</string>
+    <string name="search_loaded_count">%1$d results loaded</string>
 </resources>

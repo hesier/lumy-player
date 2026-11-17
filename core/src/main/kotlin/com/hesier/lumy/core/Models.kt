@@ -61,7 +61,10 @@ data class Hub(
     val style: HubStyle,
     val items: List<MediaItem>,
     val label: HubLabel? = null,
+    val searchScope: SearchScope? = null,
 )
+
+data class SearchScope(val type: MediaType, val libraryId: String? = null)
 
 /** 客户端自己生成的行，标题由界面按当前语言显示（服务器模块不依赖 Android 资源） */
 sealed interface HubLabel {

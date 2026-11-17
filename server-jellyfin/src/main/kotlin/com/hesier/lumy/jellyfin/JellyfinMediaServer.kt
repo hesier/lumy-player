@@ -21,6 +21,7 @@ import com.hesier.lumy.core.PlaybackSource
 import com.hesier.lumy.core.PlaybackState
 import com.hesier.lumy.core.ResolutionFilter
 import com.hesier.lumy.core.ServerKind
+import com.hesier.lumy.core.SearchScope
 import com.hesier.lumy.core.ServerSession
 import com.hesier.lumy.core.SortOrder
 import com.hesier.lumy.core.WatchFilter
@@ -164,17 +165,36 @@ class JellyfinMediaServer(
         letterIndexes.get(libraryId, query)
 
     override suspend fun search(query: String): List<Hub> {
-        val found = items(
-            "SearchTerm" to query,
-            "Recursive" to "true",
-            "IncludeItemTypes" to "Movie,Series,Episode",
-            "Limit" to "60",
-        )
-        return listOf(MediaType.MOVIE to "Movies", MediaType.SHOW to "TV Shows", MediaType.EPISODE to "Episodes").mapNotNull { (type, title) ->
-            found.filter { it.type == type }.takeIf { it.isNotEmpty() }?.let {
-                Hub(id = "search.$type", title = title, style = if (type == MediaType.EPISODE) HubStyle.LANDSCAPE else HubStyle.POSTER, items = it, label = HubLabel.SearchResults(type, null))
+        if (query.isBlank()) return emptyList()
+        return listOf(MediaType.MOVIE to "Movies", MediaType.SHOW to "TV Shows", MediaType.EPISODE to "Episodes")
+            .mapNotNull { (type, title) ->
+                val scope = SearchScope(type)
+                val found = searchItems(query, scope, 0, 20).items
+                found.takeIf { it.isNotEmpty() }?.let {
+                    Hub(
+                        id = "search.$type", title = title,
+                        style = if (type == MediaType.EPISODE) HubStyle.LANDSCAPE else HubStyle.POSTER,
+                        items = it, label = HubLabel.SearchResults(type, null), searchScope = scope,
+                    )
+                }
             }
+    }
+
+    override suspend fun searchItems(query: String, scope: SearchScope, offset: Int, limit: Int): Page<MediaItem> {
+        require(offset >= 0 && limit > 0)
+        val type = when (scope.type) {
+            MediaType.MOVIE -> "Movie"
+            MediaType.SHOW -> "Series"
+            MediaType.EPISODE -> "Episode"
+            else -> throw IllegalArgumentException("Unsupported search type: ${scope.type}")
         }
+        if (query.isBlank()) return Page(emptyList(), offset, 0)
+        val result = get<ItemsResult>(userUrl("Items").addAll(
+            "SearchTerm" to query.trim(), "Recursive" to "true", "IncludeItemTypes" to type,
+            "StartIndex" to offset.toString(), "Limit" to limit.toString(),
+            "SortBy" to "SortName,DateCreated", "SortOrder" to "Ascending", "EnableTotalRecordCount" to "true",
+        ).apply { scope.libraryId?.let { addQueryParameter("ParentId", it) } }.withFields())
+        return Page(result.items.map { it.toItem() }, offset, result.totalRecordCount ?: (offset + result.items.size))
     }
 
     override suspend fun favorites(type: MediaType, offset: Int, limit: Int): Page<MediaItem> {

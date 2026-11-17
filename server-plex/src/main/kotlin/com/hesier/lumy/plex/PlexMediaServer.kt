@@ -22,7 +22,9 @@ import com.hesier.lumy.core.PlaybackMode
 import com.hesier.lumy.core.PlaybackRequest
 import com.hesier.lumy.core.PlaybackSource
 import com.hesier.lumy.core.PlaybackState
+import com.hesier.lumy.core.SearchScope
 import com.hesier.lumy.core.ServerSession
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -80,17 +82,53 @@ class PlexMediaServer(
      * 按“类型 + 所在媒体库”分行，行标题用媒体库名（动漫 / 电视剧 / 综艺…）。
      * 不用 Plex 自带的行标题：它把 Shows 翻译成了“综艺秀”，所有剧都归到这一行。
      */
-    override suspend fun search(query: String): List<Hub> =
-        get("/hubs/search", "query" to query, "limit" to "20").hubs
+    override suspend fun search(query: String): List<Hub> {
+        if (query.isBlank()) return emptyList()
+        return get("/hubs/search", "query" to query.trim(), "limit" to SEARCH_PREVIEW_LIMIT.toString()).hubs
             .filter { it.type in SEARCHABLE_TYPES }
             .flatMap { hub ->
-                hub.metadata.groupBy { it.librarySectionTitle }.map { (library, items) ->
-                    val title = searchRowTitle(hub.type, library)
-                    PlexHub(hubIdentifier = "search.${hub.type}.${library.orEmpty()}", title = title, type = hub.type, metadata = items)
-                        .toHub()?.copy(label = HubLabel.SearchResults(mediaType(hub.type), library?.takeIf { it.isNotBlank() }))
+                hub.metadata.groupBy { it.librarySectionID }.mapNotNull { (libraryId, metadata) ->
+                    val library = metadata.firstOrNull()?.librarySectionTitle
+                    val scope = SearchScope(mediaType(hub.type), libraryId?.toString())
+                    val items = metadata.map { it.toItem() }
+                    if (items.isEmpty()) return@mapNotNull null
+                    Hub(
+                        id = "search.${hub.type}.${libraryId ?: "all"}",
+                        title = searchRowTitle(hub.type, library),
+                        style = if (scope.type == MediaType.EPISODE) HubStyle.LANDSCAPE else HubStyle.POSTER,
+                        items = items, label = HubLabel.SearchResults(scope.type, library), searchScope = scope,
+                    )
                 }
+            }.distinctBy { it.id }
+    }
+
+    override suspend fun searchItems(query: String, scope: SearchScope, offset: Int, limit: Int): Page<MediaItem> {
+        require(offset >= 0 && limit > 0)
+        require(scope.type in SEARCHABLE_TYPES.map(::mediaType)) { "Unsupported search type: ${scope.type}" }
+        if (query.isBlank()) return Page(emptyList(), offset, 0)
+        val matches = completeSearch(query, scope)
+        return Page(matches.drop(offset).take(limit).map { it.toItem() }, offset, matches.size)
+    }
+
+    private suspend fun completeSearch(query: String, scope: SearchScope): List<PlexMetadata> {
+        var requested = SEARCH_PREVIEW_LIMIT
+        var previous: List<String>? = null
+        while (true) {
+            val hubs = get("/hubs/search", "query" to query.trim(), "limit" to requested.toString())
+                .hubs.filter { mediaType(it.type) == scope.type }
+            val rows = hubs.flatMap { it.metadata }.distinctBy { it.ratingKey }
+            val ids = rows.map { it.ratingKey }
+            previous?.let { check(ids.take(it.size) == it) { "Plex search changed while expanding; retry" } }
+            // A short response may reflect a server cap; only an explicit end marker proves completeness.
+            if (hubs.all { it.more?.jsonPrimitive?.content in setOf("0", "false") }) {
+                return rows.filter { scope.libraryId == null || it.librarySectionID?.toString() == scope.libraryId }
             }
-            .filterNotNull()
+            check(ids != previous) { "Plex search stopped expanding before confirming all results" }
+            check(requested < SEARCH_COMPLETE_LIMIT) { "Plex search exceeded its complete-result limit" }
+            previous = ids
+            requested *= 2
+        }
+    }
 
     override suspend fun setWatched(id: String, watched: Boolean) {
         val b = url(if (watched) "/:/scrobble" else "/:/unscrobble")
@@ -273,6 +311,9 @@ class PlexMediaServer(
 
 private fun PlexHub.isContinueHub(): Boolean =
     listOf("continue", "ondeck", "inprogress").any { hubIdentifier.contains(it, ignoreCase = true) }
+
+private const val SEARCH_PREVIEW_LIMIT = 20
+private const val SEARCH_COMPLETE_LIMIT = 10_240
 
 private val SEARCHABLE_TYPES = setOf("movie", "show", "season", "episode")
 

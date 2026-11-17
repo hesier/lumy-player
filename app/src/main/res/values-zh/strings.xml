@@ -631,4 +631,10 @@
     <string name="quality_switch_restored">切换画质失败，已恢复原播放设置。</string>
     <string name="quality_switch_restore_failed">未能恢复播放，请重试。</string>
 
+    <string name="search_view_all">查看全部</string>
+    <string name="search_view_all_category">查看全部%1$s</string>
+    <string name="search_results_title">%1$s · “%2$s”</string>
+    <string name="search_load_more">加载更多</string>
+    <string name="search_loading_more">加载中…</string>
+    <string name="search_loaded_count">已加载 %1$d 个结果</string>
 </resources>
