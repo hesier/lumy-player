@@ -125,7 +125,7 @@ internal class PlayerEpisodeController(
         val adapter = episodesAdapter ?: CardAdapter(
             server, HubStyle.LANDSCAPE,
             onFocused = {},
-            onClick = { ep -> if (ep.id != item.id) onSwitch(ep, ep.viewOffsetMs?.takeIf { it > 30_000 } ?: 0) },
+            onClick = { ep -> if (ep.id != item.id) onSwitch(ep, PlayerActivity.RESUME_LATEST) },
         ).also { episodesAdapter = it }
         if (binding.episodes.adapter !== adapter) {
             binding.episodes.layoutManager = StartAlignedLayoutManager(activity, RecyclerView.HORIZONTAL)

@@ -34,6 +34,7 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
   - Remembers audio and subtitle choices, reports progress to the server
   - Failed quality changes attempt to restore the previous quality, position, pause state, speed and tracks once
   - More → Sleep timer: 15/30/60/90 minutes or stop after the current video; timed deadlines survive episode changes and do not turn off the TV
+  - Manual episode selection and playlist continuation read fresh server progress; completed entries start over, while automatic series playback starts the next episode from the beginning
 - **Diagnostics**: Settings → About → Export playback diagnostics provides a temporary LAN QR code to download a JSON report with device capabilities and recent playback events. Available in release builds; excludes credentials, media titles, file paths and playback URLs. Send the downloaded report with the steps to reproduce a problem.
 - **Danmaku**: DandanPlay (requires a configured proxy), custom compatible APIs and Jellyfin / Emby plugins, with automatic / manual matching, remembered choices, offline cache reuse and display settings. Off by default; see [playback guidance](docs/playback.md)
 - **TV home screen**: Continue Watching and next-episode cards on compatible Android TV launchers, with account-aware resume, media version and playlist context. Settings › Interface provides a switch, refresh and clear actions. These controls are hidden when the system Watch Next provider is unavailable.

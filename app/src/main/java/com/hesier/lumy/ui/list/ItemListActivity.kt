@@ -116,7 +116,7 @@ class ItemListActivity : ThemedActivity() {
             finish()
         } else if (isPlaylist && item.playable) {
             // 播放列表里点一项就从它开始在列表里播放（接着上次的进度）；菜单键 / 长按里可以进详情
-            startActivity(PlayerActivity.intent(this, item.id, 0, item.viewOffsetMs ?: 0, playlistId = itemId))
+            startActivity(PlayerActivity.intent(this, item.id, 0, PlayerActivity.RESUME_LATEST, playlistId = itemId))
         } else {
             Navigator.open(this, item)
         }

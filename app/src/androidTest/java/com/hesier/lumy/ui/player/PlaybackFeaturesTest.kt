@@ -19,13 +19,15 @@ internal class PlaybackFeaturesTest(private val instrumentation: Instrumentation
     private val fixture = FeaturePlaybackFixture(instrumentation)
 
     fun runAll(): String {
+        checkResumeBoundaries()
         checkTimerDeadline()
         checkEarlyExit()
         try {
             fixture.open()
             checkQualityRecovery()
+            checkLatestResume()
             checkTimerAcrossEpisodes()
-            return "Quality recovery and sleep timer checks passed"
+            return "Quality failure/restoration, paused speed/position, bounded failure, latest resume, timer deadline, D-pad timer and stop reporting passed"
         } finally { fixture.close() }
     }
 
@@ -76,6 +78,39 @@ internal class PlaybackFeaturesTest(private val instrumentation: Instrumentation
         await("original quality ready") { selection.quality == Quality.Original && player.playbackState == Player.STATE_READY }
     }
 
+    private fun checkLatestResume() = with(fixture) {
+        main {
+            latestProgress = 60_000
+            hold = true
+            invoke("switchTo", MediaItem("second", MediaType.EPISODE, "second"), PlayerActivity.RESUME_LATEST)
+        }
+        await("manual selection reads fresh detail") { requests.last().item.id == "second" }
+        check(requests.last().startMs == 60_000L)
+        main {
+            latestProgress = 0
+            invoke("switchTo", MediaItem("first", MediaType.EPISODE, "first"), 0L)
+            release()
+        }
+        await("first reloaded") { requests.last().item.id == "first" && player.playbackState == Player.STATE_READY }
+        await("next available") { (activity.readPlaybackField("episodes") as PlayerEpisodeController).nextEpisode != null }
+        main {
+            player.pause()
+            latestProgress = 65_000
+            hold = true
+            activity.intent.putExtra("playlist", "playlist")
+            invoke("playNext")
+        }
+        await("playlist next reads fresh detail") { requests.last().item.id == "second" }
+        check(requests.last().startMs == 65_000L)
+        main {
+            latestProgress = 0
+            activity.intent.removeExtra("playlist")
+            invoke("switchTo", MediaItem("first", MediaType.EPISODE, "first"), 0L)
+            release()
+        }
+        await("first restored for timer") { requests.last().item.id == "first" && player.playbackState == Player.STATE_READY }
+    }
+
     private fun checkTimerAcrossEpisodes() = with(fixture) {
         main { player.pause() }
         instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_MENU)
@@ -95,6 +130,15 @@ internal class PlaybackFeaturesTest(private val instrumentation: Instrumentation
         await("end-of-video timer exits playback") { activity.isDestroyed }
         await("stopped progress recorded") { reports.any { it.first.item.id == "second" && it.second == PlaybackState.STOPPED } }
         check(stopped.contains(requests.last().sessionId))
+    }
+
+    private fun checkResumeBoundaries() {
+        val item = MediaItem("r", MediaType.EPISODE, "r", durationMs = 600_000, viewOffsetMs = 60_000)
+        check(PlaybackResume.position(item) == 60_000L)
+        check(PlaybackResume.position(item.copy(watched = true)) == 0L)
+        check(PlaybackResume.position(item.copy(viewOffsetMs = 30_000)) == 0L)
+        check(PlaybackResume.position(item.copy(viewOffsetMs = 540_000)) == 0L)
+        check(PlaybackResume.position(item.copy(durationMs = 80_000)) == 0L)
     }
 
     private fun checkTimerDeadline() {

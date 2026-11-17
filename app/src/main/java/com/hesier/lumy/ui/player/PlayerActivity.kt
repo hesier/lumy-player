@@ -232,7 +232,9 @@ class PlayerActivity : ThemedActivity() {
             doviHevcFallback = intent.getBooleanExtra(EXTRA_DOVI_HEVC, false)
             intent.removeExtra(EXTRA_DOVI_HEVC)
             setupControls()
-            start(intent.getLongExtra(EXTRA_START, 0), startupAttempt = startupAttempt)
+            val requestedStart = intent.getLongExtra(EXTRA_START, 0)
+            val startMs = if (requestedStart == RESUME_LATEST) PlaybackResume.position(item) else requestedStart.coerceAtLeast(0)
+            start(startMs, startupAttempt = startupAttempt)
             if (progressJob == null) startProgressReporting()
             episodes.bind(server, detail, intent.getStringExtra(EXTRA_PLAYLIST))
             overlays.bind(server, detail)
@@ -261,7 +263,7 @@ class PlayerActivity : ThemedActivity() {
         }
         val next = episodes.nextEpisode ?: return finish()
         DebugLog.i(TAG, "play next ${next.id} from ${positionMs}")
-        switchTo(next, 0L)
+        switchTo(next, if (intent.getStringExtra(EXTRA_PLAYLIST) != null) RESUME_LATEST else 0L)
     }
 
     /** 在同一个播放器里换成另一集（下一集 / 从剧集行选的） */
@@ -895,6 +897,7 @@ class PlayerActivity : ThemedActivity() {
     }
 
     companion object {
+        const val RESUME_LATEST = -1L
         const val RESULT_ITEM_ID = "played_item_id"
         private const val EXTRA_ID = "id"
         private const val EXTRA_VERSION = "version"
