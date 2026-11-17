@@ -386,6 +386,7 @@ class SettingsActivity : ThemedActivity() {
                 }.takeIf { settings.useUpdateMirror },
             ) + listOf(
                 Row(getString(R.string.backup_title), "", getString(R.string.backup_create_detail)) { backup.show() },
+                Row(getString(R.string.diagnostics_export), "", getString(R.string.diagnostics_detail)) { com.hesier.lumy.ui.diagnostics.DiagnosticTransferPanel(this).show() },
                 Row(getString(R.string.device_info), "", getString(R.string.device_info_detail)) { showDeviceInfo() },
             ),
         )

@@ -36,6 +36,10 @@ import com.hesier.lumy.core.PlaybackRequest
 import com.hesier.lumy.core.PlaybackState
 import com.hesier.lumy.core.ServerKind
 import com.hesier.lumy.LumyApp
+import com.hesier.lumy.util.diagnostics.PlaybackDiagnostics
+import com.hesier.lumy.net.DiagnosticJournal.Event
+import com.hesier.lumy.net.DiagnosticJournal.Metric
+import com.hesier.lumy.net.DiagnosticJournal.Label
 import com.hesier.lumy.R
 import com.hesier.lumy.BuildConfig
 import com.hesier.lumy.tv.WatchNextManager
@@ -284,6 +288,8 @@ class PlayerActivity : ThemedActivity() {
         request?.let { stopSession(it) }
         startupTiming?.mark(timingAttempt, Stage.PLAN_BEGIN)
         val p = selection.createPlan()
+        PlaybackDiagnostics.plan(selection.version, selection.audio, p)
+        PlaybackDiagnostics.record(Event.STATE, mapOf(Metric.POSITION_MS to positionMs))
         startupTiming?.mark(timingAttempt, Stage.PLAN_END)
         DebugLog.i(TAG, "plan ${item.title} id=${item.id} [${selection.version.summary}] dovi=${selection.version.video?.doviProfile} audio=${selection.audio?.codec} sub=${selection.subtitle?.codec} -> ${p.mode} reasons=${p.reasons} subUnavailable=${p.subtitleUnavailable}")
         val req = PlaybackRequest(item, selection.version, p.mode, positionMs, UUID.randomUUID().toString(), selection.audio?.id, selection.subtitle?.id)
@@ -407,6 +413,7 @@ class PlayerActivity : ThemedActivity() {
 
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(state: Int) {
+            PlaybackDiagnostics.record(Event.STATE, mapOf(Metric.STATE to state.toLong(), Metric.POSITION_MS to positionMs))
             DebugLog.i(TAG, "state=$state pos=${player.currentPosition}")
             binding.buffering.visibility = if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
             if (state == Player.STATE_READY || state == Player.STATE_IDLE) pendingSeekMs = null
@@ -421,6 +428,7 @@ class PlayerActivity : ThemedActivity() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            PlaybackDiagnostics.record(Event.STATE, mapOf(Metric.IS_PLAYING to if (isPlaying) 1L else 0L))
             menus.onPlayingChanged(isPlaying)
             if (player.playbackState == Player.STATE_READY) report(if (isPlaying) PlaybackState.PLAYING else PlaybackState.PAUSED)
             if (isPlaying) controls.scheduleHide() else holdSpeedGesture.cancel()
@@ -457,6 +465,7 @@ class PlayerActivity : ThemedActivity() {
             // A wedged codec may report release errors after the compatibility page has opened.
             if (isFinishing || isDestroyed) return
             val current = positionMs
+            PlaybackDiagnostics.record(Event.ERROR, mapOf(Metric.ERROR_CODE to error.errorCode.toLong(), Metric.POSITION_MS to current))
             DebugLog.i(TAG, "error ${error.errorCodeName} at $current mode=${selection.plan?.mode} retries=$networkRetries: ${error.cause?.message}")
             val failedFormat = (error as? ExoPlaybackException)?.rendererFormat ?: player.videoFormat
             if (selection.plan?.mode is PlaybackMode.Direct && !codecs.hevcOnly &&
@@ -470,6 +479,7 @@ class PlayerActivity : ThemedActivity() {
                 SoftwareVideoPolicy.supports(failedFormat) && error.isVideoDecodeError() &&
                 info.videoDecoder?.startsWith("LumyFFmpeg") != true
             ) {
+                PlaybackDiagnostics.record(Event.FALLBACK, labels = mapOf(Label.FALLBACK to "software"))
                 codecs.softwareVideoMime = failedFormat.sampleMimeType
                 DebugLog.i(TAG, "retry software video ${failedFormat.sampleMimeType} at $current")
                 start(current)
@@ -478,6 +488,7 @@ class PlayerActivity : ThemedActivity() {
             val network = error.isNetworkError()
             if (network && networkRetries < MAX_NETWORK_RETRIES) {
                 // 断网、地址变化、转码会话失效：重连后从当前位置重新起播，不改用转码
+                PlaybackDiagnostics.record(Event.FALLBACK, labels = mapOf(Label.FALLBACK to "network"))
                 networkRetries++
                 reconnectAndStart(current)
             } else if (network && error.errorCode != PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
@@ -486,6 +497,7 @@ class PlayerActivity : ThemedActivity() {
             } else if (selection.plan?.mode is PlaybackMode.Direct && !selection.fellBack && selection.policy.allowTranscode) {
                 // 硬解失败、格式识别错误等：自动改用服务器转码，从当前位置继续。
                 // 视频解码失败要重新编码；封装、解析等问题只换封装，服务器几乎没有负担
+                PlaybackDiagnostics.record(Event.FALLBACK, labels = mapOf(Label.FALLBACK to "transcode"))
                 selection.fellBack = true
                 selection.videoDecodeFailed = error.isVideoDecodeError()
                 selection.fallbackReason = if (selection.videoDecodeFailed) PlaybackIssue.VideoDecodeFailed else PlaybackIssue.DirectPlayFailed
@@ -504,18 +516,26 @@ class PlayerActivity : ThemedActivity() {
     private val analyticsListener = object : AnalyticsListener {
         override fun onVideoDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
             DebugLog.i(TAG, "video decoder $decoderName init ${initializationDurationMs}ms")
+            PlaybackDiagnostics.record(Event.VIDEO_DECODER, labels = mapOf(Label.DECODER to decoderName))
             info.videoDecoder = decoderName
             firstFrameRendered = false
         }
 
         // 解码器初始化事件早于 player.videoFormat 更新，格式要从这里拿
         override fun onVideoInputFormatChanged(eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?) {
+            PlaybackDiagnostics.format(format, video = true)
             if (format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION && !codecs.hevcOnly && !firstFrameRendered) watchDolbyVision(format.codecs)
         }
 
         override fun onAudioDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String, initializedTimestampMs: Long, initializationDurationMs: Long) {
             DebugLog.i(TAG, "audio decoder $decoderName")
+            PlaybackDiagnostics.record(Event.AUDIO_DECODER, labels = mapOf(Label.DECODER to decoderName))
+            player.audioFormat?.let { PlaybackDiagnostics.format(it, video = false) }
             info.audioDecoder = decoderName
+        }
+
+        override fun onAudioInputFormatChanged(eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?) {
+            PlaybackDiagnostics.format(format, video = false)
         }
 
         override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, config: AudioSink.AudioTrackConfig) {
@@ -561,6 +581,7 @@ class PlayerActivity : ThemedActivity() {
         DebugLog.i(TAG, "retry Dolby Vision profile=$profile with HEVC compatibility decoding")
         profile?.let { settings.brokenDolbyVisionProfiles = settings.brokenDolbyVisionProfiles + it }
         if (profile == null) {
+            PlaybackDiagnostics.record(Event.FALLBACK, labels = mapOf(Label.FALLBACK to "hevc"))
             doviHevcFallback = true
             start(positionMs)
             return
@@ -774,6 +795,11 @@ class PlayerActivity : ThemedActivity() {
         if (::danmakuProbe.isInitialized) danmakuProbe.release()
         if (::episodes.isInitialized) episodes.reset()
         if (::overlays.isInitialized) overlays.reset()
+        val metrics = if (selection.ready && ::detail.isInitialized) mapOf(
+            Metric.POSITION_MS to positionMs, Metric.DURATION_MS to durationMs,
+            Metric.DROPPED_FRAMES to info.droppedFrames.toLong(),
+        ) else emptyMap()
+        PlaybackDiagnostics.record(Event.STOP, metrics)
         player.release()
         tracks.release()
         controls.release()

@@ -8,6 +8,7 @@ import androidx.media3.decoder.ffmpeg.TrueHdDecoderTest
 
 /** Runs playback parser and decoder checks using the platform instrumentation APIs. */
 class PgsInstrumentation : Instrumentation() {
+    private var featureCheck: String? = null
     private var performanceCheck: String? = null
     private var startupHttpItem: String? = null
     private var danmakuCacheOnly = false
@@ -49,6 +50,7 @@ class PgsInstrumentation : Instrumentation() {
 
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        featureCheck = arguments?.getString("feature")
         startupHttpItem = arguments?.getString("startup_http_item")
         performanceCheck = listOf("settings_frame_probe", "settings_layout_probe", "settings_row_measure_probe",
             "settings_navigation_only", "danmaku_oversize_only", "playback_startup_timing_only", "startup_http_timing_only", "buffered_http_only",
@@ -96,6 +98,16 @@ class PgsInstrumentation : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            featureCheck?.let { feature ->
+                waitForIdleSync()
+                val message = when (feature) {
+                    "diagnostics" -> com.hesier.lumy.ui.diagnostics.DiagnosticExportTest(this).runAll()
+                    else -> error("Unknown feature check: $feature")
+                }
+                result.putString("stream", "$message\n")
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             startupHttpItem?.let { item ->
                 result.putString("stream", StartupHttpProbe(this).run(item) + "\n")
                 finish(Activity.RESULT_OK, result)

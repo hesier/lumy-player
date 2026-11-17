@@ -66,6 +66,21 @@ class BackupTransferServerTest {
         return Response(headers.toString(), body)
     }
 
+    @Test fun `diagnostics use explicit safe filename`() {
+        BackupTransferServer(InetAddress.getByName("127.0.0.1"), "page", payload,
+            downloadFilename = "Lumy-diagnostics.json").use { s ->
+            val response = request(s, method = "GET")
+            assertEquals(200, response.status)
+            assertTrue(response.headers.contains("filename=\"Lumy-diagnostics.json\""))
+            assertFalse(response.headers.contains(".lumy"))
+            assertArrayEquals(payload, response.body)
+        }
+        assertTrue(runCatching {
+            BackupTransferServer(InetAddress.getByName("127.0.0.1"), "page", payload,
+                downloadFilename = "bad\r\nInjected: header")
+        }.isFailure)
+    }
+
     @Test fun `page is public and does not expose token`() = server().use { s ->
         val response = request(s, method = "GET", path = "/", headers = mapOf("X-Lumy-Token" to null))
         assertEquals(200, response.status)

@@ -21,6 +21,7 @@ class BackupTransferServer(
     private val download: ByteArray? = null,
     private val onUploaded: (ByteArray) -> Unit = {},
     lifetimeMillis: Long = 300_000,
+    downloadFilename: String? = null,
 ) : Closeable {
     companion object {
         const val MAX_BYTES = 2 * 1024 * 1024
@@ -28,7 +29,9 @@ class BackupTransferServer(
         private const val REQUEST_MILLIS = 5000L
     }
 
-    private val downloadName = "Lumy-backup-${SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(Date())}.lumy"
+    private val downloadName = downloadFilename?.also {
+        require(Regex("[A-Za-z0-9_.-]{1,100}").matches(it)) { "Invalid download filename" }
+    } ?: "Lumy-backup-${SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.ROOT).format(Date())}.lumy"
     private val token = ByteArray(24).also { SecureRandom().nextBytes(it) }
         .joinToString("") { "%02x".format(it.toInt() and 255) }
     private val lifetime = lifetimeMillis.also { require(it >= 0) { "Invalid transfer lifetime" } }

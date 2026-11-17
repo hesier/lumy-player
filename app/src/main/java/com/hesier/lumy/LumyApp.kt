@@ -98,6 +98,7 @@ class LumyApp : Application(), ImageLoaderFactory {
         super.onCreate()
         instance = this
         DebugLog.init(this)
+        com.hesier.lumy.util.diagnostics.PlaybackDiagnostics.init(this)
         BackupStore(this).recoverPendingRestore()
         store = SessionStore(this)
         settings = Settings(this)

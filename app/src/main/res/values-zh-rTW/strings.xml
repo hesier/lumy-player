@@ -624,4 +624,8 @@
     <string name="plex_home_auto_sign_in">自動登入</string>
     <string name="plex_home_auto_sign_in_detail">啟動時略過成員選擇和 PIN 驗證。關閉後清空並暫停 Plex 桌面卡片。</string>
 
+    <string name="diagnostics_export">匯出播放診斷</string>
+    <string name="diagnostics_detail">使用同一區域網路的手機下載近期播放診斷。包含裝置、解碼器、播放方案和錯誤碼，不含影片標題、檔案路徑、伺服器位址和帳號憑證。不會自動上傳。</string>
+
+
 </resources>

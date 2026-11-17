@@ -640,4 +640,8 @@
     <string name="plex_home_auto_sign_in">Automatic sign-in</string>
     <string name="plex_home_auto_sign_in_detail">Skip member selection and PIN at startup. Turning this off clears and pauses Plex home screen cards.</string>
 
+    <string name="diagnostics_export">Export playback diagnostics</string>
+    <string name="diagnostics_detail">Download recent playback diagnostics to a phone on the same network. Includes device, codecs, playback plans and error codes; excludes media titles, file paths, server addresses and account credentials. Nothing is uploaded automatically.</string>
+
+
 </resources>

@@ -45,6 +45,7 @@ android {
         applicationId = "com.hesier.lumy"
         minSdk = 21
         targetSdk = 35
+        testInstrumentationRunner = "com.hesier.lumy.ui.player.PgsInstrumentation"
         versionCode = 17
         versionName = "0.6.5"
         // Only relay configuration enters the APK; upstream secrets stay on the server.

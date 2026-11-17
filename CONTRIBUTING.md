@@ -11,6 +11,8 @@ Please include:
 - Steps to reproduce, and what you expected instead
 - For playback issues: the media info (container, video / audio / subtitle codecs) and a log:
 
+  On a release or debug build, use Settings → About → Export playback diagnostics and scan the temporary QR code with a phone on the same LAN. Attach the downloaded JSON report together with reproduction steps. It includes device capabilities and bounded playback events, without credentials, titles, paths or playback URLs. A debug log is also available through ADB:
+
   ```bash
   adb logcat -s LumyPlayer LumyHome
   ```
