@@ -77,7 +77,7 @@ abstract class ThemedActivity : FragmentActivity() {
         window.decorView.playSoundEffect(SoundEffectConstants.getContantForFocusDirection(direction))
     }
 
-    private fun focusDirection(keyCode: Int): Int? = when (keyCode) {
+    protected fun focusDirection(keyCode: Int): Int? = when (keyCode) {
         KeyEvent.KEYCODE_DPAD_UP -> View.FOCUS_UP
         KeyEvent.KEYCODE_DPAD_DOWN -> View.FOCUS_DOWN
         KeyEvent.KEYCODE_DPAD_LEFT -> View.FOCUS_LEFT

@@ -21,7 +21,7 @@ A remote-friendly media client for Android TV, Android boxes and projectors, wit
   - HTTPS servers with Let's Encrypt certificates also work on Android 5.0–7.0, whose built-in trust store is too old (see [TLS compatibility](docs/tls-compatibility.md))
   - Add multiple servers (even the same server more than once), switch between them at the top of the sidebar, and rename or remove them in Settings
 - **Browsing**: home hubs (Continue Watching, Recently Added, …), library grids with filters, sorting and an A–Z index, search, collections, playlists, cast filmographies and "More Like This"
-  - Search rows offer View all with paged results, retry and return focus restoration. Plex expands its search until the server confirms completeness; unsupported or capped responses show an error instead of incomplete results.
+  - Up and Down restore the last selected card in each search row. Press Right on a row's last preview card to reach View all, which supports pagination, retry, and focus restoration on return. Plex expands its search until the server confirms completeness; unsupported or capped responses show an error instead of incomplete results.
 - **Details**: movies, shows, seasons and episodes, version selection, mark as watched / unwatched
 - **Favorites**: server-synced movie, show and episode favorites for Jellyfin, Emby and fnOS Media, with a dedicated sidebar page
 - **Playback** (Media3 / ExoPlayer)

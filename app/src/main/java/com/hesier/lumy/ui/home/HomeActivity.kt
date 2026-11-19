@@ -389,12 +389,20 @@ class HomeActivity : ThemedActivity(), HomeHost {
     private var lastBackAt = 0L
     private var exitToast: Toast? = null
 
+    private fun handleSearchResultKey(event: KeyEvent): Boolean {
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+        val direction = focusDirection(event.keyCode) ?: return false
+        val focused = currentFocus ?: return false
+        val search = supportFragmentManager.findFragmentById(R.id.content) as? SearchFragment ?: return false
+        return search.moveResultFocus(focused, direction) { playFocusSound(direction) }
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (!::binding.isInitialized) return super.dispatchKeyEvent(event)
         // 长按限速只用于内容区（卡片要布局、加载图片）；侧边栏项目少，保持系统速度
         val inSidebar = currentFocus?.isInside(binding.sidebar) == true
         if (!inSidebar && keyThrottle.shouldDrop(event)) return true
-        if (handleVerticalKey(event)) return true
+        if ((!inSidebar && handleSearchResultKey(event)) || handleVerticalKey(event)) return true
         // 侧边栏按右：回到进入侧边栏之前的那张卡片，而不是按几何位置找最近的。
         // 恢复不了（卡片已被替换、触摸模式等）就交给系统默认导航，绝不吞掉按键
         if (event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && sidebarExpanded) {

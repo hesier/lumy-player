@@ -51,6 +51,7 @@ class SearchResultsNavigationTest(private val instrumentation: Instrumentation) 
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)) as HomeActivity
             main { home.supportFragmentManager.beginTransaction().replace(R.id.content, SearchFragment()).commitNow() }
             checkStaleSearch()
+            checkPreviewNavigation()
             checkPagesAndReturn()
         } finally {
             main {
@@ -63,7 +64,7 @@ class SearchResultsNavigationTest(private val instrumentation: Instrumentation) 
                 app.settings.watchNextEnabled = oldWatch
             }
         }
-        return "Search preview 20 / full 135, page retry, stale responses, D-pad boundaries and detail/preview return focus passed"
+        return "Search preview row focus memory, sidebar return, View all, full 135, page retry, stale responses and return focus passed"
     }
 
     private fun checkStaleSearch() {
@@ -82,15 +83,42 @@ class SearchResultsNavigationTest(private val instrumentation: Instrumentation) 
         key(KeyEvent.KEYCODE_BACK)
     }
 
-    private fun checkPagesAndReturn() {
-        val rows = main { home.findViewById<RecyclerView>(R.id.rows) }
-        val preview = main { rows.findViewHolderForAdapterPosition(0)!!.itemView.findViewById<RecyclerView>(R.id.items) }
-        main {
-            check(20 == preview.adapter?.itemCount)
-            preview.findViewHolderForAdapterPosition(0)!!.itemView.requestFocus()
-        }
+    private fun checkPreviewNavigation() {
+        val query = main { home.findViewById<EditText>(R.id.query) }
+        main { check(query.hasFocus()) }
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_DOWN, 0, 0)
+        key(KeyEvent.KEYCODE_DPAD_LEFT)
+        await("sidebar focus from preview") { home.findViewById<View>(R.id.sidebar).hasFocus() }
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_RIGHT, 0, 0)
+        repeat(2) { key(KeyEvent.KEYCODE_DPAD_RIGHT) }
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_DOWN, 1, 0)
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_RIGHT, 1, 1)
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_DOWN, 2, 0)
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_DOWN, 3, 0)
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_DOWN, 3, 0)
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_UP, 2, 0)
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_UP, 1, 1)
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_UP, 0, 2)
         key(KeyEvent.KEYCODE_DPAD_UP)
-        val all = main { rows.findViewHolderForAdapterPosition(0)!!.itemView.findViewWithTag<View>(R.id.view_all) }
+        main { check(query.hasFocus()) }
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_DOWN, 0, 2)
+    }
+
+    private fun moveToPreviewCard(keyCode: Int, row: Int, card: Int) {
+        key(keyCode)
+        await("${KeyEvent.keyCodeToString(keyCode)} to preview row $row card $card") {
+            previewGrid(row)?.findViewHolderForAdapterPosition(card)?.itemView?.hasFocus() == true
+        }
+    }
+
+    private fun previewGrid(row: Int): RecyclerView? = home.findViewById<RecyclerView>(R.id.rows)
+        .findViewHolderForAdapterPosition(row)?.itemView?.findViewById(R.id.items)
+
+    private fun checkPagesAndReturn() {
+        val preview = main { checkNotNull(previewGrid(0)).also { check(20 == it.adapter?.itemCount) } }
+        focus(preview, 19)
+        key(KeyEvent.KEYCODE_DPAD_RIGHT)
+        val all = main { (preview.parent as View).findViewWithTag<View>(R.id.view_all) }
         main { check(all.hasFocus()) { "View all cannot be reached from preview" } }
         val monitor = instrumentation.addMonitor(SearchResultsActivity::class.java.name, null, false)
         key(KeyEvent.KEYCODE_DPAD_CENTER)
@@ -117,8 +145,10 @@ class SearchResultsNavigationTest(private val instrumentation: Instrumentation) 
             check("new" == home.findViewById<EditText>(R.id.query).text.toString())
             check(20 == preview.adapter?.itemCount)
         }
-        key(KeyEvent.KEYCODE_DPAD_DOWN)
-        main { check(preview.findViewHolderForAdapterPosition(0)!!.itemView.hasFocus()) }
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_LEFT, 0, 19)
+        key(KeyEvent.KEYCODE_DPAD_RIGHT)
+        main { check(all.hasFocus()) }
+        moveToPreviewCard(KeyEvent.KEYCODE_DPAD_DOWN, 0, 19)
     }
 
     private fun loadRemainingPages(grid: RecyclerView, more: TextView) {
@@ -164,7 +194,12 @@ class SearchResultsNavigationTest(private val instrumentation: Instrumentation) 
                 "homeHubs", "libraries", "playlists", "collections", "similar", "children" -> emptyList<Any>()
                 "search" -> {
                     val query = args!![0] as String
-                    val hubs = listOf(Hub("search", "Movies", HubStyle.POSTER, (0 until 20).map { item(it, query) }, searchScope = scope))
+                    val hubs = listOf(
+                        Hub("movies", "Movies", HubStyle.POSTER, (0 until 20).map { item(it, query) }, searchScope = scope),
+                        previewHub(MediaType.SHOW, HubStyle.POSTER, query),
+                        previewHub(MediaType.EPISODE, HubStyle.LANDSCAPE, query),
+                        previewHub(MediaType.SEASON, HubStyle.POSTER, query),
+                    )
                     if (query == "old") {
                         oldRequested = true
                         @Suppress("UNCHECKED_CAST")
@@ -197,11 +232,14 @@ class SearchResultsNavigationTest(private val instrumentation: Instrumentation) 
 
     private fun item(index: Int, query: String = "new") = MediaItem("card-$index", MediaType.MOVIE, "$query $index")
 
-    private fun previewTitle(): String? {
-        val row = home.findViewById<RecyclerView>(R.id.rows).findViewHolderForAdapterPosition(0)?.itemView ?: return null
-        return row.findViewById<RecyclerView>(R.id.items).findViewHolderForAdapterPosition(0)?.itemView
-            ?.findViewById<TextView>(R.id.title)?.text?.toString()
-    }
+    private fun previewHub(type: MediaType, style: HubStyle, query: String): Hub = Hub(
+        type.name, type.name, style,
+        (0 until 4).map { index -> MediaItem("${type.name}-$index", type, "$query $index") },
+        searchScope = SearchScope(type),
+    )
+
+    private fun previewTitle(): String? = previewGrid(0)?.findViewHolderForAdapterPosition(0)?.itemView
+        ?.findViewById<TextView>(R.id.title)?.text?.toString()
 
     private fun focus(grid: RecyclerView, position: Int) {
         main { grid.scrollToPosition(position) }

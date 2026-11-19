@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import androidx.core.view.doOnNextLayout
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
@@ -48,7 +49,10 @@ class SearchFragment : Fragment(), ItemChangeListener {
         binding.rows.layoutManager = StartAlignedLayoutManager(requireContext(), RecyclerView.VERTICAL)
         binding.query.enableDpadNavigation { direction ->
             when (direction) {
-                View.FOCUS_DOWN -> binding.rows.takeIf { (it.adapter?.itemCount ?: 0) > 0 }
+                View.FOCUS_DOWN -> {
+                    focusResultRow(0, direction)
+                    null
+                }
                 View.FOCUS_LEFT -> binding.query.focusSearch(direction)
                 else -> null
             }
@@ -66,7 +70,7 @@ class SearchFragment : Fragment(), ItemChangeListener {
                 hideKeyboard()
                 // 搜完把焦点移到结果上，遥控器可以直接选
                 val rows = binding.rows
-                rows.post { rows.requestFocus() }
+                rows.post { if (_binding?.rows === rows) focusResultRow(0, View.FOCUS_DOWN) }
             }
             submit
         }
@@ -86,6 +90,48 @@ class SearchFragment : Fragment(), ItemChangeListener {
     }
 
     override fun onItemChanged(item: MediaItem) = schedule(binding.query.text.toString(), 0)
+
+    internal fun moveResultFocus(focused: View, direction: Int, onMoved: () -> Unit): Boolean {
+        val current = _binding ?: return false
+        val row = current.rows.findContainingViewHolder(focused) as? HubRowAdapter.Holder ?: return false
+        val position = row.bindingAdapterPosition
+        if (position == RecyclerView.NO_POSITION) return false
+        val onViewAll = row.isViewAllFocused()
+        val moved = when (direction) {
+            View.FOCUS_UP -> if (position == 0) current.query.requestFocus(direction) else {
+                focusResultRow(position - 1, direction, onMoved)
+                return true
+            }
+            View.FOCUS_DOWN -> if (onViewAll) row.focusCards(direction) else {
+                focusResultRow(position + 1, direction, onMoved)
+                return true
+            }
+            View.FOCUS_LEFT -> if (onViewAll) row.focusCards(direction) else return false
+            View.FOCUS_RIGHT -> if (onViewAll) return true else row.focusViewAllAfterLastCard(focused)
+            else -> return false
+        }
+        if (moved) onMoved()
+        return moved
+    }
+
+    private fun focusResultRow(position: Int, direction: Int, onMoved: () -> Unit = {}) {
+        val rows = _binding?.rows ?: return
+        val currentAdapter = rows.adapter ?: return
+        if (position !in 0 until currentAdapter.itemCount) return
+        val before = activity?.currentFocus
+        fun focus() {
+            val row = rows.findViewHolderForAdapterPosition(position) as? HubRowAdapter.Holder ?: return
+            if (row.focusCards(direction) && activity?.currentFocus !== before) onMoved()
+        }
+        if (rows.findViewHolderForAdapterPosition(position) != null) {
+            focus()
+        } else {
+            rows.scrollToPosition(position)
+            rows.doOnNextLayout {
+                if (_binding?.rows === rows && rows.adapter === currentAdapter && activity?.currentFocus === before) focus()
+            }
+        }
+    }
 
     private fun schedule(query: String, delayMs: Long) {
         searchJob?.cancel()
