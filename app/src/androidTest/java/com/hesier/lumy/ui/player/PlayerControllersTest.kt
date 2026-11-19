@@ -71,6 +71,13 @@ internal class PlayerControllersTest(
         switchTo(first)
         await("next episode loaded") { episodes.nextEpisode?.id == second.id }
         key(KeyEvent.KEYCODE_DPAD_DOWN)
+        await("episode hint rendered") { binding.rowHint.isShown && binding.controls.alpha == 1f }
+        main {
+            check(binding.rowHint.text == activity.getString(R.string.player_episodes_hint))
+            check(binding.rowHint.compoundDrawablesRelative.first() != null) { "Episode hint has no down icon" }
+            check(!binding.rowHint.isFocusable && binding.rowHint.layout?.getEllipsisCount(0) == 0)
+        }
+        captureDanmakuTest(instrumentation, "player-episode-hint.png")
         key(KeyEvent.KEYCODE_DPAD_DOWN)
         await("episode row focus") { binding.episodes.hasFocus() && selectedRowPosition() == 0 }
         key(KeyEvent.KEYCODE_DPAD_RIGHT)

@@ -191,9 +191,14 @@
                 style="@style/Text.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
+                android:layout_marginStart="12dp"
+                android:drawablePadding="6dp"
+                android:drawableStart="@drawable/ic_chevron_down"
                 android:focusable="false"
+                android:fontFamily="sans-serif-medium"
                 android:singleLine="true"
+                android:textColor="@color/text_secondary"
+                android:textSize="16sp"
                 android:visibility="gone" />
         </LinearLayout>
 
