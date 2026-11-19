@@ -4,6 +4,24 @@ English | [简体中文](CHANGELOG.zh-CN.md)
 
 Each release has a `## <versionName> - <date>` section here and in the Chinese changelog. The release workflow uses both sections as the GitHub release notes, so add them before tagging. Changes that are not released yet go under `## Unreleased`; rename it to the new version when you bump `versionName`.
 
+## 0.6.6 - 2026-11-19
+
+### Search and home
+
+- Added View all to search rows, with paged results and retry on failure. For Plex, the app shows an error if the server can't provide a complete list rather than presenting a partial list as complete.
+- Removed the standalone Next Up row from the in-app home screen for a more consistent layout across servers. Automatic next-episode playback and Android TV launcher cards are unchanged.
+
+### Playback
+
+- Added a sleep timer under More. Stop after 15, 30, 60, or 90 minutes, or when the current video ends. A countdown continues across episodes and stops playback without turning off the TV.
+- Manually selecting an episode or continuing a playlist now uses the latest resume position from the server. Completed items start from the beginning.
+- If a quality switch fails, the player tries once to restore the previous quality, position, pause state, speed, and track selections.
+- Enlarged the episode, playlist, and chapter hints in the playback controls and gave them a consistent down chevron.
+
+### Diagnostics
+
+- Added Export playback diagnostics under Settings → About. Scan the QR code from a phone on the same network to download a report with device capabilities and recent playback events. The report is not uploaded automatically and excludes credentials, media titles, file paths, and server or playback URLs.
+
 ## 0.6.5 - 2026-11-15
 
 ### Navigation and focus
