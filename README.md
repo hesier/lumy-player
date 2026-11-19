@@ -79,7 +79,7 @@ APKs you build yourself are signed with a different key, so they cannot be insta
 
 - Only movie and TV show libraries are shown; music, photo and other library types are not supported yet
 - No Live TV / DVR and no offline downloads
-- fnOS Media collections and playlists are not integrated; native cast-filmography pagination is integrated, while recommendations are inferred locally from cast / genre metadata. Next Up finds the following unwatched episode from returned episode playback records, including the episode after the current Continue Watching item; omitted completed history prevents reconstruction of the full follow-up queue. Transcoding does not support video stream copy or 7.1 audio output
+- fnOS Media collections and playlists are not integrated; native cast-filmography pagination is integrated, while recommendations are inferred locally from cast / genre metadata. Transcoding does not support video stream copy or 7.1 audio output
 - Jellyfin / Emby first-letter indexes use local counts from lightweight server pages with the same filters, only when sorting by title; scans above 100,000 items yield no index. See the [support matrix](docs/server-support.md) for cache and validation limits
 - Dolby Vision Profile 5 prefers native playback and can try HEVC compatibility playback if unavailable or failing, but colors may be incorrect. Correct output still requires a compatible Dolby Vision chain (details in [Playback and Decoding](docs/playback.md#dolby-vision))
 - ARM devices only (`armeabi-v7a` / `arm64-v8a`)

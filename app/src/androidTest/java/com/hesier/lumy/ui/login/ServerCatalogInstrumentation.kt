@@ -45,8 +45,8 @@ class ServerCatalogInstrumentation : Instrumentation() {
                         val similar = server.similar(source.id)
                         check(similar.isNotEmpty() && similar.none { it.id == source.id })
                         val hubs = server.homeHubs()
-                        check(hubs.any { it.id == "nextup" }) { "Live episode history did not produce Next Up" }
-                        "fnOS live index, actor mapping, local recommendations and Next Up passed"
+                        check(hubs.none { it.id == "nextup" }) { "Home still contains a separate Next Up row" }
+                        "fnOS live index, actor mapping, local recommendations and home rows passed"
                     } else {
                         val server = JellyfinMediaServer(session,
                             JellyfinClient(JellyfinClientInfo("Lumy", "1", device, "TV")))

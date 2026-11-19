@@ -55,6 +55,16 @@ class FnOsResumeTest {
     }
 
     @Test
+    fun `home does not look up completed episodes for next up`() = runBlocking {
+        native.resume = """[{"guid":"episode-a","media_guid":"file-a","ts":120,"duration":120}]"""
+        native.setFailFast(true)
+        enqueue("""{"Items":[]}""")
+
+        assertTrue(server().homeHubs().isEmpty())
+        assertEquals(listOf("/UserViews"), drainCompat().map { it.requestUrl!!.encodedPath })
+    }
+
+    @Test
     fun `stopped native record appears in next detail refresh without stale resume cache`() = runBlocking {
         native.resume = """[{"guid":"canonical-a","media_guid":"file-b","ts":10,"duration":120}]"""
         native.info = """{"guid":"canonical-a","media_guid":"file-b","item":{"duration":120}}"""

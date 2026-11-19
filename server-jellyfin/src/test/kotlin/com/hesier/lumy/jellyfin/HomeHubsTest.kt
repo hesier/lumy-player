@@ -10,7 +10,6 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -37,7 +36,8 @@ class HomeHubsTest {
                         MockResponse().setBody("""{"Items":[{"Id":"lib","Name":"Movies","CollectionType":"movies"}]}""")
                     url.queryParameter("ParentId") == "lib" ->
                         MockResponse().setBody("""{"Items":[{"Id":"movie","Name":"Movie","Type":"Movie"}]}""")
-                    url.encodedPath == "/Shows/NextUp" -> MockResponse().setBody("""{"Items":[]}""")
+                    url.encodedPath == "/Shows/NextUp" ->
+                        MockResponse().setBody("""{"Items":[{"Id":"episode","Name":"Episode","Type":"Episode"}]}""")
                     else -> MockResponse().setResponseCode(404)
                 }
             }
@@ -45,13 +45,15 @@ class HomeHubsTest {
     }
 
     @Test
-    fun `empty resume response still returns recently added hubs for both servers`() = runBlocking {
+    fun `empty resume shows only recently added without requesting next up for both servers`() = runBlocking {
         respondToHomeRequests(200)
         for (kind in listOf(ServerKind.JELLYFIN, ServerKind.EMBY)) {
             val hubs = server(kind).homeHubs()
-            assertFalse(hubs.any { it.label == HubLabel.ContinueWatching })
-            assertEquals(HubLabel.RecentlyAdded("Movies"), hubs.single().label)
+            assertEquals(listOf(HubLabel.RecentlyAdded("Movies")), hubs.map { it.label })
             assertEquals("movie", hubs.single().items.single().id)
+        }
+        repeat(web.requestCount) {
+            assertTrue(web.takeRequest().requestUrl!!.encodedPath != "/Shows/NextUp")
         }
     }
 

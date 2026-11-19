@@ -19,7 +19,6 @@ import com.hesier.lumy.core.SearchScope
 import com.hesier.lumy.core.ServerSession
 import com.hesier.lumy.core.SortOrder
 import com.hesier.lumy.core.ResolutionFilter
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
@@ -76,8 +75,7 @@ class FnOsMediaServer(
     }
 
     override suspend fun homeHubs(): List<Hub> {
-        val history = progress.history()
-        val records = progress.resume(history)
+        val records = progress.resume()
         val resume = records.take(HUB_LIMIT).mapNotNull { record ->
             get<BaseItem?>("Items/${record.mediaId}")?.withProgress(records)
         }
@@ -89,27 +87,8 @@ class FnOsMediaServer(
                 label = HubLabel.RecentlyAdded(library.title),
             )
         }
-        val anchors = history.take(HUB_LIMIT * 2).mapNotNull { record ->
-            val mediaId = record.mediaId ?: return@mapNotNull null
-            val media = resume.firstOrNull { it.id == mediaId }
-                ?: if (record.watched) optionalItem(mediaId)?.fnOsItem()?.toItem() else null
-            media?.copy(
-                watched = record.watched,
-                viewOffsetMs = record.positionMs.takeIf { !record.watched && it > 0 },
-            )
-        }
-        val next = FnOsNextUp { parent ->
-            val item = item(parent)
-            val rows = when (item.type) {
-                "Series" -> seasons(parent)
-                "Season" -> episodes(item.seriesId ?: item.parentId ?: return@FnOsNextUp emptyList(), parent)
-                else -> emptyList()
-            }
-            rows.map { it.withProgress(records) }
-        }.items(anchors)
         return (listOf(
             Hub("resume", "Continue Watching", HubStyle.LANDSCAPE, resume, HubLabel.ContinueWatching),
-            Hub("nextup", "Next Up", HubStyle.LANDSCAPE, next, HubLabel.NextUp),
         ) + latest)
             .filter { it.items.isNotEmpty() }
     }
@@ -258,14 +237,6 @@ class FnOsMediaServer(
         "${session.baseUrl}/${ref.replace("/Images/Backdrop/0", "/Images/Backdrop")}".toHttpUrl().newBuilder()
             .addQueryParameter("maxWidth", width.toString()).addQueryParameter("maxHeight", height.toString())
             .build().toString()
-
-    private suspend fun optionalItem(id: String): BaseItem? = try {
-        item(id)
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (_: IOException) {
-        null
-    }
 
     private suspend fun item(id: String): BaseItem = knownSeasons[id]
         ?: get<BaseItem?>("Items/$id") ?: throw FnOsHttpException(404, "HTTP 404 Items/$id")

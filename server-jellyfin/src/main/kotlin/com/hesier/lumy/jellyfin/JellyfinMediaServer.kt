@@ -109,23 +109,14 @@ class JellyfinMediaServer(
                 "Limit" to "20",
             )
         }
-        val nextUp = async {
-            runCatching {
-                get<ItemsResult>(userUrl("Shows/NextUp").addQueryParameter("Limit", "20").withFields()).items.map { it.toItem() }
-            }.getOrDefault(emptyList())
-        }
         val latest = libraries().map { lib ->
             async {
                 val list = runCatching { latestIn(lib) }.getOrDefault(emptyList())
                 Hub(id = "latest.${lib.id}", title = "Recently Added · ${lib.title}", style = HubStyle.POSTER, items = list, label = HubLabel.RecentlyAdded(lib.title))
             }
         }
-        val continueItems = resume.await()
-        // “下一集”里已经出现在继续观看里的剧集去掉
-        val upNext = nextUp.await().filterNot { n -> continueItems.any { it.id == n.id } }
         listOf(
-            Hub("resume", "Continue Watching", HubStyle.LANDSCAPE, continueItems, HubLabel.ContinueWatching),
-            Hub("nextup", "Next Up", HubStyle.LANDSCAPE, upNext, HubLabel.NextUp),
+            Hub("resume", "Continue Watching", HubStyle.LANDSCAPE, resume.await(), HubLabel.ContinueWatching),
         ).plus(latest.awaitAll())
             .filter { it.items.isNotEmpty() }
     }
